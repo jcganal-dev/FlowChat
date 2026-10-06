@@ -8,6 +8,11 @@ const nodesLayer = $('nodes-layer')
 let camera = { x:0, y:0, zoom: 1}
 const GRID_SIZE = 24
 
+const contextMenu = $make('div');
+contextMenu.id = 'context-menu';
+contextMenu.innerHTML = `<div class="context-item" id="menu-rename">✏️ Rename Branch</div>`;
+document.body.appendChild(contextMenu);
+
 function updateCanvas() {
     const bgSize = GRID_SIZE * camera.zoom
     const bgX = camera.x % bgSize
@@ -196,17 +201,16 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
         const textarea = el.querySelector('.node-input');
         const addBtn = el.querySelector('.add-child-btn');
         const dupBtn = el.querySelector('.duplicate-btn');
-        const muteBtn = el.querySelector('.mute-btn');
         const deleteBtn = el.querySelector('.delete-btn');
 
         // if (!initialUserText) textarea.focus();
 
-        runBtn.addEventListener('click', () => runUserNode(id));
+        runBtn.addEventListener('click', () => runUserNode(el.id));
         
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                runUserNode(id);
+                runUserNode(el.id);
             }
         });
 
@@ -219,8 +223,6 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
                 const textNode = range.startContainer;
                 
                 // Only parse if we are typing in a raw text node
-                // Only parse if we are typing in a raw text node
-// Only parse if we are typing in a raw text node
                 if (textNode.nodeType === Node.TEXT_NODE) {
                     const text = textNode.textContent;
                     const cursorOffset = range.startOffset;
@@ -237,7 +239,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
                         const refId = match[1];
                         const refData = nodes.find(n => n.id === refId);
 
-                        if (refData) {
+                        if (refData && refId !== el.id && refData['aiText'].trim() !== '') {
                             const refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
                             
                             // 3. Keep the original text BEFORE the @ symbol in the current node
@@ -283,7 +285,8 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
         });
 
         textarea.addEventListener('input', () => {
-            const nodeData = nodes.find(n => n.id === id);
+            const nodeData = nodes.find(n => n.id === el.id);
+            if (!nodeData) return;
             // Find all chips currently inside this specific textarea
             const chips = Array.from(textarea.querySelectorAll('.reference-node'));
             nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
@@ -295,7 +298,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
             e.stopPropagation();
             forkOffsetCounter += 1;
 
-            const data = nodes.find(n => n.id === id);
+            const data = nodes.find(n => n.id === el.id);
             
             // 1. Calculate the true canvas Y of the node's bottom edge
             const bottomY = data.y + el.offsetHeight;
@@ -308,7 +311,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
             const forkX = data.x; 
             // const forkX = x + (forkOffsetCounter * 350); 
             const forkY = snappedBottomY + (GRID_SIZE * 3);
-            createNode(id, forkX, forkY, "", data.hasChild?turn:turn+=1, data.hasChild?branch+=1:branch);
+            createNode(el.id, forkX, forkY, "", data.hasChild?turn:turn+=1, data.hasChild?branch+=1:branch);
             data.hasChild = true
         });
 
@@ -322,14 +325,12 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
 
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteNode(id, e.shiftKey);
+            deleteNode(el.id, e.shiftKey);
         });
-
-        // muteBtn.addEventListener('click', (e) => toggleMute(id, e));
         
         el.addEventListener('click', (e) => {
             if (!e.target.closest('button') && !e.target.closest('textarea')) {
-                selectNode(id);
+                selectNode(el.id);
             }
         });
     }, 0);
@@ -753,6 +754,121 @@ function autoLayout(e) {
     // Kick off the animation loop
     requestAnimationFrame(animateEdges);
 }
+
+let targetNodeIdForMenu = null;
+
+// 1. Trigger Context Menu
+window.addEventListener('contextmenu', (e) => {
+    // Let the default right-click menu work if clicking inside the text editor
+    if (e.target.closest('.node-input')) return; 
+    
+    const nodeEl = e.target.closest('.node');
+    if (nodeEl) {
+        e.preventDefault();
+        targetNodeIdForMenu = nodeEl.id;
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${e.clientX}px`;
+        contextMenu.style.top = `${e.clientY}px`;
+    } else {
+        contextMenu.style.display = 'none';
+    }
+});
+
+// 2. Hide Menu on outside click
+window.addEventListener('click', (e) => {
+    if (!e.target.closest('#context-menu')) {
+        contextMenu.style.display = 'none';
+    }
+});
+
+// 3. Rename Logic
+$('menu-rename').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (!targetNodeIdForMenu) return;
+    
+    const newName = prompt("Enter new base name for this branch (e.g., Code_Refactor):");
+    if (!newName || newName.trim() === "") return;
+    
+    // Format the name cleanly
+    const safeName = newName.trim().replace(/\s+/g, '_');
+    
+    // The getDescendants function naturally returns top-down order, 
+    // which is perfect because we must rename parents before children.
+    const nodesToUpdate = [targetNodeIdForMenu, ...getDescendants(targetNodeIdForMenu)];
+    const idMap = {}; // Tracks { oldId: newId } so we can rewire cables
+    
+    nodesToUpdate.forEach(oldId => {
+        const nodeData = nodes.find(n => n.id === oldId);
+        if (!nodeData) return;
+        
+        nodeData.name = safeName;
+        
+        // If its parent just got a new ID in a previous loop iteration, update it
+        if (idMap[nodeData.parentId]) {
+            nodeData.parentId = idMap[nodeData.parentId];
+        }
+        
+        // Temporarily clear its ID so idfy doesn't trip on itself, then generate the new one
+        nodeData.id = undefined; 
+        const newId = idfy(nodeData);
+        
+        idMap[oldId] = newId;
+        nodeData.id = newId;
+        
+        // Update DOM element ID and visual label
+        const el = document.getElementById(oldId);
+        if (el) {
+            el.id = newId;
+            const idLabel = el.querySelector('.node-id');
+            if (idLabel) {
+                idLabel.textContent = newId;
+                idLabel.setAttribute('onclick', `copy_text('${newId}')`);
+            }
+        }
+    });
+
+    // 4. Global Reference Sweeper
+    // Go through every node on the canvas and update yellow cables if they reference the old IDs
+    nodes.forEach(node => {
+        let changed = false;
+        
+        // Update the internal reference array
+        node.references = node.references.map(ref => {
+            if (idMap[ref]) {
+                changed = true;
+                return idMap[ref];
+            }
+            return ref;
+        });
+        
+        if (changed) {
+            const nodeEl = document.getElementById(node.id);
+            if (nodeEl) {
+                // Find physical DOM chips and update their payload/attributes
+                const chips = nodeEl.querySelectorAll('.reference-node');
+                chips.forEach(chip => {
+                    const oldRef = chip.getAttribute('data-ref');
+                    if (idMap[oldRef]) {
+                        chip.setAttribute('data-ref', idMap[oldRef]);
+                        chip.setAttribute('data-id', `@${idMap[oldRef]}`);
+                        
+                        // Fix the hidden payload string
+                        const hiddenSpan = chip.querySelector('.ref-text');
+                        if (hiddenSpan) {
+                            hiddenSpan.textContent = hiddenSpan.textContent.replace(oldRef, idMap[oldRef]);
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    // Clean up UI state
+    drawEdges();
+    if (activeNodeId && idMap[activeNodeId]) {
+        selectNode(idMap[activeNodeId]);
+    }
+});
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 updateCanvas();

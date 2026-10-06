@@ -303,3 +303,26 @@ div[contentEditable = 'true'] {
         pointer-events: auto;
     }
 }
+
+#context-menu {
+    position: absolute;
+    background: #1e1e2e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 5px 0;
+    min-width: 160px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: none;
+    color: #eee;
+    font-family: sans-serif;
+}
+.context-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+.context-item:hover {
+    background: #333;
+}
