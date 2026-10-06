@@ -1,5 +1,6 @@
 const $ = (id) => document.getElementById(id)
 const $make = (tag) => document.createElement(tag)
+const erase_thoughts = true
 
 const viewport = $('viewport')
 const nodesLayer = $('nodes-layer')
@@ -125,7 +126,8 @@ const sendBtn = $('send-btn')
 // Add a global counter for spacing out siblings when forking
 let forkOffsetCounter = 0;
 
-function createNode(parentId, x, y, initialUserText = "") {
+function createNode(parentId=null, x=408, y=216, initialUserText = "") {
+    
     let id = 'node-' + Date.now();
     while ($(id) != undefined) {
         id += 1;
@@ -140,7 +142,8 @@ function createNode(parentId, x, y, initialUserText = "") {
         parentId, 
         x, 
         y,
-        muted: false
+        muted: false,
+        references: []
     };
     nodes.push(nodeData);
 
@@ -151,11 +154,11 @@ function createNode(parentId, x, y, initialUserText = "") {
     
     el.innerHTML = `
         <div class="handle handle-in"></div>
-        <div class="node-header" style="display:flex; justify-content:space-between; padding:8px; background:#111; border-radius:8px 8px 0 0;">
-            <span onclick="copy_text('${id}')">${id}</span>
+        <div class="node-header">
+            <span class="node-id" onclick="copy_text('${id}')">${id}</span>
             <div>
-                <button class="duplicate-btn" title="Duplicate Branch">📄</button>
-                <button class="delete-btn" title="Delete (Shift+Click to delete branch)">🗑️</button>
+                <a class="duplicate-btn" title="Duplicate Branch">📄</a>
+                <a class="delete-btn" title="Delete (Shift+Click to delete branch)">✖</a>
             </div>
         </div>
         <div class="user-section">
@@ -178,8 +181,9 @@ function createNode(parentId, x, y, initialUserText = "") {
         const addBtn = el.querySelector('.add-child-btn');
         const dupBtn = el.querySelector('.duplicate-btn');
         const muteBtn = el.querySelector('.mute-btn');
+        const deleteBtn = el.querySelector('.delete-btn');
 
-        if (!initialUserText) textarea.focus();
+        // if (!initialUserText) textarea.focus();
 
         runBtn.addEventListener('click', () => runUserNode(id));
         
@@ -190,12 +194,81 @@ function createNode(parentId, x, y, initialUserText = "") {
             }
         });
 
+        textarea.addEventListener('keyup', (e) => {
+            if (e.key === ' ') {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                
+                const range = selection.getRangeAt(0);
+                const textNode = range.startContainer;
+                
+                // Only parse if we are typing in a raw text node
+                if (textNode.nodeType === Node.TEXT_NODE) {
+                    const text = textNode.textContent;
+                    const match = text.match(/@(node-\d+)\s$/);
+                    
+                    if (match) {
+                        const refId = match[1];
+                        const refData = nodes.find(n => n.id === refId);
+
+                        if (refData && refId != id && refData['aiText'].trim()!='') {
+                            const refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
+                            
+                            // 1. Delete the raw "@node-XXXX " text the user just typed
+                            textNode.textContent = text.slice(0, match.index);
+                            
+                            // 2. Create the visual chip
+                            const chip = document.createElement('span');
+                            chip.className = 'reference-node';
+                            chip.contentEditable = 'false';
+                            chip.setAttribute('data-id', `@${refId}`);
+                            chip.setAttribute('data-ref', refId); // Used for drawing cables
+                            
+                            // 3. Insert the hidden context payload
+                            const hiddenText = document.createElement('span');
+                            hiddenText.className = 'ref-text';
+                            hiddenText.textContent = `\n\n[START CONTEXT FROM ${refId}]:\n${refText}\n[END CONTEXT]\n\n`;
+                            chip.appendChild(hiddenText);
+                            
+                            // 4. Insert the chip and a new space to continue typing
+                            const space = document.createTextNode('\u00A0');
+                            if (textNode.nextSibling) {
+                                textNode.parentNode.insertBefore(chip, textNode.nextSibling);
+                                textNode.parentNode.insertBefore(space, chip.nextSibling);
+                            } else {
+                                textNode.parentNode.appendChild(chip);
+                                textNode.parentNode.appendChild(space);
+                            }
+                            
+                            // 5. Move the blinking cursor past the new chip
+                            range.setStartAfter(space);
+                            range.setEndAfter(space);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                            
+                            // Trigger a scan to draw the yellow reference cable instantly
+                            textarea.dispatchEvent(new Event('input'));
+                        }
+                    }
+                }
+            }
+        });
+
+        textarea.addEventListener('input', () => {
+            const nodeData = nodes.find(n => n.id === id);
+            // Find all chips currently inside this specific textarea
+            const chips = Array.from(textarea.querySelectorAll('.reference-node'));
+            nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
+            drawEdges(); // Instantly draw or remove cables based on DOM state
+        });
+
         // Branch down (Next turn in conversation)
         addBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
-            const forkX = x + (forkOffsetCounter * 350); 
-            const forkY = y + el.offsetHeight + 60;
+            const forkX = x; 
+            // const forkX = x + (forkOffsetCounter * 350); 
+            const forkY = y + (el.offsetHeight - (el.offsetHeight%GRID_SIZE)) + GRID_SIZE*3;
             createNode(id, forkX, forkY);
         });
 
@@ -204,10 +277,9 @@ function createNode(parentId, x, y, initialUserText = "") {
             e.stopPropagation();
             forkOffsetCounter += 1;
             const forkX = x + 350; 
-            createNode(parentId, forkX, y, textarea.value);
+            createNode(parentId, forkX, y, textarea.innerHTML);
         });
 
-        const deleteBtn = el.querySelector('.delete-btn');
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             deleteNode(id, e.shiftKey);
@@ -269,9 +341,17 @@ async function runUserNode(nodeId) {
     const textarea = nodeEl.querySelector('.node-input');
     const text = textarea.textContent.trim();
     if (!text) return;
-
     const nodeData = nodes.find(n => n.id === nodeId);
-    
+
+    // 1. Scan for references using Regex
+    const refRegex = /@(node-\d+)/g;
+    const refs = [];
+    let match;
+    while ((match = refRegex.exec(text)) !== null) {
+        refs.push(match[1]);
+    }
+    nodeData.references = refs; // Save for drawing
+
     // 1. Update data model
     nodeData.userText = text;
     nodeData.aiText = "";      // Clear previous run if re-running
@@ -293,6 +373,25 @@ async function runUserNode(nodeId) {
     // 3. Gather history (including the prompt we just typed)
     const history = walkContext(nodeId);
     updateThermometer(nodeId);
+
+    // 2. INJECT REFERENCED CONTEXT AS A SYSTEM OVERRIDE
+    if (refs.length > 0) {
+        let systemDirectives = "STRICT INSTRUCTIONS FROM REFERENCED NODES:\n";
+        refs.forEach(rId => {
+            const rNode = nodes.find(n => n.id === rId);
+            if (rNode) {
+                systemDirectives += `\nRule: ${rNode.userText}\nStatus: ${rNode.aiText}\n`;
+            }
+        });
+        
+        // Check if a system message already exists at the start
+        if (history.length > 0 && history[0].role === 'system') {
+            history[0].content += "\n\n" + systemDirectives;
+        } else {
+            // Unshift puts the system message at the very beginning of the array
+            history.unshift({ role: 'system', content: systemDirectives });
+        }
+    }
 
     // 4. Fetch and Stream
     try {
@@ -353,21 +452,13 @@ async function runUserNode(nodeId) {
             updateThermometer(nodeId);
         }
 
-        aiThinkEl.innerHTML = ''
+        aiThinkEl.innerHTML = erase_thoughts? '': aiThinkEl.innerHTML;
         nodeEl.querySelector('.add-child-btn').classList.remove('hidden')
-        
-        // 3. Calculate dynamic offset based on how tall the AI response got
-        const forkX = nodeData.x;
-        const forkY = nodeData.y + nodeEl.offsetHeight + 80; 
-
-        // 4. Spawn the next node automatically
-        createNode(nodeId, forkX, forkY);
+        nodeEl.querySelector('.add-child-btn').click()
 
     } catch (error) {
         aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
     } finally {
-        // Remove the disabled resets from finally, because we want it to STAY locked on success.
-        // If it failed, we unlock it so the user can try again.
         if (!textarea.disabled) {
             textarea.disabled = false;
             runBtn.disabled = false;
@@ -376,7 +467,6 @@ async function runUserNode(nodeId) {
         updateThermometer(nodeId);
     }
 }
-
 
 function walkContext(leafNodeId) {
     const history = [];
@@ -520,10 +610,15 @@ function deleteNode(nodeId, deleteBranch) {
     } else {
         selectNode(activeNodeId); // Re-calculate lineage and redraw edges
     }
+    if (nodes.length === 0) {
+        setTimeout(()=>{
+            createNode();
+        },20)
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 updateCanvas();
 window.addEventListener('DOMContentLoaded', () => {
-    createNode(null, 400, 200);
+    createNode();
 });
