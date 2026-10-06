@@ -126,16 +126,24 @@ const sendBtn = $('send-btn')
 // Add a global counter for spacing out siblings when forking
 let forkOffsetCounter = 0;
 
-function createNode(parentId=null, x=408, y=216, initialUserText = "") {
-    
-    let id = 'node-' + Date.now();
-    while ($(id) != undefined) {
-        id += 1;
-    }
+function idfy(nodeData) {
+    const name = nodeData.name
+    const turn = nodeData.turn
+    const branch = nodeData.branch
+    let new_id = undefined
+    let dupe_count = 0
+    do {
+        new_id = `${name}${dupe_count>0?'('+dupe_count+')':''} turn-${turn}${branch>0?' branch-'+branch:''}`
+        dupe_count += 1
+    } while (nodes.find(n => n.id === new_id))
+    return new_id
+}
+
+function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1, branch = 0, name="Master Node") {
 
     // Data Model now holds both halves of the turn
     const nodeData = { 
-        id, 
+        id:undefined, 
         userText: initialUserText, 
         aiText: "", 
         aiThinking: "", 
@@ -143,8 +151,16 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "") {
         x, 
         y,
         muted: false,
-        references: []
+        references: [],
+        turn:turn,
+        branch:branch,
+        name:name,
+        hasChild:false
     };
+
+    const id = idfy(nodeData)
+    nodeData.id = id
+
     nodes.push(nodeData);
 
     const el = document.createElement('div');
@@ -162,7 +178,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "") {
             </div>
         </div>
         <div class="user-section">
-            <div contenteditable="true" class="node-input" placeholder="Type prompt here...">${initialUserText}</div>
+            <div contenteditable="true" class="node-input" spellcheck="true" placeholder="Type prompt here...">${initialUserText}</div>
             <div class="button-row">
                 <button class="run-btn">Run ➔</button>
             </div>
@@ -280,16 +296,16 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "") {
             const forkX = data.x; 
             // const forkX = x + (forkOffsetCounter * 350); 
             const forkY = snappedBottomY + (GRID_SIZE * 3);
-            
-            createNode(id, forkX, forkY);
+            createNode(id, forkX, forkY, "", data.hasChild?turn:turn+=1, data.hasChild?branch+=1:branch);
+            data.hasChild = true
         });
 
         // Branch sideways (Duplicate current turn to try again)
         dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
-            const forkX = x + 350; 
-            createNode(parentId, forkX, y, textarea.innerHTML);
+            const forkX = x + 360; 
+            createNode(undefined, forkX, y, textarea.innerHTML);
         });
 
         deleteBtn.addEventListener('click', (e) => {
