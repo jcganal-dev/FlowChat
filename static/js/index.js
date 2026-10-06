@@ -133,13 +133,13 @@ function idfy(nodeData) {
     let new_id = undefined
     let dupe_count = 0
     do {
-        new_id = `${name}${dupe_count>0?'('+dupe_count+')':''} turn-${turn}${branch>0?' branch-'+branch:''}`
+        new_id = `${name}${dupe_count>0?'('+dupe_count+')':''}_turn-${turn}${branch>0?'_branch-'+branch:''}`
         dupe_count += 1
     } while (nodes.find(n => n.id === new_id))
     return new_id
 }
 
-function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1, branch = 0, name="Master Node") {
+function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1, branch = 0, name="Master_Node") {
 
     // Data Model now holds both halves of the turn
     const nodeData = { 
@@ -219,50 +219,62 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
                 const textNode = range.startContainer;
                 
                 // Only parse if we are typing in a raw text node
+                // Only parse if we are typing in a raw text node
+// Only parse if we are typing in a raw text node
                 if (textNode.nodeType === Node.TEXT_NODE) {
                     const text = textNode.textContent;
-                    const match = text.match(/@(node-\d+)\s$/);
+                    const cursorOffset = range.startOffset;
+
+                    // 1. Extract the text strictly up to the blinking cursor
+                    const textBeforeCursor = text.slice(0, cursorOffset);
+                    const textAfterCursor = text.slice(cursorOffset);
                     
+                    // 2. Check if the text right before the cursor ends with a tag + space
+                    const refRegex = /@([\w()-]+)\s$/;
+                    const match = textBeforeCursor.match(refRegex);
+
                     if (match) {
                         const refId = match[1];
                         const refData = nodes.find(n => n.id === refId);
 
-                        if (refData && refId != id && refData['aiText'].trim()!='') {
+                        if (refData) {
                             const refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
                             
-                            // 1. Delete the raw "@node-XXXX " text the user just typed
-                            textNode.textContent = text.slice(0, match.index);
+                            // 3. Keep the original text BEFORE the @ symbol in the current node
+                            textNode.textContent = textBeforeCursor.slice(0, match.index);
                             
-                            // 2. Create the visual chip
+                            // 4. Create the visual chip
                             const chip = document.createElement('span');
                             chip.className = 'reference-node';
                             chip.contentEditable = 'false';
                             chip.setAttribute('data-id', `@${refId}`);
-                            chip.setAttribute('data-ref', refId); // Used for drawing cables
+                            chip.setAttribute('data-ref', refId); 
                             
-                            // 3. Insert the hidden context payload
+                            // 5. Insert the hidden context payload
                             const hiddenText = document.createElement('span');
                             hiddenText.className = 'ref-text';
                             hiddenText.textContent = `\n\n[START CONTEXT FROM ${refId}]:\n${refText}\n[END CONTEXT]\n\n`;
                             chip.appendChild(hiddenText);
                             
-                            // 4. Insert the chip and a new space to continue typing
-                            const space = document.createTextNode('\u00A0');
+                            // 6. Create a NEW text node containing a space + any text that was originally AFTER the cursor
+                            const afterTextNode = document.createTextNode('\u00A0' + textAfterCursor);
+                            
+                            // 7. Stitch it all together in the DOM
                             if (textNode.nextSibling) {
                                 textNode.parentNode.insertBefore(chip, textNode.nextSibling);
-                                textNode.parentNode.insertBefore(space, chip.nextSibling);
+                                textNode.parentNode.insertBefore(afterTextNode, chip.nextSibling);
                             } else {
                                 textNode.parentNode.appendChild(chip);
-                                textNode.parentNode.appendChild(space);
+                                textNode.parentNode.appendChild(afterTextNode);
                             }
                             
-                            // 5. Move the blinking cursor past the new chip
-                            range.setStartAfter(space);
-                            range.setEndAfter(space);
+                            // 8. Place the blinking cursor perfectly inside the new text node, right after the space
+                            range.setStart(afterTextNode, 1);
+                            range.setEnd(afterTextNode, 1);
                             selection.removeAllRanges();
                             selection.addRange(range);
                             
-                            // Trigger a scan to draw the yellow reference cable instantly
+                            // 9. Trigger a scan to draw the yellow reference cable instantly
                             textarea.dispatchEvent(new Event('input'));
                         }
                     }
@@ -367,8 +379,9 @@ function drawEdges(activeLineage = new Set()) {
 async function runUserNode(nodeId) {
     const nodeEl = document.getElementById(nodeId);
     const textarea = nodeEl.querySelector('.node-input');
-    const text = textarea.textContent.trim();
-    if (!text) return;
+    const usertext = textarea.textContent.trim();
+    if (!usertext) return;
+    const text = `[System Reminder] 1. Do not overthing, determine the task, immidiately stop thinking after you arrive at an answer. [End System Reminder] ${usertext}`
     const nodeData = nodes.find(n => n.id === nodeId);
 
     // 1. Scan for references using Regex
@@ -646,6 +659,99 @@ function deleteNode(nodeId, deleteBranch) {
             createNode();
         },20)
     }
+}
+
+function autoLayout(e) {
+    e.preventDefault()
+    const HORIZONTAL_SPACING = 456; // Width of node + gap
+    const VERTICAL_SPACING = 312;   // Height of node + gap
+    let currentLeafX = 0;           // Tracks the X position for the next leaf node
+
+    // 1. Group all nodes by their parent for fast lookups
+    const childrenMap = {};
+    const roots = [];
+    
+    nodes.forEach(n => {
+        if (n.parentId && nodes.some(p => p.id === n.parentId)) {
+            if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
+            childrenMap[n.parentId].push(n);
+        } else {
+            roots.push(n); // Nodes with no parent (or deleted parents) are roots
+        }
+    });
+
+    // 2. The Recursive Layout Engine
+    function calculatePositions(nodeData, depth) {
+        const children = childrenMap[nodeData.id] || [];
+        
+        // Base Case: If it has no children, it's a leaf. Give it the next available X slot.
+        if (children.length === 0) {
+            const x = currentLeafX;
+            currentLeafX += HORIZONTAL_SPACING;
+            
+            nodeData.x = x;
+            nodeData.y = depth * VERTICAL_SPACING;
+            return x;
+        }
+
+        // Recursive Case: Calculate positions for all children first (Bottom-Up)
+        let minX = Infinity;
+        let maxX = -Infinity;
+        
+        children.forEach(child => {
+            const childX = calculatePositions(child, depth + 1);
+            minX = Math.min(minX, childX);
+            maxX = Math.max(maxX, childX);
+        });
+
+        // The parent goes exactly in the dead center of its furthest children
+        const centeredX = (minX + maxX) / 2;
+        nodeData.x = centeredX;
+        nodeData.y = depth * VERTICAL_SPACING;
+        
+        return centeredX;
+    }
+
+    // 3. Run the engine for every root tree on the canvas
+    roots.forEach(root => {
+        calculatePositions(root, 0);
+        currentLeafX += HORIZONTAL_SPACING; // Add a gap between completely separate trees
+    });
+
+    // 4. Apply the new coordinates to the DOM elements with a smooth transition
+    nodes.forEach(nodeData => {
+        const el = document.getElementById(nodeData.id);
+        if (el) {
+            el.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+            el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
+            
+            // Clean up the transition so it doesn't lag future drag-and-drop actions
+            setTimeout(() => {
+                el.style.transition = 'none';
+            }, 400);
+        }
+    });
+
+    // 5. Animate the cables dynamically as the nodes slide
+    let startTimestamp = null;
+    function animateEdges(timestamp) {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = timestamp - startTimestamp;
+        
+        // Redraw cables using the live, mid-transition coordinates
+        drawEdges(); 
+        
+        // Match the 400ms duration of the CSS transition
+        if (progress < 400) { 
+            requestAnimationFrame(animateEdges);
+        } else {
+            // One final exact draw when the transition completely settles
+            drawEdges(); 
+        }
+    }
+    
+    // Kick off the animation loop
+    requestAnimationFrame(animateEdges);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////

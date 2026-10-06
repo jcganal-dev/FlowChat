@@ -46,10 +46,10 @@ async def chat_endpoint(user_data: ChatPayload):
         "model": "qwen",
         "messages": user_data.messages,
         # "max_tokens": user_data.max_tokens,
-        "temperature": 0.7,
+        "temperature": 0.2,
         "repetition_penalty": 1.15,
-        "frequency_penalty": 0.3, # Equivalent gentle repetition reduction
-        "presence_penalty": 0.2,   # Encourages topic variety
+        "frequency_penalty": 0.3,
+        "presence_penalty": 0.2,
         "stream": True
     }
 

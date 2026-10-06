@@ -14,7 +14,7 @@ body, html {
     height: 100vh;
     position: relative;
     /* The Infinite Dotted Grid */
-    background-image: radial-gradient(#444 1.5px, transparent 1.5px);
+    /* background-image: radial-gradient(#444 1.5px, transparent 1.5px); */
     background-size: 24px 24px; /* Base grid size */
     background-position: 0 0;
     cursor: grab;
@@ -290,4 +290,16 @@ div[contentEditable = 'true'] {
 }
 .duplicate-btn:hover {
     background-color: #cccecf;
+}
+.floating-interfaces {
+    position: fixed;
+    top: 0;
+    height: 100dvh;
+    width: 100dvw;
+    z-index: 3;
+    pointer-events: none;
+    button {
+        cursor: pointer;
+        pointer-events: auto;
+    }
 }
