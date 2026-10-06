@@ -164,98 +164,66 @@ body, html {
     display: none;
 }
 
-/* --- THE TEXTAREA (Node Input) --- */
+.turn-node {
+    width: 320px;
+    background: #1e1e24;
+    border: 1px solid #333;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+}
+.user-section {
+    padding: 12px;
+    border-bottom: 1px solid #333;
+    background: #25252d;
+}
 .node-input {
     width: 100%;
-    min-height: 80px;
-    background-color: #1e1e24; /* Slightly darker than the node background to create depth */
-    color: #e0e0e0;
-    border: 1px solid #3a3a45;
-    border-radius: 6px;
-    padding: 10px;
+    min-height: 60px;
+    background: #1a1a20;
+    color: #eee;
+    border: 1px solid #444;
+    border-radius: 4px;
+    padding: 8px;
+    resize: vertical;
     font-family: inherit;
-    font-size: 14px;
-    line-height: 1.4;
-    resize: vertical; /* Allow pulling down to expand, but lock horizontal width */
-    outline: none;
     box-sizing: border-box;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    /* Optional: custom scrollbar for the textarea */
-    scrollbar-width: thin;
-    scrollbar-color: #4a4a5a #1e1e24;
 }
-
-/* Glow effect when actively typing */
-.node-input:focus {
-    border-color: #5d5dff; /* A sleek blurple accent */
-    box-shadow: 0 0 0 2px rgba(93, 93, 255, 0.2);
-}
-
-.node-input::placeholder {
-    color: #6c6c7d;
-    font-style: italic;
-}
-
-
-/* --- THE RUN BUTTON (Inside User Node) --- */
-.run-btn {
-    margin-top: 12px;
-    width: 100%;
-    background-color: #5d5dff;
-    color: #ffffff;
-    border: none;
-    border-radius: 6px;
-    padding: 8px 12px;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.1s ease;
+.button-row {
     display: flex;
-    justify-content: center;
-    align-items: center;
+    justify-content: flex-end;
+    margin-top: 8px;
 }
-
-.run-btn:hover {
-    background-color: #4b4be6;
+.run-btn {
+    background: #38bdf8;
+    color: #000;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
 }
-
-.run-btn:active {
-    transform: scale(0.98); /* Satisfying click feedback */
+.run-btn:disabled { background: #444; cursor: not-allowed; }
+.ai-section {
+    padding: 12px;
+    min-height: 40px;
 }
-
-
-/* --- THE '+' FORK BUTTON (Hanging below the node) --- */
 .add-child-btn {
     position: absolute;
-    bottom: -14px; /* Hang exactly halfway out the bottom of the node */
+    bottom: -12px;
     left: 50%;
-    transform: translateX(-50%); /* perfectly center it */
-    width: 28px;
-    height: 28px;
-    background-color: #2b2b36;
-    color: #a0a0b5;
-    border: 1px solid #3a3a45;
-    border-radius: 50%; /* Make it a perfect circle */
-    font-size: 18px;
-    font-weight: bold;
-    line-height: 26px; /* vertically center the '+' */
-    text-align: center;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    border: 1px solid #555;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
     cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    transition: all 0.2s ease;
-    z-index: 10; /* Ensures it stays visually on top of the node border */
-    padding: 0;
+    z-index: 10;
 }
-
-.add-child-btn:hover {
-    background-color: #3a3a45;
-    color: #ffffff;
-    border-color: #5d5dff;
-    box-shadow: 0 0 10px rgba(93, 93, 255, 0.4);
-    transform: translateX(-50%) scale(1.1); /* Slight pop out on hover */
-}
-
-.add-child-btn:active {
-    transform: translateX(-50%) scale(0.95);
-}
+.add-child-btn:hover { background: #38bdf8; color: black; }
+.duplicate-btn { background: none; border: none; cursor: pointer; filter: grayscale(1); }
+.duplicate-btn:hover { filter: grayscale(0); }
+.hidden {display: none;}

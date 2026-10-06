@@ -47,6 +47,9 @@ async def chat_endpoint(user_data: ChatPayload):
         "messages": user_data.messages,
         # "max_tokens": user_data.max_tokens,
         "temperature": 0.7,
+        "repetition_penalty": 1.15,
+        "frequency_penalty": 0.3, # Equivalent gentle repetition reduction
+        "presence_penalty": 0.2,   # Encourages topic variety
         "stream": True
     }
 
