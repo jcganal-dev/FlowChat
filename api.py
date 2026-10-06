@@ -1,8 +1,11 @@
 import json
 import httpx
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Any
 
@@ -16,6 +19,20 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+# (Place this under your app initialization and CORS middleware)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_canvas(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"request": request},
+    )
+
+
+
 LLMA_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
 
 class ChatPayload(BaseModel):
@@ -28,7 +45,7 @@ async def chat_endpoint(user_data: ChatPayload):
     payload = {
         "model": "qwen",
         "messages": user_data.messages,
-        "max_tokens": user_data.max_tokens,
+        # "max_tokens": user_data.max_tokens,
         "temperature": 0.7,
         "stream": True
     }
@@ -46,9 +63,7 @@ async def chat_endpoint(user_data: ChatPayload):
                         try:
                             chunk = json.loads(data_str)
                             delta = chunk['choices'][0]['delta']
-
-                            if 'content' in delta and 'role' not in delta:
-                                yield delta['content']
+                            yield json.dumps(delta) + "\n"
                         except json.JSONDecodeError:
                             continue
     

@@ -1,0 +1,261 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden; /* Hide scrollbars, we pan natively */
+    background-color: #121212;
+    color: #e0e0e0;
+    font-family: sans-serif;
+}
+
+#viewport {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    /* The Infinite Dotted Grid */
+    background-image: radial-gradient(#444 1.5px, transparent 1.5px);
+    background-size: 24px 24px; /* Base grid size */
+    background-position: 0 0;
+    cursor: grab;
+}
+
+#viewport:active {
+    cursor: grabbing;
+}
+
+#nodes-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform-origin: 0 0;
+    pointer-events: none; /* Let the viewport handle panning */
+}
+
+/* Node Styles */
+.node {
+    position: absolute;
+    width: 280px;
+    background: #1e1e1e;
+    border: 1px solid #333;
+    /* border-radius: 8px; */
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    pointer-events: auto; /* Re-enable pointer events for clicking */
+    user-select: none;
+}
+
+.node.user-node {
+    border-top: 4px solid #4CAF50; /* Green for user */
+}
+
+.node-header {
+    padding: 8px 12px;
+    background: #252525;
+    border-bottom: 1px solid #333;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: move; /* Indicate draggable area */
+    border-top-left-radius: 7px;
+    border-top-right-radius: 7px;
+    color: #aaa;
+}
+
+.node-content {
+    padding: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* SVG Connector Cables */
+#edges-layer path {
+    fill: none;
+    stroke: #555;
+    stroke-width: 3px;
+}
+
+/* Chat Input Bar */
+#chat-bar {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    display: flex;
+    gap: 12px;
+    background: #1e1e1e;
+    padding: 16px;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+    border: 1px solid #333;
+    z-index: 2000;
+}
+
+#prompt-input {
+    flex-grow: 1;
+    background: #121212;
+    border: 1px solid #444;
+    color: #eee;
+    padding: 12px;
+    border-radius: 4px;
+    resize: none;
+    height: 24px;
+    font-family: inherit;
+    outline: none;
+}
+#prompt-input:focus { border-color: #4CAF50; }
+
+#send-btn {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 0 24px;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+/* Highlight active branch */
+.node.active {
+    border: 1px solid #cccecf;
+    /* box-shadow: 0 0 15px rgba(33, 150, 243, 0.3); */
+}
+.node.ai-node {
+    border-top: 4px solid #9C27B0; /* Purple for AI, Green for User */
+}
+
+.handle {
+    width: 12px;
+    height: 12px;
+    background: #333;
+    border: 2px solid #555;
+    border-radius: 50%;
+    position: absolute;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 10;
+    transition: background 0.2s, transform 0.2s;
+}
+.handle:hover {
+    background: #4CAF50;
+    transform: translate(-50%, -50%) scale(1.2);
+}
+.handle-in { top: 0; }
+.handle-out { top: 100%; } /* Pushes it to the very bottom */
+
+.think-content {
+    color: #888;
+    font-size: 0.85em;
+    font-style: italic;
+    border-left: 2px solid #555;
+    padding-left: 8px;
+    margin: 8px 12px;
+    white-space: pre-wrap; /* Preserves the model's internal line breaks */
+    max-height: 100px;
+    min-height: 0px;
+    display: flex;
+    align-items: flex-end;
+    height: fit-content;
+    overflow-y: auto;
+}
+/* If the thinking div is empty, don't show the border/margin */
+.think-content:empty {
+    display: none;
+}
+
+/* --- THE TEXTAREA (Node Input) --- */
+.node-input {
+    width: 100%;
+    min-height: 80px;
+    background-color: #1e1e24; /* Slightly darker than the node background to create depth */
+    color: #e0e0e0;
+    border: 1px solid #3a3a45;
+    border-radius: 6px;
+    padding: 10px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical; /* Allow pulling down to expand, but lock horizontal width */
+    outline: none;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    /* Optional: custom scrollbar for the textarea */
+    scrollbar-width: thin;
+    scrollbar-color: #4a4a5a #1e1e24;
+}
+
+/* Glow effect when actively typing */
+.node-input:focus {
+    border-color: #5d5dff; /* A sleek blurple accent */
+    box-shadow: 0 0 0 2px rgba(93, 93, 255, 0.2);
+}
+
+.node-input::placeholder {
+    color: #6c6c7d;
+    font-style: italic;
+}
+
+
+/* --- THE RUN BUTTON (Inside User Node) --- */
+.run-btn {
+    margin-top: 12px;
+    width: 100%;
+    background-color: #5d5dff;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.run-btn:hover {
+    background-color: #4b4be6;
+}
+
+.run-btn:active {
+    transform: scale(0.98); /* Satisfying click feedback */
+}
+
+
+/* --- THE '+' FORK BUTTON (Hanging below the node) --- */
+.add-child-btn {
+    position: absolute;
+    bottom: -14px; /* Hang exactly halfway out the bottom of the node */
+    left: 50%;
+    transform: translateX(-50%); /* perfectly center it */
+    width: 28px;
+    height: 28px;
+    background-color: #2b2b36;
+    color: #a0a0b5;
+    border: 1px solid #3a3a45;
+    border-radius: 50%; /* Make it a perfect circle */
+    font-size: 18px;
+    font-weight: bold;
+    line-height: 26px; /* vertically center the '+' */
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    transition: all 0.2s ease;
+    z-index: 10; /* Ensures it stays visually on top of the node border */
+    padding: 0;
+}
+
+.add-child-btn:hover {
+    background-color: #3a3a45;
+    color: #ffffff;
+    border-color: #5d5dff;
+    box-shadow: 0 0 10px rgba(93, 93, 255, 0.4);
+    transform: translateX(-50%) scale(1.1); /* Slight pop out on hover */
+}
+
+.add-child-btn:active {
+    transform: translateX(-50%) scale(0.95);
+}

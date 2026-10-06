@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowChat</title>
+    <link rel="stylesheet" href="/static/styles/index.css">
+</head>
+<body>
+        
+    <div id="viewport">
+        <div id="nodes-layer">
+            <!-- New: SVG Layer for connecting cables -->
+            <svg id="edges-layer" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none;"></svg>
+            <!-- We removed the dummy node. They will generate dynamically now. -->
+        </div>
+    </div>
+
+</body>
+</html>
+<script src="/static/js/index.js"></script>
