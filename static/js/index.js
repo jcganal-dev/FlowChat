@@ -153,7 +153,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "") {
     el.style.transform = `translate(${x}px, ${y}px)`;
     
     el.innerHTML = `
-        <div class="handle handle-in"></div>
+        <div class="handle handle-in hidden"></div>
         <div class="node-header">
             <span class="node-id" onclick="copy_text('${id}')">${id}</span>
             <div>
@@ -172,9 +172,9 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "") {
             <div class="ai-content"></div>
         </div>
         <div class="handle handle-out"></div>
-        <button class="add-child-btn hidden" title="Branch">+</button>
+        <button class="add-child-btn" title="Branch">+</button>
     `;
-
+    if (nodeData.parentId) el.querySelector('.handle-in').classList.remove('hidden')
     setTimeout(() => {
         const runBtn = el.querySelector('.run-btn');
         const textarea = el.querySelector('.node-input');
@@ -266,9 +266,21 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "") {
         addBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
-            const forkX = x; 
+
+            const data = nodes.find(n => n.id === id);
+            
+            // 1. Calculate the true canvas Y of the node's bottom edge
+            const bottomY = data.y + el.offsetHeight;
+            
+            // 2. Snap that canvas Y to the nearest grid line
+            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
+            
+            // 3. Apply your layout spacing
+            // Using forkOffsetCounter on X prevents overlapping if you click + multiple times
+            const forkX = data.x; 
             // const forkX = x + (forkOffsetCounter * 350); 
-            const forkY = y + (el.offsetHeight - (el.offsetHeight%GRID_SIZE)) + GRID_SIZE*3;
+            const forkY = snappedBottomY + (GRID_SIZE * 3);
+            
             createNode(id, forkX, forkY);
         });
 
@@ -422,7 +434,7 @@ async function runUserNode(nodeId) {
         const btnRow = nodeEl.querySelector('.button-row');
         if (btnRow) btnRow.style.display = 'none';
         
-
+        let erased_thoughts = false
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
@@ -436,6 +448,10 @@ async function runUserNode(nodeId) {
                 try {
                     const deltaObj = JSON.parse(line);
                     if (deltaObj.content) {
+                        if (!erased_thoughts) {
+                            aiThinkEl.innerHTML = erase_thoughts? '': aiThinkEl.innerHTML;
+                            erased_thoughts = true
+                        }
                         aiContentEl.innerHTML += deltaObj.content;
                         nodeData.aiText += deltaObj.content;
                     } 
@@ -452,7 +468,6 @@ async function runUserNode(nodeId) {
             updateThermometer(nodeId);
         }
 
-        aiThinkEl.innerHTML = erase_thoughts? '': aiThinkEl.innerHTML;
         nodeEl.querySelector('.add-child-btn').classList.remove('hidden')
         nodeEl.querySelector('.add-child-btn').click()
 
