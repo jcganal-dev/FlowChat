@@ -1,16 +1,30 @@
 const $ = (id) => document.getElementById(id)
 const $make = (tag) => document.createElement(tag)
 const erase_thoughts = true
-
 const viewport = $('viewport')
 const nodesLayer = $('nodes-layer')
-
+let selectedNodes = new Set();
 let camera = { x:0, y:0, zoom: 1}
 const GRID_SIZE = 24
-
+let nodes = []
+let activeNodeId = null
+const edgesLayer = $('edges-layer')
+const promptInput = $('prompt-input')
+const sendBtn = $('send-btn')
+const CONTEXT_LIMIT = 4096;
+let targetNodeIdForMenu = null;
+let groups = {};
+let forkOffsetCounter = 0;
 const contextMenu = $make('div');
+let isPanning = false;
+let startPanX = 0, startPanY = 0;
+
 contextMenu.id = 'context-menu';
-contextMenu.innerHTML = `<div class="context-item" id="menu-rename"><span style="display: inline-block; transform: scaleX(-1);">✎</span> Rename Branch</div>`;
+contextMenu.innerHTML = `
+    <div class="context-item" id="menu-rename">✏️ Rename Branch</div>
+    <div class="context-item" id="menu-group">📦 Group Selected Nodes</div>
+    <div class="context-item" id="menu-ungroup">🔓 Ungroup Node</div>
+`;
 document.body.appendChild(contextMenu);
 
 function updateCanvas() {
@@ -23,11 +37,6 @@ function updateCanvas() {
 
     nodesLayer.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
 }
-
-
-// PANNING
-let isPanning = false;
-let startPanX = 0, startPanY = 0;
 
 viewport.addEventListener('mousedown', (e) => {
     // Only block panning if the click hit a node or a button/input
@@ -48,8 +57,6 @@ window.addEventListener('mousemove', (e) => {
 
 window.addEventListener('mouseup', () => isPanning = false);
 
-
-// --- ZOOM LOGIC ---
 viewport.addEventListener('wheel', (e) => {
     e.preventDefault();
     
@@ -70,66 +77,58 @@ viewport.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 // --- NODE DRAGGING LOGIC ---
-let draggedNode = null;
-let nodeStartX = 0, nodeStartY = 0;
+// let draggedNode = null;
+// let nodeStartX = 0, nodeStartY = 0;
 
-nodesLayer.addEventListener('mousedown', (e) => {
-    if (e.target.classList.contains('node-header')) {
-        draggedNode = e.target.closest('.node');
+// nodesLayer.addEventListener('mousedown', (e) => {
+//     if (e.target.classList.contains('node-header')) {
+//         draggedNode = e.target.closest('.node');
         
-        // Extract the current translate(X, Y) from the node's CSS
-        const style = window.getComputedStyle(draggedNode);
-        const matrix = new DOMMatrixReadOnly(style.transform);
+//         // Extract the current translate(X, Y) from the node's CSS
+//         const style = window.getComputedStyle(draggedNode);
+//         const matrix = new DOMMatrixReadOnly(style.transform);
         
-        // Calculate mouse offset relative to the node's origin
-        nodeStartX = (e.clientX - camera.x) / camera.zoom - matrix.m41;
-        nodeStartY = (e.clientY - camera.y) / camera.zoom - matrix.m42;
+//         // Calculate mouse offset relative to the node's origin
+//         nodeStartX = (e.clientX - camera.x) / camera.zoom - matrix.m41;
+//         nodeStartY = (e.clientY - camera.y) / camera.zoom - matrix.m42;
         
-        draggedNode.style.zIndex = 1000; // Bring to front
-    }
-});
+//         draggedNode.style.zIndex = 1000; // Bring to front
+//     }
+// });
 
-window.addEventListener('mousemove', (e) => {
-    if (draggedNode) {
-        // Calculate the raw target position in canvas coordinates
-        const rawX = (e.clientX - camera.x) / camera.zoom - nodeStartX;
-        const rawY = (e.clientY - camera.y) / camera.zoom - nodeStartY;
+// window.addEventListener('mousemove', (e) => {
+//     if (draggedNode) {
+//         // Calculate the raw target position in canvas coordinates
+//         const rawX = (e.clientX - camera.x) / camera.zoom - nodeStartX;
+//         const rawY = (e.clientY - camera.y) / camera.zoom - nodeStartY;
 
-        // Snap coordinates to the nearest grid interval
-        const snappedX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
-        const snappedY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
+//         // Snap coordinates to the nearest grid interval
+//         const snappedX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
+//         const snappedY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
 
-        draggedNode.style.transform = `translate(${snappedX}px, ${snappedY}px)`;
+//         draggedNode.style.transform = `translate(${snappedX}px, ${snappedY}px)`;
 
-        // Update state andd redraw cables
-        const data = nodes.find(n => n.id === draggedNode.id);
-        if (data) { 
-            data.x = snappedX; 
-            data.y = snappedY; 
-            drawEdges(); 
-        }
-    }
-});
+//         // Update state andd redraw cables
+//         const data = nodes.find(n => n.id === draggedNode.id);
+//         if (data) { 
+//             data.x = snappedX; 
+//             data.y = snappedY; 
+//             drawEdges(); 
+//         }
+//     }
+// });
 
-window.addEventListener('mouseup', () => {
-    if (draggedNode) {
-        draggedNode.style.zIndex = '';
-        draggedNode = null;
-    }
-});
+// window.addEventListener('mouseup', () => {
+//     if (draggedNode) {
+//         draggedNode.style.zIndex = '';
+//         draggedNode = null;
+//     }
+// });
 
 
 ///////////////////////////////////////////////////////////////////////////////
 
 
-let nodes = []; // Master Array
-let activeNodeId = null
-const edgesLayer = $('edges-layer')
-const promptInput = $('prompt-input')
-const sendBtn = $('send-btn')
-
-// Add a global counter for spacing out siblings when forking
-let forkOffsetCounter = 0;
 
 function idfy(nodeData) {
     const name = nodeData.name
@@ -330,18 +329,18 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
         
         el.addEventListener('click', (e) => {
             if (!e.target.closest('button') && !e.target.closest('textarea')) {
-                selectNode(el.id);
+                selectNode(el.id, e.shiftKey);
             }
         });
     }, 0);
 
     nodesLayer.appendChild(el);
-    drawEdges();
+    // drawEdges();
+    setTimeout(() => autoLayout(), 10);
     selectNode(id); 
     return id;
 }
 
-// DRAWING THE CABLES
 function drawEdges(activeLineage = new Set()) {
     edgesLayer.innerHTML = '';
     
@@ -376,7 +375,6 @@ function drawEdges(activeLineage = new Set()) {
     });
 }
 
-// SEND BUTTON
 async function runUserNode(nodeId) {
     const nodeEl = document.getElementById(nodeId);
     const textarea = nodeEl.querySelector('.node-input');
@@ -508,7 +506,8 @@ async function runUserNode(nodeId) {
             textarea.disabled = false;
             runBtn.disabled = false;
         }
-        drawEdges();
+        // drawEdges();
+        autoLayout();
         updateThermometer(nodeId);
     }
 }
@@ -516,20 +515,28 @@ async function runUserNode(nodeId) {
 function walkContext(leafNodeId) {
     const history = [];
     let currentId = leafNodeId;
+    let skippedGroupIds = new Set(); 
+
     while (currentId) {
         const node = nodes.find(n => n.id === currentId);
         if (!node) break;
-        
-        if (!node.muted) {
-            // We are walking backwards up the tree.
-            // AI response happened AFTER the User prompt, so push it first.
-            if (node.aiText) {
-                history.push({ role: 'assistant', content: node.aiText });
+
+        if (node.groupId && groups[node.groupId]?.isCollapsed) {
+            const gId = node.groupId;
+            // If we haven't added this group's summary yet, inject it
+            if (!skippedGroupIds.has(gId)) {
+                history.push({
+                    role: 'system',
+                    content: `[COMPRESSED HISTORY SUMMARY]: ${groups[gId].summaryText}`
+                });
+                skippedGroupIds.add(gId);
             }
-            if (node.userText) {
-                history.push({ role: 'user', content: node.userText });
-            }
+            // We skip pushing the raw user/ai text to save VRAM!
+        } else if (!node.muted) {
+            if (node.aiText) history.push({ role: 'assistant', content: node.aiText });
+            if (node.userText) history.push({ role: 'user', content: node.userText });
         }
+        
         currentId = node.parentId;
     }
     history.reverse();
@@ -540,8 +547,6 @@ function estimateTokens(messages) {
     const totalChars = messages.reduce((acc, msg) => acc + (msg.content ? msg.content.length : 0), 0);
     return Math.ceil(totalChars / 4);
 }
-
-const CONTEXT_LIMIT = 4096;
 
 function updateThermometer(nodeId) {
     if (!nodeId) return;
@@ -559,28 +564,46 @@ function updateThermometer(nodeId) {
     }
 }
 
-function selectNode(id) {
-    activeNodeId = id;
-    
-    // 1. Gather all node IDs in this active lineage
+function selectNode(id, isShiftClick = false) {
+    if (isShiftClick && activeNodeId && activeNodeId !== id) {
+        // 1. Try to find a direct path between the active node and the clicked node
+        const path = getLineagePath(activeNodeId, id);
+        
+        if (path) {
+            // Valid lineage! Add all nodes in the path to the selection set
+            path.forEach(nodeId => selectedNodes.add(nodeId));
+        } else {
+            // Invalid selection (e.g., trying to group two parallel branches)
+            console.warn("Cannot group: Nodes must be in the same direct lineage.");
+            return; 
+        }
+    } else {
+        // Normal click: Clear multi-selection and select just this one
+        selectedNodes.clear();
+        selectedNodes.add(id);
+        activeNodeId = id;
+    }
+
+    // 2. Visual Updates
+    // Keep your existing lineage highlighting code here...
     const lineage = new Set();
-    let curr = id;
+    let curr = activeNodeId;
     while (curr) {
         lineage.add(curr);
         const n = nodes.find(item => item.id === curr);
         curr = n ? n.parentId : null;
     }
 
-    // 2. Update visual classes on all nodes
     document.querySelectorAll('.node').forEach(el => {
+        // Highlight active bloodline
         el.classList.toggle('active-branch', lineage.has(el.id));
+        
+        // ADD THIS: Add a distinct styling class for selected nodes in a group range
+        el.classList.toggle('multi-selected', selectedNodes.has(el.id));
     });
 
-    // 3. Redraw paths so active edges highlight
     drawEdges(lineage);
-
-    // 4. Update the gauge
-    updateThermometer(id);
+    updateThermometer(activeNodeId);
 }
 
 function toggleMute(nodeId, e) {
@@ -659,105 +682,184 @@ function deleteNode(nodeId, deleteBranch) {
         setTimeout(()=>{
             createNode();
         },20)
+    } else {
+        autoLayout();
     }
 }
 
-function autoLayout(e) {
-    e.preventDefault()
-    const HORIZONTAL_SPACING = 456; // Width of node + gap
-    const VERTICAL_SPACING = 312;   // Height of node + gap
-    let currentLeafX = 0;           // Tracks the X position for the next leaf node
+function autoLayout() {
+    const HORIZONTAL_SPACING = GRID_SIZE*17;
+    const STANDARD_VERTICAL_SPACING = GRID_SIZE*15;
+    const GROUP_VERTICAL_SPACING = GRID_SIZE*6; 
 
-    // 1. Group all nodes by their parent for fast lookups
+    let currentLeafX = 400;
     const childrenMap = {};
     const roots = [];
-    
+
     nodes.forEach(n => {
         if (n.parentId && nodes.some(p => p.id === n.parentId)) {
             if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
             childrenMap[n.parentId].push(n);
         } else {
-            roots.push(n); // Nodes with no parent (or deleted parents) are roots
+            roots.push(n);
         }
     });
 
-    // 2. The Recursive Layout Engine
-    function calculatePositions(nodeData, depth) {
+    function calculatePositions(nodeData, currentY) {
         const children = childrenMap[nodeData.id] || [];
-        
-        // Base Case: If it has no children, it's a leaf. Give it the next available X slot.
+
         if (children.length === 0) {
             const x = currentLeafX;
             currentLeafX += HORIZONTAL_SPACING;
-            
             nodeData.x = x;
-            nodeData.y = depth * VERTICAL_SPACING;
+            nodeData.y = currentY;
             return x;
         }
 
-        // Recursive Case: Calculate positions for all children first (Bottom-Up)
         let minX = Infinity;
         let maxX = -Infinity;
-        
+
         children.forEach(child => {
-            const childX = calculatePositions(child, depth + 1);
+            const isSameGroup = nodeData.groupId && child.groupId === nodeData.groupId;
+            let tightDrop;
+            
+            if (isSameGroup) {
+                // If the group is collapsed, stack them with 0 vertical drop
+                if (groups[nodeData.groupId]?.isCollapsed) {
+                    tightDrop = 0; 
+                } else {
+                    tightDrop = document.getElementById(nodeData.id)?.offsetHeight + 20 || 150;
+                }
+            }
+            
+            const nextY = isSameGroup ? currentY + tightDrop : currentY + STANDARD_VERTICAL_SPACING;
+            
+            const childX = calculatePositions(child, nextY);
             minX = Math.min(minX, childX);
             maxX = Math.max(maxX, childX);
         });
 
-        // The parent goes exactly in the dead center of its furthest children
         const centeredX = (minX + maxX) / 2;
         nodeData.x = centeredX;
-        nodeData.y = depth * VERTICAL_SPACING;
-        
+        nodeData.y = currentY;
         return centeredX;
     }
 
-    // 3. Run the engine for every root tree on the canvas
     roots.forEach(root => {
-        calculatePositions(root, 0);
-        currentLeafX += HORIZONTAL_SPACING; // Add a gap between completely separate trees
+        calculatePositions(root, 200);
+        currentLeafX += HORIZONTAL_SPACING;
     });
 
-    // 4. Apply the new coordinates to the DOM elements with a smooth transition
     nodes.forEach(nodeData => {
         const el = document.getElementById(nodeData.id);
         if (el) {
-            el.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-            el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
+            el.style.zIndex = '10'; 
+            el.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
             
-            // Clean up the transition so it doesn't lag future drag-and-drop actions
-            setTimeout(() => {
-                el.style.transition = 'none';
-            }, 400);
+            // ADD THIS: Fade out the nodes if their group is collapsed
+            if (nodeData.groupId && groups[nodeData.groupId]?.isCollapsed) {
+                el.style.opacity = '0';
+                el.style.pointerEvents = 'none';
+            } else {
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'auto';
+            }
+            
+            el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
+            setTimeout(() => el.style.transition = 'none', 400);
         }
     });
 
-    // 5. Animate the cables dynamically as the nodes slide
     let startTimestamp = null;
     function animateEdges(timestamp) {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = timestamp - startTimestamp;
         
-        // Redraw cables using the live, mid-transition coordinates
-        drawEdges(); 
+        drawEdges();
+        drawGroups(); // Animate boxes resizing in real-time
         
-        // Match the 400ms duration of the CSS transition
-        if (progress < 400) { 
+        if (progress < 400) {
             requestAnimationFrame(animateEdges);
         } else {
-            // One final exact draw when the transition completely settles
-            drawEdges(); 
+            drawEdges();
+            drawGroups();
         }
     }
-    
-    // Kick off the animation loop
     requestAnimationFrame(animateEdges);
 }
 
-let targetNodeIdForMenu = null;
+async function triggerSummarize(groupId) {
+    const group = groups[groupId];
+    if (!group) return;
 
-// 1. Trigger Context Menu
+    // 1. Gather all raw text in chronological order
+    const groupNodes = nodes.filter(n => n.groupId === groupId);
+    let rawText = "Conversation Segment:\n";
+    groupNodes.forEach(n => {
+        rawText += `User: ${n.userText}\nAI: ${n.aiText}\n\n`;
+    });
+
+    // 2. Visual Loading State
+    const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
+    if (btn) btn.textContent = "⏳ Summarizing...";
+
+    // 3. The Backend Request
+    const payload = {
+        messages: [
+            { role: "system", content: "You are a summarizer. Summarize the following conversation segment into exactly 3 concise sentences. Focus on the main technical context. Do NOT output any preamble." },
+            { role: "user", content: rawText }
+        ],
+        max_tokens: 250
+    };
+
+    try {
+        const response = await fetch('http://127.0.0.1:5000/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        // Silently consume the stream in the background
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let summary = "";
+        
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const lines = decoder.decode(value, { stream: true }).split('\n');
+            for (const line of lines) {
+                if (line.startsWith("data: ") && line !== "data: [DONE]") {
+                    try {
+                        const chunk = JSON.parse(line.slice(6));
+                        if (chunk.choices[0].delta.content) {
+                            summary += chunk.choices[0].delta.content;
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+
+        // 4. Update state and visually compress
+        group.summaryText = summary.trim();
+        group.isCollapsed = true;
+        
+        autoLayout(); // Trigger the crush animation
+        updateThermometer(activeNodeId); // Watch your token usage drop!
+        
+    } catch (e) {
+        console.error("Summarize failed:", e);
+        if (btn) btn.textContent = "❌ Error";
+    }
+}
+
+function toggleGroupState(groupId) {
+    groups[groupId].isCollapsed = false;
+    autoLayout();
+    updateThermometer(activeNodeId);
+}
+
 window.addEventListener('contextmenu', (e) => {
     // Let the default right-click menu work if clicking inside the text editor
     if (e.target.closest('.node-input')) return; 
@@ -774,14 +876,12 @@ window.addEventListener('contextmenu', (e) => {
     }
 });
 
-// 2. Hide Menu on outside click
 window.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) {
         contextMenu.style.display = 'none';
     }
 });
 
-// 3. Rename Logic
 $('menu-rename').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (!targetNodeIdForMenu) return;
@@ -869,6 +969,149 @@ $('menu-rename').addEventListener('click', () => {
         selectNode(idMap[activeNodeId]);
     }
 });
+
+function getLineagePath(idA, idB) {
+    let path = [];
+    let curr = idB;
+    while (curr) {
+        path.push(curr);
+        if (curr === idA) return path.reverse();
+        const n = nodes.find(x => x.id === curr);
+        curr = n ? n.parentId : null;
+    }
+    
+    path = [];
+    curr = idA;
+    while (curr) {
+        path.push(curr);
+        if (curr === idB) return path.reverse();
+        const n = nodes.find(x => x.id === curr);
+        curr = n ? n.parentId : null;
+    }
+    
+    return null;
+}
+
+
+$('menu-group').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (selectedNodes.size < 2) {
+        alert("Shift-click to select multiple nodes in a lineage first.");
+        return;
+    }
+
+    const groupName = prompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
+    if (!groupName) return;
+
+    // Generate a unique ID for the group wrapper
+    const groupId = 'group_' + Date.now();
+    
+    // Create the group metadata
+    groups[groupId] = {
+        id: groupId,
+        name: groupName,
+        nodes: Array.from(selectedNodes) // Store the IDs of nodes in this group
+    };
+
+    // Assign the group ID to the individual node objects in your main array
+    selectedNodes.forEach(id => {
+        const nodeData = nodes.find(n => n.id === id);
+        if (nodeData) nodeData.groupId = groupId;
+    });
+
+    console.log("Group created:", groups[groupId]);
+    
+    // Clear selection state visually
+    selectedNodes.clear();
+    selectNode(activeNodeId); 
+    autoLayout()
+});
+
+$('menu-ungroup').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (!targetNodeIdForMenu) return;
+
+    const nodeData = nodes.find(n => n.id === targetNodeIdForMenu);
+    if (!nodeData || !nodeData.groupId) return;
+
+    const groupId = nodeData.groupId;
+    
+    // Strip the groupId from all nodes that belonged to it
+    nodes.forEach(n => {
+        if (n.groupId === groupId) delete n.groupId;
+    });
+
+    // Delete the group metadata
+    delete groups[groupId];
+    console.log(`Group ${groupId} removed.`);
+});
+
+function drawGroups() {
+    // Ensure the layer exists
+    let groupsLayer = $('groups-layer');
+    if (!groupsLayer) {
+        groupsLayer = document.createElement('div');
+        groupsLayer.id = 'groups-layer';
+        nodesLayer.prepend(groupsLayer);
+    }
+    
+    groupsLayer.innerHTML = '';
+
+    Object.values(groups).forEach(group => {
+        const groupNodes = nodes.filter(n => n.groupId === group.id);
+        if (groupNodes.length === 0) return;
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+        groupNodes.forEach(n => {
+            const el = document.getElementById(n.id);
+            if (!el) return;
+            
+            // Read live height to account for varying text lengths
+            const width = el.offsetWidth || 380; 
+            const height = el.offsetHeight || 200;
+
+            minX = Math.min(minX, n.x);
+            minY = Math.min(minY, n.y);
+            maxX = Math.max(maxX, n.x + width);
+            maxY = Math.max(maxY, n.y + height);
+        });
+
+        const padding = 24; 
+        const box = document.createElement('div');
+        box.className = 'group-container';
+        box.id = `box_${group.id}`;
+        
+        box.style.left = `${minX - padding}px`;
+        box.style.top = `${minY - padding}px`;
+        box.style.width = `${(maxX - minX) + (padding * 2)}px`;
+        box.style.height = `${(maxY - minY) + (padding * 2)}px`;
+        if (group.isCollapsed) {
+            box.style.width = '420px';
+            box.style.height = 'auto'; // Let the text dictate height
+            box.style.background = '#282a36'; // Solid background for readability
+            box.innerHTML = `
+                <div class="group-header">
+                    📦 ${group.name}
+                    <button class="summarize-btn" onclick="toggleGroupState('${group.id}')">🔍 Expand</button>
+                </div>
+                <div style="padding: 15px; padding-top: 25px; color: #f8f8f2; font-size: 14px; line-height: 1.4;">
+                    ${group.summaryText}
+                </div>
+            `;
+        } else {
+            box.style.background = 'rgba(30, 30, 46, 0.6)';
+            box.innerHTML = `
+                <div class="group-header">
+                    📦 ${group.name}
+                    <button class="summarize-btn" onclick="triggerSummarize('${group.id}')">✨ Summarize</button>
+                </div>
+            `;
+        }
+        
+        groupsLayer.appendChild(box);
+    });
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 updateCanvas();

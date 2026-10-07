@@ -329,3 +329,46 @@ div[contentEditable = 'true'] {
 .active-branch {
     box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
 }
+.active-branch.multi-selected {
+    box-shadow: 0 0 0 2px rgba(20,55,255,0.7);
+}
+#groups-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1; /* Sits directly behind the nodes (z-index 10) */
+}
+
+.group-container {
+    position: absolute;
+    background: rgba(30, 30, 46, 0.6);
+    border: 2px dashed #6272a4;
+    border-radius: 12px;
+    pointer-events: none; 
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.group-header {
+    position: absolute;
+    top: -32px;
+    left: 0;
+    color: #f1fa8c;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: bold;
+    pointer-events: auto; /* Allow clicking the summarize button */
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.summarize-btn {
+    background: #bd93f9;
+    color: #282a36;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    cursor: pointer;
+    font-weight: bold;
+}
