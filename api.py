@@ -8,6 +8,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from typing import List, Any
+from keys.apikeys import APIKeys
+
+
 
 app = FastAPI()
 
@@ -33,12 +36,11 @@ async def serve_canvas(request: Request):
 
 
 
-LLAMA_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
+OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_API_KEY = APIKeys().get_key()
 
 # Define your base rules
 SYSTEM_INSTRUCTIONS = [
-    "You ARE fully connected to the internet.",
-    "CRITICAL: ALWAYS use the `calculate` or `run_python` tools to solve math problems. DO NOT attempt to compute math in your head. Always write code to verify your steps.",
     "Trust your previous responses, do not rethink them, unless explicitly specified by the user.",
     "You do not always have to state your sources, only do it if it is necessary or if the user asks for it.",
     "Be concise, say only what needs to be said (e.g., if a user says 'Hi!', respond with a brief greeting).",
@@ -64,8 +66,9 @@ async def chat_endpoint(user_data: ChatPayload):
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
 
     payload = {
-        "model": "qwen",
+        "model": "openrouter/free",
         "messages": user_data.messages,
+        "include_reasoning": True,
         # "max_tokens": user_data.max_tokens,
         "temperature": 0.2,
         "repetition_penalty": 1.15,
@@ -77,7 +80,11 @@ async def chat_endpoint(user_data: ChatPayload):
 
     async def stream_generator():
         async with httpx.AsyncClient(timeout=None) as client:
-            async with client.stream("POST", LLAMA_SERVER_URL, json=payload) as response:
+            headers = {
+                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            async with client.stream("POST", OPENROUTER_SERVER_URL, json=payload, headers=headers) as response:
                 async for line in response.aiter_lines():
                     if line and line.startswith("data: "):
                         data_str = line[6:]
@@ -88,6 +95,11 @@ async def chat_endpoint(user_data: ChatPayload):
                         try:
                             chunk = json.loads(data_str)
                             delta = chunk['choices'][0]['delta']
+                            
+                            # OpenRouter uses 'reasoning', frontend expects 'reasoning_content'
+                            if 'reasoning' in delta:
+                                delta['reasoning_content'] = delta.pop('reasoning')
+                                
                             yield json.dumps(delta) + "\n"
                         except json.JSONDecodeError:
                             continue

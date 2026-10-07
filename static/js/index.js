@@ -25,6 +25,7 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-rename">✏️ Rename Branch</div>
     <div class="context-item" id="menu-group">📦 Group Selected Nodes</div>
     <div class="context-item" id="menu-ungroup">🔓 Ungroup Node</div>
+    <div class="context-item" id="menu-summarize">✨ Summarize Node</div>
 `;
 document.body.appendChild(contextMenu);
 
@@ -82,6 +83,98 @@ viewport.addEventListener('wheel', (e) => {
 
 
 
+let lastFocusedInput = null;
+let lastSelectionRange = null;
+
+document.addEventListener('selectionchange', () => {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0 && lastFocusedInput && lastFocusedInput.contains(sel.anchorNode)) {
+        lastSelectionRange = sel.getRangeAt(0).cloneRange();
+    }
+});
+
+function insertChipAtRange(textarea, range, refId, isGroup) {
+    let refText = '';
+    let chipLabel = '';
+
+    if (isGroup) {
+        if (!groups[refId]) return;
+        const groupObj = groups[refId];
+        const gNodes = nodes.filter(n => n.groupId === refId);
+
+        if (groupObj.isCollapsed) {
+            chipLabel = `@Summary of ${groupObj.name}`;
+            gNodes.forEach((n, idx) => {
+                if (n.summaryText && n.summaryText !== "Summary unavailable.") {
+                    refText += `[NODE_${idx}] SUMMARY: ${n.summaryText}\n\n`;
+                }
+            });
+        } else {
+            chipLabel = `@${groupObj.name}`;
+            gNodes.forEach((n, idx) => {
+                if (n.aiText && n.aiText.trim() !== '') {
+                    refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${n.aiText}\n\n`;
+                }
+            });
+        }
+
+        if (!refText) return; // Group had no valid text yet
+    } else {
+        const refData = nodes.find(n => n.id === refId);
+        if (!refData) return;
+
+        const isCollapsed = refData.isCollapsed;
+
+        if (isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
+            chipLabel = `@Summary of ${refId}`;
+            refText = `SUMMARY: ${refData.summaryText}`;
+        } else {
+            if (!refData.aiText || refData.aiText.trim() === '') return;
+            chipLabel = `@${refId}`;
+            refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
+        }
+    }
+
+    const chip = document.createElement('span');
+    chip.className = 'reference-node';
+    chip.contentEditable = 'false';
+    chip.setAttribute('data-id', chipLabel);
+    chip.setAttribute('data-ref', refId);
+
+    const hiddenText = document.createElement('span');
+    hiddenText.className = 'ref-text';
+    hiddenText.textContent = `\n\n[START CONTEXT FROM ${refId}]:\n${refText}\n[END CONTEXT]\n\n`;
+    chip.appendChild(hiddenText);
+
+    range.deleteContents();
+    range.insertNode(chip);
+
+    range.setStartAfter(chip);
+    range.setEndAfter(chip);
+
+    const spaceNode = document.createTextNode('\u00A0');
+    range.insertNode(spaceNode);
+    range.setStartAfter(spaceNode);
+    range.setEndAfter(spaceNode);
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    lastSelectionRange = range.cloneRange();
+    textarea.dispatchEvent(new Event('input'));
+    textarea.focus();
+}
+
+function handleIdClick(event, id, isGroup = false) {
+    if (event.shiftKey && lastFocusedInput && lastSelectionRange) {
+        event.stopPropagation();
+        insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
+    } else {
+        copy_text(isGroup ? groups[id].name : id);
+    }
+}
+
 function idfy(nodeData) {
     const name = nodeData.name
     const turn = nodeData.turn
@@ -118,6 +211,7 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
             references: [],
             turn: turn, branch: branch,
             name: name, hasChild: false,
+            isCollapsed: false,
             abortController: null
         };
         id = idfy(nodeData);
@@ -143,8 +237,9 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
     el.innerHTML = `
         <div class="handle handle-in ${nodeData.parentId ? '' : 'hidden'}"></div>
         <div class="node-header">
-            <span class="node-id" onclick="copy_text('${id}')">${id}</span>
+            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
             <div>
+                <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: inline-block;' : 'display: none;'}" onclick="event.stopPropagation(); toggleNodeState('${id}')">${nodeData.isCollapsed ? '🔍' : '📂'}</a>
                 <a class="duplicate-btn" title="Duplicate Branch">📄</a>
                 <a class="delete-btn" title="Delete">✖</a>
             </div>
@@ -157,12 +252,12 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
             </div>
         </div>
         <div class="ai-section">
-            <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking || "Thinking..."}</div>
+            <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking.trim() == '' ? 'Thinking...' : nodeData.aiThinking}</div>
             <div class="ai-content">${nodeData.aiText}</div>
         </div>
         <div class="node-summary-display">${nodeData.summaryText || ''}</div>
         <div class="handle handle-out"></div>
-        <button class="add-child-btn" title="Branch">+</button>
+        <button class="add-child-btn ${nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
         <div class="resize-handle"></div>
     `;
 
@@ -184,7 +279,9 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
             function onMouseMove(moveEvent) {
                 // Calculate distance moved and scale it by camera zoom
                 const deltaX = (moveEvent.clientX - startX) / camera.zoom;
-                el.style.width = `${Math.max(300, startWidth + deltaX)}px`;
+                let rawWidth = Math.max(300, startWidth + deltaX);
+                let snappedWidth = Math.round(rawWidth / GRID_SIZE) * GRID_SIZE;
+                el.style.width = `${snappedWidth}px`;
 
                 // Fire autoLayout smoothly so sibling nodes push out of the way
                 clearTimeout(layoutDebounceTimeout);
@@ -212,6 +309,10 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
         });
 
         runBtn.addEventListener('click', () => runUserNode(el.id));
+
+        textarea.addEventListener('focus', () => {
+            lastFocusedInput = textarea;
+        });
 
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
@@ -242,48 +343,36 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
                     const match = textBeforeCursor.match(refRegex);
 
                     if (match) {
-                        const refId = match[1];
-                        const refData = nodes.find(n => n.id === refId);
+                        const refName = match[1];
 
-                        if (refData && refId !== el.id && refData['aiText'].trim() !== '') {
-                            const refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
+                        let isGroup = false;
+                        let targetId = null;
 
-                            // 3. Keep the original text BEFORE the @ symbol in the current node
-                            textNode.textContent = textBeforeCursor.slice(0, match.index);
-
-                            // 4. Create the visual chip
-                            const chip = document.createElement('span');
-                            chip.className = 'reference-node';
-                            chip.contentEditable = 'false';
-                            chip.setAttribute('data-id', `@${refId}`);
-                            chip.setAttribute('data-ref', refId);
-
-                            // 5. Insert the hidden context payload
-                            const hiddenText = document.createElement('span');
-                            hiddenText.className = 'ref-text';
-                            hiddenText.textContent = `\n\n[START CONTEXT FROM ${refId}]:\n${refText}\n[END CONTEXT]\n\n`;
-                            chip.appendChild(hiddenText);
-
-                            // 6. Create a NEW text node containing a space + any text that was originally AFTER the cursor
-                            const afterTextNode = document.createTextNode('\u00A0' + textAfterCursor);
-
-                            // 7. Stitch it all together in the DOM
-                            if (textNode.nextSibling) {
-                                textNode.parentNode.insertBefore(chip, textNode.nextSibling);
-                                textNode.parentNode.insertBefore(afterTextNode, chip.nextSibling);
-                            } else {
-                                textNode.parentNode.appendChild(chip);
-                                textNode.parentNode.appendChild(afterTextNode);
+                        // Check if it's a node
+                        const refNode = nodes.find(n => n.id === refName);
+                        if (refNode && refNode.id !== el.id) {
+                            targetId = refName;
+                        } else {
+                            // Check if it's a group name
+                            const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
+                            if (groupObj) {
+                                targetId = groupObj.id;
+                                isGroup = true;
                             }
+                        }
 
-                            // 8. Place the blinking cursor perfectly inside the new text node, right after the space
-                            range.setStart(afterTextNode, 1);
-                            range.setEnd(afterTextNode, 1);
-                            selection.removeAllRanges();
-                            selection.addRange(range);
+                        if (targetId) {
+                            // Select the typed text "@refName " and delete it
+                            const delRange = document.createRange();
+                            delRange.setStart(textNode, match.index);
+                            delRange.setEnd(textNode, cursorOffset);
+                            delRange.deleteContents();
 
-                            // 9. Trigger a scan to draw the yellow reference cable instantly
-                            textarea.dispatchEvent(new Event('input'));
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, match.index);
+                            newRange.collapse(true);
+
+                            insertChipAtRange(textarea, newRange, targetId, isGroup);
                         }
                     }
                 }
@@ -313,20 +402,28 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
             const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
 
             // 3. Apply your layout spacing
-            // Using forkOffsetCounter on X prevents overlapping if you click + multiple times
             const forkX = data.x;
-            // const forkX = x + (forkOffsetCounter * 350); 
             const forkY = snappedBottomY + (GRID_SIZE * 3);
-            createNode(el.id, forkX, forkY, "", data.hasChild ? turn : turn += 1, data.hasChild ? branch += 1 : branch);
-            data.hasChild = true
+
+            // Calculate inheritance cleanly
+            const existingChildren = nodes.filter(n => n.parentId === data.id);
+            const newTurn = data.turn + 1;
+            const newBranch = data.branch + existingChildren.length;
+            const newName = data.name;
+
+            createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
         });
 
         // Branch sideways (Duplicate current turn to try again)
         dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
-            const forkX = x + 360;
-            createNode(undefined, forkX, y, textarea.innerHTML);
+
+            const data = nodes.find(n => n.id === el.id);
+            const forkX = data.x + 360;
+
+            // Duplicate inherits the exact same metadata, so idfy() will append (1), (2), etc.
+            createNode(data.parentId, forkX, data.y, textarea.innerHTML, data.turn, data.branch, data.name);
         });
 
         deleteBtn.addEventListener('click', (e) => {
@@ -562,7 +659,7 @@ function walkContext(leafNodeId) {
         const node = nodes.find(n => n.id === currentId);
         if (!node) break;
 
-        if (node.groupId && groups[node.groupId]?.isCollapsed) {
+        if (node.isCollapsed) {
             if (node.summaryText) {
                 history.push({ role: 'system', content: `[COMPRESSED HISTORY]: ${node.summaryText}` });
             }
@@ -605,6 +702,10 @@ function selectNode(id, isShiftClick = false) {
         if (path) {
             // Valid lineage! Add all nodes in the path to the selection set
             path.forEach(nodeId => selectedNodes.add(nodeId));
+
+            // The lowest node in the path must become the active node so that 
+            // lineage calculation and token counting include the entire selection.
+            activeNodeId = path[path.length - 1];
         } else {
             // Invalid selection (e.g., trying to group two parallel branches)
             console.warn("Cannot group: Nodes must be in the same direct lineage.");
@@ -845,7 +946,7 @@ function autoLayout() {
     nodes.forEach(n => {
         const el = document.getElementById(n.id);
         if (el) {
-            if (n.groupId && groups[n.groupId]?.isCollapsed) {
+            if (n.isCollapsed) {
                 el.classList.add('collapsed-node');
             } else {
                 el.classList.remove('collapsed-node');
@@ -916,7 +1017,7 @@ async function triggerSummarize(groupId) {
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write exactly ONE concise sentence summarizing it. You MUST separate each summary with the exact string '|||'. Do not include the node labels in your output." },
+            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary as concise as possible without it lossing its meaning. You MUST separate each summary with the exact string '|||'. Do not include the node labels in your output. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
             { role: "user", content: rawText }
         ],
         max_tokens: 500
@@ -948,6 +1049,8 @@ async function triggerSummarize(groupId) {
                     const deltaObj = JSON.parse(line);
                     if (deltaObj.content) {
                         summary += deltaObj.content;
+                    } else if (deltaObj.reasoning_content && btn && summary === "") {
+                        btn.textContent = "⏳ Thinking...";
                     }
                 } catch (e) {
                     console.error("Summarize parse error:", e, line);
@@ -959,10 +1062,17 @@ async function triggerSummarize(groupId) {
         const summaries = summary.split('|||').map(s => s.trim()).filter(s => s);
         groupNodes.forEach((n, idx) => {
             n.summaryText = summaries[idx] || "Summary unavailable.";
+            n.isCollapsed = true;
             const el = document.getElementById(n.id);
             if (el) {
                 const sumEl = el.querySelector('.node-summary-display');
                 if (sumEl) sumEl.textContent = n.summaryText;
+
+                const toggleBtn = el.querySelector('.toggle-btn');
+                if (toggleBtn) {
+                    toggleBtn.style.display = 'inline-block';
+                    toggleBtn.textContent = '🔍';
+                }
             }
         });
 
@@ -977,9 +1087,129 @@ async function triggerSummarize(groupId) {
 }
 
 function toggleGroupState(groupId) {
-    groups[groupId].isCollapsed = !groups[groupId].isCollapsed;
+    const group = groups[groupId];
+    group.isCollapsed = !group.isCollapsed;
+
+    nodes.forEach(n => {
+        if (n.groupId === groupId) {
+            n.isCollapsed = group.isCollapsed;
+            const el = document.getElementById(n.id);
+            if (el) {
+                const btn = el.querySelector('.toggle-btn');
+                if (btn) btn.textContent = n.isCollapsed ? '🔍' : '📂';
+            }
+        }
+    });
+
     autoLayout();
+    drawGroups();
     updateThermometer(activeNodeId);
+}
+
+function toggleNodeState(nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    node.isCollapsed = !node.isCollapsed;
+
+    const el = document.getElementById(nodeId);
+    if (el) {
+        const btn = el.querySelector('.toggle-btn');
+        if (btn) btn.textContent = node.isCollapsed ? '🔍' : '📂';
+    }
+
+    autoLayout();
+    drawGroups();
+    updateThermometer(activeNodeId);
+}
+
+async function triggerSingleSummarize(nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+
+    let rawText = `User: ${node.userText}\nAI: ${node.aiText}`;
+
+    const el = document.getElementById(node.id);
+    if (el) {
+        const sumEl = el.querySelector('.node-summary-display');
+        if (sumEl) {
+            sumEl.style.display = 'block';
+            sumEl.textContent = "⏳ Summarizing...";
+        }
+    }
+
+    const payload = {
+        messages: [
+            { role: "system", content: "You are a quick and precise summarizer. Write a summary as concise as possible without it lossing the meaning of the conversation segment. Do NOT include formatting, tags, or labels. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "user", content: rawText }
+        ],
+        max_tokens: 150
+    };
+
+    try {
+        const response = await fetch('http://127.0.0.1:5000/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let summary = "";
+        let buffer = "";
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const deltaObj = JSON.parse(line);
+                    if (deltaObj.content) {
+                        summary += deltaObj.content;
+                        if (sumEl) sumEl.textContent = summary;
+                    } else if (deltaObj.reasoning_content && sumEl && summary === "") {
+                        sumEl.textContent = "⏳ Thinking...";
+                    }
+                } catch (e) {
+                    console.error("Summarize parse error:", e, line);
+                }
+            }
+        }
+
+        node.summaryText = summary.trim() || "Summary unavailable.";
+        node.isCollapsed = true;
+
+        if (el) {
+            const sumEl = el.querySelector('.node-summary-display');
+            if (sumEl) {
+                sumEl.textContent = node.summaryText;
+                sumEl.style.display = ''; // Reset, let .collapsed-node CSS handle it
+            }
+            const toggleBtn = el.querySelector('.toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.style.display = 'inline-block';
+                toggleBtn.textContent = '📂';
+            }
+        }
+
+        autoLayout();
+        drawGroups();
+        updateThermometer(activeNodeId);
+        saveState();
+
+    } catch (e) {
+        console.error("Single Summarize failed:", e);
+        if (el) {
+            const sumEl = el.querySelector('.node-summary-display');
+            if (sumEl) sumEl.textContent = "❌ Error";
+        }
+    }
 }
 
 window.addEventListener('contextmenu', (e) => {
@@ -990,6 +1220,27 @@ window.addEventListener('contextmenu', (e) => {
     if (nodeEl) {
         e.preventDefault();
         targetNodeIdForMenu = nodeEl.id;
+
+        const nodeData = nodes.find(n => n.id === targetNodeIdForMenu);
+        const groupItem = document.getElementById('menu-group');
+        const ungroupItem = document.getElementById('menu-ungroup');
+
+        if (selectedNodes.size > 1) {
+            groupItem.style.opacity = '1';
+            groupItem.style.pointerEvents = 'auto';
+        } else {
+            groupItem.style.opacity = '0.4';
+            groupItem.style.pointerEvents = 'none';
+        }
+
+        if (nodeData && nodeData.groupId) {
+            ungroupItem.style.opacity = '1';
+            ungroupItem.style.pointerEvents = 'auto';
+        } else {
+            ungroupItem.style.opacity = '0.4';
+            ungroupItem.style.pointerEvents = 'none';
+        }
+
         contextMenu.style.display = 'block';
         contextMenu.style.left = `${e.clientX}px`;
         contextMenu.style.top = `${e.clientY}px`;
@@ -1001,6 +1252,13 @@ window.addEventListener('contextmenu', (e) => {
 window.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) {
         contextMenu.style.display = 'none';
+    }
+});
+
+$('menu-summarize').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (targetNodeIdForMenu) {
+        triggerSingleSummarize(targetNodeIdForMenu);
     }
 });
 
@@ -1220,7 +1478,7 @@ function drawGroups() {
 
         box.innerHTML = `
             <div class="group-header">
-                📦 ${group.name}
+                📦 <span class="node-id" style="cursor:copy;" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
                 ${btnHtml}
             </div>
         `;
