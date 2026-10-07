@@ -1,3 +1,41 @@
+// Context menu for sandbox files
+const sandboxContextMenu = document.createElement('div');
+sandboxContextMenu.id = 'sandbox-context-menu';
+sandboxContextMenu.className = 'context-menu'; // Use same styling but unique ID
+sandboxContextMenu.style.cssText = `
+    position: absolute;
+    background: #1e1e2e;
+    border: 1px solid #444;
+    border-radius: 6px;
+    padding: 5px 0;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: none;
+    color: #eee;
+`;
+sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file">🗑️ Delete File</div>`;
+document.body.appendChild(sandboxContextMenu);
+
+let targetSandboxFile = null;
+
+document.getElementById('menu-delete-sandbox-file').addEventListener('click', async () => {
+    sandboxContextMenu.style.display = 'none';
+    if (!targetSandboxFile) return;
+    
+    if (confirm(`Are you sure you want to delete ${targetSandboxFile}?`)) {
+        const success = await apiDeleteSandboxFile(targetSandboxFile);
+        if (success) {
+            fetchSandboxFiles();
+        } else {
+            alert('Failed to delete file.');
+        }
+    }
+});
+
+document.addEventListener('click', () => {
+    sandboxContextMenu.style.display = 'none';
+});
+
 /**
  * Fetches the list of files in the user's sandbox directory and renders them in the sidebar file tree.
  */
@@ -19,6 +57,14 @@ async function fetchSandboxFiles() {
             if (e.shiftKey) {
                 e.preventDefault();
             }
+        });
+
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            targetSandboxFile = filepath;
+            sandboxContextMenu.style.display = 'block';
+            sandboxContextMenu.style.left = `${e.clientX}px`;
+            sandboxContextMenu.style.top = `${e.clientY}px`;
         });
 
         item.addEventListener('click', (e) => {

@@ -103,6 +103,18 @@ async function apiUploadSandboxFiles(formData) {
 }
 
 /**
+ * Deletes a file from the sandbox directory.
+ * @param {string} filename - The relative path of the file to delete.
+ * @returns {boolean} True if the deletion was successful, false otherwise.
+ */
+async function apiDeleteSandboxFile(filename) {
+    const res = await fetch('/api/sandbox/delete/' + encodeURIComponent(filename), {
+        method: 'DELETE'
+    });
+    return res.ok;
+}
+
+/**
  * Fetches the raw content of a specific file from the sandbox.
  * @param {string} filepath - The relative path of the file to fetch.
  * @returns {Response|null} The raw fetch response, or null if it fails.

@@ -11,22 +11,19 @@
 
 <body>
     <button id="sidebar-toggle" onclick="toggleSidebar()">≡</button>
-
     <div id="sidebar" class="sidebar no-select">
-        <div class="sidebar-header">
-            <h3>Project Files</h3>
-            <button id="upload-btn" onclick="document.getElementById('sidebar-file-input').click()">Upload</button>
-            <input type="file" id="sidebar-file-input" style="display: none;" multiple
-                onchange="uploadSandboxFiles(event)">
+        <div class="sidebar-left">
+            <button id="auto-layout-btn" onclick="autoLayout()">AL</button>
+            <button onclick="wipeState()" class="wipe-btn">W</button>
         </div>
-        <div id="file-tree" class="file-tree"></div>
-        <div class="sidebar-controls">
-            <button id="auto-layout-btn" onclick="autoLayout()"
-                style="background: #3b82f6; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-                Auto Layout
-            </button>
-            <button onclick="wipeState()"
-                style="background: #ef4444; border: none; color: white; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;">Wipe</button>
+        <div class="sidebar-main">
+            <div class="sidebar-header">
+                <h3>Project Files</h3>
+                <button id="upload-btn" onclick="document.getElementById('sidebar-file-input').click()">Upload</button>
+                <input type="file" id="sidebar-file-input" style="display: none;" multiple
+                    onchange="uploadSandboxFiles(event)">
+            </div>
+            <div id="file-tree" class="file-tree"></div>
         </div>
     </div>
 

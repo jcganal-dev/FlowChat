@@ -72,6 +72,17 @@ async def upload_file(files: List[UploadFile] = File(...)):
         saved.append(file.filename)
     return JSONResponse(content={"message": "Uploaded successfully", "files": saved})
 
+@app.delete("/api/sandbox/delete/{filename:path}")
+async def delete_sandbox_file(filename: str):
+    file_path = os.path.join("sandbox", filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    try:
+        os.remove(file_path)
+        return JSONResponse(content={"message": "File deleted successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_canvas(request: Request):
     return templates.TemplateResponse(
