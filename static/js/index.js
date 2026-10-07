@@ -10,7 +10,7 @@ const GRID_SIZE = 24
 
 const contextMenu = $make('div');
 contextMenu.id = 'context-menu';
-contextMenu.innerHTML = `<div class="context-item" id="menu-rename">✏️ Rename Branch</div>`;
+contextMenu.innerHTML = `<div class="context-item" id="menu-rename"><span style="display: inline-block; transform: scaleX(-1);">✎</span> Rename Branch</div>`;
 document.body.appendChild(contextMenu);
 
 function updateCanvas() {
