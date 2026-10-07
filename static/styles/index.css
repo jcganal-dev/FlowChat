@@ -17,7 +17,7 @@ html {
     width: 250px;
     height: 100vh;
     background-color: #181818;
-    border-right: 1px solid #334155;
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     flex-direction: column;
     z-index: 1000;
@@ -67,7 +67,7 @@ html {
 
 .sidebar-header {
     padding: 20px 15px 20px 60px;
-    border-bottom: 1px solid #334155;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -100,7 +100,7 @@ html {
 }
 
 .file-item {
-    padding: 8px;
+    padding: 4px 8px;
     margin-bottom: 4px;
     background: transparent;
     cursor: pointer;
@@ -512,10 +512,11 @@ div[contentEditable='true'] {
 
 .active-branch.multi-selected {
 
-    /* box-shadow: 0 0 0 2px rgba(20, 55, 255, 0.7); */
-    .node-header {
+    box-shadow: 0 0 0 2px rgba(20, 55, 255, 0.7);
+
+    /* .node-header {
         background-color: #292929;
-    }
+    } */
 }
 
 #groups-layer {
@@ -648,7 +649,7 @@ div[contentEditable='true'] {
 
 .sidebar-controls {
     height: 200px;
-    border-top: solid 1px #334155;
+    border-top: solid 1px rgba(255, 255, 255, 0.1);
     padding: 20px;
     display: flex;
     flex-direction: column;
