@@ -4,7 +4,7 @@ const erase_thoughts = true
 const viewport = $('viewport')
 const nodesLayer = $('nodes-layer')
 let selectedNodes = new Set();
-let camera = { x:0, y:0, zoom: 1}
+let camera = { x: 0, y: 0, zoom: 1 }
 const GRID_SIZE = 24
 let nodes = []
 let activeNodeId = null
@@ -18,6 +18,7 @@ let forkOffsetCounter = 0;
 const contextMenu = $make('div');
 let isPanning = false;
 let startPanX = 0, startPanY = 0;
+let layoutDebounceTimeout;
 
 contextMenu.id = 'context-menu';
 contextMenu.innerHTML = `
@@ -41,7 +42,7 @@ function updateCanvas() {
 viewport.addEventListener('mousedown', (e) => {
     // Only block panning if the click hit a node or a button/input
     if (e.target.closest('.node') || e.target.closest('#controls')) return;
-    
+
     isPanning = true;
     startPanX = e.clientX - camera.x;
     startPanY = e.clientY - camera.y;
@@ -59,11 +60,11 @@ window.addEventListener('mouseup', () => isPanning = false);
 
 viewport.addEventListener('wheel', (e) => {
     e.preventDefault();
-    
+
     const zoomSensitivity = 0.001;
     const delta = e.deltaY * -zoomSensitivity;
     let newZoom = camera.zoom * Math.exp(delta);
-    
+
     // Clamp zoom between 10% and 300%
     newZoom = Math.max(0.1, Math.min(newZoom, 3));
 
@@ -75,55 +76,6 @@ viewport.addEventListener('wheel', (e) => {
 
     updateCanvas();
 }, { passive: false });
-
-// --- NODE DRAGGING LOGIC ---
-// let draggedNode = null;
-// let nodeStartX = 0, nodeStartY = 0;
-
-// nodesLayer.addEventListener('mousedown', (e) => {
-//     if (e.target.classList.contains('node-header')) {
-//         draggedNode = e.target.closest('.node');
-        
-//         // Extract the current translate(X, Y) from the node's CSS
-//         const style = window.getComputedStyle(draggedNode);
-//         const matrix = new DOMMatrixReadOnly(style.transform);
-        
-//         // Calculate mouse offset relative to the node's origin
-//         nodeStartX = (e.clientX - camera.x) / camera.zoom - matrix.m41;
-//         nodeStartY = (e.clientY - camera.y) / camera.zoom - matrix.m42;
-        
-//         draggedNode.style.zIndex = 1000; // Bring to front
-//     }
-// });
-
-// window.addEventListener('mousemove', (e) => {
-//     if (draggedNode) {
-//         // Calculate the raw target position in canvas coordinates
-//         const rawX = (e.clientX - camera.x) / camera.zoom - nodeStartX;
-//         const rawY = (e.clientY - camera.y) / camera.zoom - nodeStartY;
-
-//         // Snap coordinates to the nearest grid interval
-//         const snappedX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
-//         const snappedY = Math.round(rawY / GRID_SIZE) * GRID_SIZE;
-
-//         draggedNode.style.transform = `translate(${snappedX}px, ${snappedY}px)`;
-
-//         // Update state andd redraw cables
-//         const data = nodes.find(n => n.id === draggedNode.id);
-//         if (data) { 
-//             data.x = snappedX; 
-//             data.y = snappedY; 
-//             drawEdges(); 
-//         }
-//     }
-// });
-
-// window.addEventListener('mouseup', () => {
-//     if (draggedNode) {
-//         draggedNode.style.zIndex = '';
-//         draggedNode = null;
-//     }
-// });
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -137,75 +89,130 @@ function idfy(nodeData) {
     let new_id = undefined
     let dupe_count = 0
     do {
-        new_id = `${name}${dupe_count>0?'('+dupe_count+')':''}_turn-${turn}${branch>0?'_branch-'+branch:''}`
+        new_id = `${name}${dupe_count > 0 ? '(' + dupe_count + ')' : ''}_turn-${turn}${branch > 0 ? '_branch-' + branch : ''}`
         dupe_count += 1
     } while (nodes.find(n => n.id === new_id))
     return new_id
 }
 
-function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1, branch = 0, name="Master_Node") {
+function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null) {
 
-    // Data Model now holds both halves of the turn
-    const nodeData = { 
-        id:undefined, 
-        userText: initialUserText, 
-        aiText: "", 
-        aiThinking: "", 
-        parentId, 
-        x, 
-        y,
-        muted: false,
-        references: [],
-        turn:turn,
-        branch:branch,
-        name:name,
-        hasChild:false
-    };
+    let nodeData;
+    let id;
 
-    const id = idfy(nodeData)
-    nodeData.id = id
+    if (restoreData) {
+        nodeData = restoreData;
+        id = nodeData.id;
+        nodeData.abortController = null; // Cannot serialize AbortControllers
+        if (erase_thoughts && nodeData.aiText) nodeData.aiThinking = "";
+        nodes.push(nodeData);
+    } else {
+        nodeData = {
+            id: undefined,
+            userText: initialUserText,
+            htmlText: initialUserText,
+            aiText: "",
+            aiThinking: "",
+            parentId, x, y,
+            muted: false,
+            references: [],
+            turn: turn, branch: branch,
+            name: name, hasChild: false,
+            abortController: null
+        };
+        id = idfy(nodeData);
+        nodeData.id = id;
+        nodes.push(nodeData);
+    }
 
-    nodes.push(nodeData);
-
+    const isCollapsed = nodeData.groupId && groups[nodeData.groupId]?.isCollapsed;
     const el = document.createElement('div');
-    el.className = `node turn-node`;
+
+    // Restore CSS classes and inline styles
+    el.className = `node turn-node ${isCollapsed ? 'collapsed-node' : ''}`;
+    if (nodeData.muted) el.classList.add('muted-node');
     el.id = id;
-    el.style.transform = `translate(${x}px, ${y}px)`;
-    
+    el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
+    if (nodeData.nodeWidth) el.style.width = `${nodeData.nodeWidth}px`;
+
+    // Restore visual UI states
+    const runStyle = nodeData.aiText || nodeData.aiThinking ? 'display: none;' : '';
+    const inputContent = restoreData ? (nodeData.htmlText || nodeData.userText) : initialUserText;
+    const isEditable = restoreData && nodeData.aiText ? 'false' : 'true';
+
     el.innerHTML = `
-        <div class="handle handle-in hidden"></div>
+        <div class="handle handle-in ${nodeData.parentId ? '' : 'hidden'}"></div>
         <div class="node-header">
             <span class="node-id" onclick="copy_text('${id}')">${id}</span>
             <div>
                 <a class="duplicate-btn" title="Duplicate Branch">📄</a>
-                <a class="delete-btn" title="Delete (Shift+Click to delete branch)">✖</a>
+                <a class="delete-btn" title="Delete">✖</a>
             </div>
         </div>
         <div class="user-section">
-            <div contenteditable="true" class="node-input" spellcheck="true" placeholder="Type prompt here...">${initialUserText}</div>
-            <div class="button-row">
+            <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
+            <div class="button-row" style="${runStyle}">
                 <button class="run-btn">Run ➔</button>
+                <button class="stop-btn" style="display: none; background: #ff5555; color: white;">Stop ⏹</button>
             </div>
         </div>
         <div class="ai-section">
-            <div class="think-content" style="display: none;"></div>
-            <div class="ai-content"></div>
+            <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking}</div>
+            <div class="ai-content">${nodeData.aiText}</div>
         </div>
+        <div class="node-summary-display">${nodeData.summaryText || ''}</div>
         <div class="handle handle-out"></div>
         <button class="add-child-btn" title="Branch">+</button>
+        <div class="resize-handle"></div>
     `;
-    if (nodeData.parentId) el.querySelector('.handle-in').classList.remove('hidden')
+
     setTimeout(() => {
         const runBtn = el.querySelector('.run-btn');
         const textarea = el.querySelector('.node-input');
         const addBtn = el.querySelector('.add-child-btn');
         const dupBtn = el.querySelector('.duplicate-btn');
+        const stopBtn = el.querySelector('.stop-btn');
         const deleteBtn = el.querySelector('.delete-btn');
+        const resizer = el.querySelector('.resize-handle');
+
+        resizer.addEventListener('mousedown', (e) => {
+            e.stopPropagation(); // Prevent canvas panning
+
+            const startX = e.clientX;
+            const startWidth = el.offsetWidth;
+
+            function onMouseMove(moveEvent) {
+                // Calculate distance moved and scale it by camera zoom
+                const deltaX = (moveEvent.clientX - startX) / camera.zoom;
+                el.style.width = `${Math.max(300, startWidth + deltaX)}px`;
+
+                // Fire autoLayout smoothly so sibling nodes push out of the way
+                clearTimeout(layoutDebounceTimeout);
+                layoutDebounceTimeout = setTimeout(() => autoLayout(), 15);
+            }
+
+            function onMouseUp() {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+                autoLayout(); // Final snap to ensure perfect alignment
+            }
+
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        });
 
         // if (!initialUserText) textarea.focus();
 
+        stopBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const data = nodes.find(n => n.id === el.id);
+            if (data && data.abortController) {
+                data.abortController.abort();
+            }
+        });
+
         runBtn.addEventListener('click', () => runUserNode(el.id));
-        
+
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
@@ -217,10 +224,10 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
             if (e.key === ' ') {
                 const selection = window.getSelection();
                 if (!selection.rangeCount) return;
-                
+
                 const range = selection.getRangeAt(0);
                 const textNode = range.startContainer;
-                
+
                 // Only parse if we are typing in a raw text node
                 if (textNode.nodeType === Node.TEXT_NODE) {
                     const text = textNode.textContent;
@@ -229,7 +236,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
                     // 1. Extract the text strictly up to the blinking cursor
                     const textBeforeCursor = text.slice(0, cursorOffset);
                     const textAfterCursor = text.slice(cursorOffset);
-                    
+
                     // 2. Check if the text right before the cursor ends with a tag + space
                     const refRegex = /@([\w()-]+)\s$/;
                     const match = textBeforeCursor.match(refRegex);
@@ -240,26 +247,26 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
 
                         if (refData && refId !== el.id && refData['aiText'].trim() !== '') {
                             const refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
-                            
+
                             // 3. Keep the original text BEFORE the @ symbol in the current node
                             textNode.textContent = textBeforeCursor.slice(0, match.index);
-                            
+
                             // 4. Create the visual chip
                             const chip = document.createElement('span');
                             chip.className = 'reference-node';
                             chip.contentEditable = 'false';
                             chip.setAttribute('data-id', `@${refId}`);
-                            chip.setAttribute('data-ref', refId); 
-                            
+                            chip.setAttribute('data-ref', refId);
+
                             // 5. Insert the hidden context payload
                             const hiddenText = document.createElement('span');
                             hiddenText.className = 'ref-text';
                             hiddenText.textContent = `\n\n[START CONTEXT FROM ${refId}]:\n${refText}\n[END CONTEXT]\n\n`;
                             chip.appendChild(hiddenText);
-                            
+
                             // 6. Create a NEW text node containing a space + any text that was originally AFTER the cursor
                             const afterTextNode = document.createTextNode('\u00A0' + textAfterCursor);
-                            
+
                             // 7. Stitch it all together in the DOM
                             if (textNode.nextSibling) {
                                 textNode.parentNode.insertBefore(chip, textNode.nextSibling);
@@ -268,13 +275,13 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
                                 textNode.parentNode.appendChild(chip);
                                 textNode.parentNode.appendChild(afterTextNode);
                             }
-                            
+
                             // 8. Place the blinking cursor perfectly inside the new text node, right after the space
                             range.setStart(afterTextNode, 1);
                             range.setEnd(afterTextNode, 1);
                             selection.removeAllRanges();
                             selection.addRange(range);
-                            
+
                             // 9. Trigger a scan to draw the yellow reference cable instantly
                             textarea.dispatchEvent(new Event('input'));
                         }
@@ -298,19 +305,19 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
             forkOffsetCounter += 1;
 
             const data = nodes.find(n => n.id === el.id);
-            
+
             // 1. Calculate the true canvas Y of the node's bottom edge
             const bottomY = data.y + el.offsetHeight;
-            
+
             // 2. Snap that canvas Y to the nearest grid line
             const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
-            
+
             // 3. Apply your layout spacing
             // Using forkOffsetCounter on X prevents overlapping if you click + multiple times
-            const forkX = data.x; 
+            const forkX = data.x;
             // const forkX = x + (forkOffsetCounter * 350); 
             const forkY = snappedBottomY + (GRID_SIZE * 3);
-            createNode(el.id, forkX, forkY, "", data.hasChild?turn:turn+=1, data.hasChild?branch+=1:branch);
+            createNode(el.id, forkX, forkY, "", data.hasChild ? turn : turn += 1, data.hasChild ? branch += 1 : branch);
             data.hasChild = true
         });
 
@@ -318,7 +325,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
         dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
-            const forkX = x + 360; 
+            const forkX = x + 360;
             createNode(undefined, forkX, y, textarea.innerHTML);
         });
 
@@ -326,7 +333,7 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
             e.stopPropagation();
             deleteNode(el.id, e.shiftKey);
         });
-        
+
         el.addEventListener('click', (e) => {
             if (!e.target.closest('button') && !e.target.closest('textarea')) {
                 selectNode(el.id, e.shiftKey);
@@ -335,15 +342,20 @@ function createNode(parentId=null, x=408, y=216, initialUserText = "", turn = 1,
     }, 0);
 
     nodesLayer.appendChild(el);
-    // drawEdges();
-    setTimeout(() => autoLayout(), 10);
-    selectNode(id); 
+
+    nodeResizeObserver.observe(el);
+
+    // ONLY trigger layout if creating a single new node, not batch-restoring
+    if (!restoreData) {
+        setTimeout(() => autoLayout(), 10);
+        selectNode(id);
+    }
     return id;
-}
+} // End of createNode
 
 function drawEdges(activeLineage = new Set()) {
     edgesLayer.innerHTML = '';
-    
+
     nodes.forEach(node => {
         if (!node.parentId) return;
         const parent = nodes.find(n => n.id === node.parentId);
@@ -365,7 +377,7 @@ function drawEdges(activeLineage = new Set()) {
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${startX} ${startY} C ${startX} ${startY + 60}, ${endX} ${endY - 60}, ${endX} ${endY}`);
-        
+
         let edgeClass = 'edge-path';
         if (activeLineage.has(node.id) && activeLineage.has(parent.id)) edgeClass += ' active';
         if (node.muted || parent.muted) edgeClass += ' muted';
@@ -396,17 +408,23 @@ async function runUserNode(nodeId) {
     nodeData.userText = text;
     nodeData.aiText = "";      // Clear previous run if re-running
     nodeData.aiThinking = "";
-    
+
+    nodeData.abortController = new AbortController();
+    const signal = nodeData.abortController.signal;
+
     // 2. Lock UI
     const aiContentEl = nodeEl.querySelector('.ai-content');
     const aiThinkEl = nodeEl.querySelector('.think-content');
     const runBtn = nodeEl.querySelector('.run-btn');
-    
+    const stopBtn = nodeEl.querySelector('.stop-btn');
+
     aiContentEl.innerHTML = '';
     aiThinkEl.innerHTML = "";
     aiThinkEl.style.display = "none";
     textarea.contentEditable = false;
-    runBtn.disabled = true;
+
+    runBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'inline-block';
 
     forkOffsetCounter = 0;
 
@@ -423,7 +441,7 @@ async function runUserNode(nodeId) {
                 systemDirectives += `\nRule: ${rNode.userText}\nStatus: ${rNode.aiText}\n`;
             }
         });
-        
+
         // Check if a system message already exists at the start
         if (history.length > 0 && history[0].role === 'system') {
             history[0].content += "\n\n" + systemDirectives;
@@ -434,6 +452,7 @@ async function runUserNode(nodeId) {
     }
 
     // 4. Fetch and Stream
+    let aborted = false
     try {
         const response = await fetch('http://127.0.0.1:5000/api/chat', {
             method: 'POST',
@@ -441,14 +460,15 @@ async function runUserNode(nodeId) {
             body: JSON.stringify({
                 messages: history,
                 max_tokens: 1000
-            })
+            }),
+            signal: signal // <--- Add this line
         });
 
         if (!response.body) throw new Error("No readable stream available.");
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
-        
-        aiContentEl.innerHTML = ""; 
+
+        aiContentEl.innerHTML = "";
         let buffer = "";
 
         // hide button and disable editing
@@ -457,32 +477,35 @@ async function runUserNode(nodeId) {
         textarea.style.background = "transparent";
         textarea.style.height = "auto";
         textarea.style.color = "#eee";
-        
+
         // 2. Hide the run button row
-        const btnRow = nodeEl.querySelector('.button-row');
-        if (btnRow) btnRow.style.display = 'none';
-        
+        // const btnRow = nodeEl.querySelector('.button-row');
+        // if (btnRow) btnRow.style.display = 'none';
+
         let erased_thoughts = false
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split('\n');
-            buffer = lines.pop(); 
-            
+            buffer = lines.pop();
+
             for (const line of lines) {
                 if (!line.trim()) continue;
                 try {
                     const deltaObj = JSON.parse(line);
                     if (deltaObj.content) {
                         if (!erased_thoughts) {
-                            aiThinkEl.innerHTML = erase_thoughts? '': aiThinkEl.innerHTML;
+                            if (erase_thoughts) {
+                                aiThinkEl.innerHTML = '';
+                                nodeData.aiThinking = '';
+                            }
                             erased_thoughts = true
                         }
                         aiContentEl.innerHTML += deltaObj.content;
                         nodeData.aiText += deltaObj.content;
-                    } 
+                    }
                     else if (deltaObj.reasoning_content) {
                         aiThinkEl.style.display = "flex";
                         aiThinkEl.innerHTML += deltaObj.reasoning_content;
@@ -492,21 +515,40 @@ async function runUserNode(nodeId) {
                     console.error("Failed to parse buffered line:", line, e);
                 }
             }
-            drawEdges(); 
+            drawEdges();
             updateThermometer(nodeId);
         }
 
-        nodeEl.querySelector('.add-child-btn').classList.remove('hidden')
-        nodeEl.querySelector('.add-child-btn').click()
+        nodeEl.querySelector('.add-child-btn').classList.remove('hidden');
+        nodeEl.querySelector('.add-child-btn').click();
 
     } catch (error) {
-        aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
+        // 4. Handle the Abort Error gracefully
+        if (error.name === 'AbortError') {
+            aborted = true
+            aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
+            // Reveal the branch button so you can continue the conversation from the stopped point
+            // nodeEl.querySelector('.add-child-btn').classList.remove('hidden');
+            textarea.contentEditable = true;
+            textarea.style.border = "";
+            textarea.style.background = "";
+            runBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+        } else {
+            aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
+        }
     } finally {
+        // 5. Hide the entire button row now that the run is finished or stopped
+        // const btnRow = nodeEl.querySelector('.button-row');
+        // if (btnRow) btnRow.style.display = 'none';
+        if (!aborted) {
+            const btnRow = nodeEl.querySelector('.button-row');
+            if (btnRow) btnRow.style.display = 'none';
+        }
+
         if (!textarea.disabled) {
             textarea.disabled = false;
-            runBtn.disabled = false;
         }
-        // drawEdges();
         autoLayout();
         updateThermometer(nodeId);
     }
@@ -515,28 +557,19 @@ async function runUserNode(nodeId) {
 function walkContext(leafNodeId) {
     const history = [];
     let currentId = leafNodeId;
-    let skippedGroupIds = new Set(); 
 
     while (currentId) {
         const node = nodes.find(n => n.id === currentId);
         if (!node) break;
 
         if (node.groupId && groups[node.groupId]?.isCollapsed) {
-            const gId = node.groupId;
-            // If we haven't added this group's summary yet, inject it
-            if (!skippedGroupIds.has(gId)) {
-                history.push({
-                    role: 'system',
-                    content: `[COMPRESSED HISTORY SUMMARY]: ${groups[gId].summaryText}`
-                });
-                skippedGroupIds.add(gId);
+            if (node.summaryText) {
+                history.push({ role: 'system', content: `[COMPRESSED HISTORY]: ${node.summaryText}` });
             }
-            // We skip pushing the raw user/ai text to save VRAM!
         } else if (!node.muted) {
             if (node.aiText) history.push({ role: 'assistant', content: node.aiText });
             if (node.userText) history.push({ role: 'user', content: node.userText });
         }
-        
         currentId = node.parentId;
     }
     history.reverse();
@@ -556,7 +589,7 @@ function updateThermometer(nodeId) {
 
     const counter = document.getElementById('token-counter');
     const fill = document.getElementById('meter-fill');
-    
+
     if (counter && fill) {
         counter.textContent = `${tokens.toLocaleString()} / ${CONTEXT_LIMIT.toLocaleString()} tokens (${pct}%)`;
         fill.style.width = `${pct}%`;
@@ -568,14 +601,14 @@ function selectNode(id, isShiftClick = false) {
     if (isShiftClick && activeNodeId && activeNodeId !== id) {
         // 1. Try to find a direct path between the active node and the clicked node
         const path = getLineagePath(activeNodeId, id);
-        
+
         if (path) {
             // Valid lineage! Add all nodes in the path to the selection set
             path.forEach(nodeId => selectedNodes.add(nodeId));
         } else {
             // Invalid selection (e.g., trying to group two parallel branches)
             console.warn("Cannot group: Nodes must be in the same direct lineage.");
-            return; 
+            return;
         }
     } else {
         // Normal click: Clear multi-selection and select just this one
@@ -597,7 +630,7 @@ function selectNode(id, isShiftClick = false) {
     document.querySelectorAll('.node').forEach(el => {
         // Highlight active bloodline
         el.classList.toggle('active-branch', lineage.has(el.id));
-        
+
         // ADD THIS: Add a distinct styling class for selected nodes in a group range
         el.classList.toggle('multi-selected', selectedNodes.has(el.id));
     });
@@ -621,12 +654,12 @@ function toggleMute(nodeId, e) {
 }
 
 async function copy_text(text) {
-  try {
-    // 2. Write the text to the system clipboard
-    await navigator.clipboard.writeText(text);
-  } catch (err) {
-    console.error('Failed to copy text: ', err);
-  }
+    try {
+        // 2. Write the text to the system clipboard
+        await navigator.clipboard.writeText(text);
+    } catch (err) {
+        console.error('Failed to copy text: ', err);
+    }
 }
 
 function getDescendants(nodeId) {
@@ -643,7 +676,7 @@ function deleteNode(nodeId, deleteBranch) {
     const nodeIndex = nodes.findIndex(n => n.id === nodeId);
     if (nodeIndex === -1) return;
     const nodeData = nodes[nodeIndex];
-    
+
     let idsToRemove = [nodeId];
 
     if (deleteBranch) {
@@ -653,7 +686,7 @@ function deleteNode(nodeId, deleteBranch) {
         // Normal Click: Reconnect children to the deleted node's parent
         const children = nodes.filter(n => n.parentId === nodeId);
         children.forEach(child => {
-            child.parentId = nodeData.parentId; 
+            child.parentId = nodeData.parentId;
         });
     }
 
@@ -679,23 +712,21 @@ function deleteNode(nodeId, deleteBranch) {
         selectNode(activeNodeId); // Re-calculate lineage and redraw edges
     }
     if (nodes.length === 0) {
-        setTimeout(()=>{
+        setTimeout(() => {
             createNode();
-        },20)
+        }, 20)
     } else {
         autoLayout();
     }
 }
 
 function autoLayout() {
-    const HORIZONTAL_SPACING = GRID_SIZE*17;
-    const STANDARD_VERTICAL_SPACING = GRID_SIZE*15;
-    const GROUP_VERTICAL_SPACING = GRID_SIZE*6; 
-
-    let currentLeafX = 400;
+    const HORIZONTAL_GAP = GRID_SIZE * 4;
+    let currentRootX = 400;
     const childrenMap = {};
     const roots = [];
 
+    // Map parent/child relationships
     nodes.forEach(n => {
         if (n.parentId && nodes.some(p => p.id === n.parentId)) {
             if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
@@ -705,58 +736,137 @@ function autoLayout() {
         }
     });
 
-    function calculatePositions(nodeData, currentY) {
+    // PASS 1: Calculate the exact "lane" width needed for each subtree
+    function calculateSubtreeMetrics(nodeData) {
         const children = childrenMap[nodeData.id] || [];
+        const el = document.getElementById(nodeData.id);
+
+        const nodeWidth = el ? el.offsetWidth : 380;
+        const nodeHeight = el ? el.offsetHeight : 200;
+
+        nodeData.nodeWidth = nodeWidth;
+        nodeData.nodeHeight = nodeHeight;
+
+        // Separate children by group affiliation
+        let groupedChildren = children.filter(c => nodeData.groupId && c.groupId === nodeData.groupId);
+        let otherChildren = children.filter(c => !(nodeData.groupId && c.groupId === nodeData.groupId));
 
         if (children.length === 0) {
-            const x = currentLeafX;
-            currentLeafX += HORIZONTAL_SPACING;
-            nodeData.x = x;
-            nodeData.y = currentY;
-            return x;
+            nodeData.subtreeWidth = nodeWidth;
+            return nodeData.subtreeWidth;
         }
 
-        let minX = Infinity;
-        let maxX = -Infinity;
+        if (groupedChildren.length > 0) {
+            // Group Lineage Logic: Create a main column for the group
+            let groupedWidth = 0;
+            groupedChildren.forEach((child, index) => {
+                groupedWidth += calculateSubtreeMetrics(child);
+                if (index < groupedChildren.length - 1) groupedWidth += HORIZONTAL_GAP;
+            });
 
-        children.forEach(child => {
-            const isSameGroup = nodeData.groupId && child.groupId === nodeData.groupId;
-            let tightDrop;
-            
-            if (isSameGroup) {
-                // If the group is collapsed, stack them with 0 vertical drop
-                if (groups[nodeData.groupId]?.isCollapsed) {
-                    tightDrop = 0; 
-                } else {
-                    tightDrop = document.getElementById(nodeData.id)?.offsetHeight + 20 || 150;
-                }
-            }
-            
-            const nextY = isSameGroup ? currentY + tightDrop : currentY + STANDARD_VERTICAL_SPACING;
-            
-            const childX = calculatePositions(child, nextY);
-            minX = Math.min(minX, childX);
-            maxX = Math.max(maxX, childX);
-        });
+            let otherWidth = 0;
+            otherChildren.forEach((child, index) => {
+                otherWidth += calculateSubtreeMetrics(child);
+                if (index < otherChildren.length - 1) otherWidth += HORIZONTAL_GAP;
+            });
 
-        const centeredX = (minX + maxX) / 2;
-        nodeData.x = centeredX;
-        nodeData.y = currentY;
-        return centeredX;
+            // The main column must accommodate the widest grouped node
+            let mainColumnWidth = Math.max(nodeWidth, groupedWidth);
+            nodeData.mainColumnWidth = mainColumnWidth;
+
+            // Total lane width pushes ungrouped children safely to the right
+            nodeData.subtreeWidth = mainColumnWidth + (otherWidth > 0 ? HORIZONTAL_GAP + otherWidth : 0);
+            nodeData.isGroupColumn = true;
+        } else {
+            // Standard Logic: Treat all children equally
+            let childrenTotalWidth = 0;
+            children.forEach((child, index) => {
+                childrenTotalWidth += calculateSubtreeMetrics(child);
+                if (index < children.length - 1) childrenTotalWidth += HORIZONTAL_GAP;
+            });
+
+            nodeData.subtreeWidth = Math.max(nodeWidth, childrenTotalWidth);
+            nodeData.isGroupColumn = false;
+        }
+
+        return nodeData.subtreeWidth;
     }
 
-    roots.forEach(root => {
-        calculatePositions(root, 200);
-        currentLeafX += HORIZONTAL_SPACING;
+    // PASS 2: Place nodes inside their designated lanes
+    function placeSubtree(nodeData, startX, currentY) {
+        const children = childrenMap[nodeData.id] || [];
+
+        if (nodeData.isGroupColumn) {
+            // Group logic: Parent centers strictly over the main column, other branches push right
+            nodeData.x = startX + (nodeData.mainColumnWidth / 2) - (nodeData.nodeWidth / 2);
+            nodeData.y = currentY;
+
+            let groupedChildren = children.filter(c => nodeData.groupId && c.groupId === nodeData.groupId);
+            let otherChildren = children.filter(c => !(nodeData.groupId && c.groupId === nodeData.groupId));
+
+            // Place grouped children directly underneath
+            let currentGroupedX = startX;
+            groupedChildren.forEach(child => {
+                let tightDrop = nodeData.nodeHeight + 20;
+                placeSubtree(child, currentGroupedX, currentY + tightDrop);
+                currentGroupedX += child.subtreeWidth + HORIZONTAL_GAP;
+            });
+
+            // Forcibly push ungrouped children right of the main column's bounding box
+            let currentOtherX = startX + nodeData.mainColumnWidth + HORIZONTAL_GAP;
+            otherChildren.forEach(child => {
+                let standardDrop = nodeData.nodeHeight + (GRID_SIZE * 3);
+                placeSubtree(child, currentOtherX, currentY + standardDrop);
+                currentOtherX += child.subtreeWidth + HORIZONTAL_GAP;
+            });
+
+        } else {
+            // Standard logic: Parent centers over ALL children
+            nodeData.x = startX + (nodeData.subtreeWidth / 2) - (nodeData.nodeWidth / 2);
+            nodeData.y = currentY;
+
+            let childrenTotalWidth = 0;
+            children.forEach((c, index) => {
+                childrenTotalWidth += c.subtreeWidth;
+                if (index < children.length - 1) childrenTotalWidth += HORIZONTAL_GAP;
+            });
+
+            let currentChildX = startX + (nodeData.subtreeWidth / 2) - (childrenTotalWidth / 2);
+
+            children.forEach(child => {
+                let standardDrop = nodeData.nodeHeight + (GRID_SIZE * 3);
+                placeSubtree(child, currentChildX, currentY + standardDrop);
+                currentChildX += child.subtreeWidth + HORIZONTAL_GAP;
+            });
+        }
+    }
+
+    // 1. PRE-PASS: Toggle CSS classes so DOM heights update instantly
+    nodes.forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el) {
+            if (n.groupId && groups[n.groupId]?.isCollapsed) {
+                el.classList.add('collapsed-node');
+            } else {
+                el.classList.remove('collapsed-node');
+            }
+        }
     });
 
+    // Execute the 2-pass engine for every root on the canvas
+    roots.forEach(root => {
+        calculateSubtreeMetrics(root);
+        placeSubtree(root, currentRootX, 200);
+        currentRootX += root.subtreeWidth + HORIZONTAL_GAP;
+    });
+
+    // Apply the newly calculated transforms
     nodes.forEach(nodeData => {
         const el = document.getElementById(nodeData.id);
         if (el) {
-            el.style.zIndex = '10'; 
+            el.style.zIndex = '10';
             el.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-            
-            // ADD THIS: Fade out the nodes if their group is collapsed
+
             if (nodeData.groupId && groups[nodeData.groupId]?.isCollapsed) {
                 el.style.opacity = '0';
                 el.style.pointerEvents = 'none';
@@ -764,20 +874,21 @@ function autoLayout() {
                 el.style.opacity = '1';
                 el.style.pointerEvents = 'auto';
             }
-            
+
             el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
             setTimeout(() => el.style.transition = 'none', 400);
         }
     });
 
+    // Animate the cables dynamically
     let startTimestamp = null;
     function animateEdges(timestamp) {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = timestamp - startTimestamp;
-        
+
         drawEdges();
-        drawGroups(); // Animate boxes resizing in real-time
-        
+        drawGroups();
+
         if (progress < 400) {
             requestAnimationFrame(animateEdges);
         } else {
@@ -786,30 +897,28 @@ function autoLayout() {
         }
     }
     requestAnimationFrame(animateEdges);
+    saveState();
 }
 
 async function triggerSummarize(groupId) {
     const group = groups[groupId];
     if (!group) return;
 
-    // 1. Gather all raw text in chronological order
     const groupNodes = nodes.filter(n => n.groupId === groupId);
-    let rawText = "Conversation Segment:\n";
-    groupNodes.forEach(n => {
-        rawText += `User: ${n.userText}\nAI: ${n.aiText}\n\n`;
+    let rawText = "";
+    groupNodes.forEach((n, idx) => {
+        rawText += `[NODE_${idx}]\nUser: ${n.userText}\nAI: ${n.aiText}\n\n`;
     });
 
-    // 2. Visual Loading State
     const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
     if (btn) btn.textContent = "⏳ Summarizing...";
 
-    // 3. The Backend Request
     const payload = {
         messages: [
-            { role: "system", content: "You are a summarizer. Summarize the following conversation segment into exactly 3 concise sentences. Focus on the main technical context. Do NOT output any preamble." },
+            { role: "system", content: "You are a precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write exactly ONE concise sentence summarizing it. You MUST separate each summary with the exact string '|||'. Do not include the node labels in your output." },
             { role: "user", content: rawText }
         ],
-        max_tokens: 250
+        max_tokens: 500
     };
 
     try {
@@ -819,15 +928,14 @@ async function triggerSummarize(groupId) {
             body: JSON.stringify(payload)
         });
 
-        // Silently consume the stream in the background
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let summary = "";
-        
+
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
-            
+
             const lines = decoder.decode(value, { stream: true }).split('\n');
             for (const line of lines) {
                 if (line.startsWith("data: ") && line !== "data: [DONE]") {
@@ -836,18 +944,26 @@ async function triggerSummarize(groupId) {
                         if (chunk.choices[0].delta.content) {
                             summary += chunk.choices[0].delta.content;
                         }
-                    } catch(e) {}
+                    } catch (e) { }
                 }
             }
         }
 
-        // 4. Update state and visually compress
-        group.summaryText = summary.trim();
+        // Split the output and assign it to individual nodes
+        const summaries = summary.split('|||').map(s => s.trim()).filter(s => s);
+        groupNodes.forEach((n, idx) => {
+            n.summaryText = summaries[idx] || "Summary unavailable.";
+            const el = document.getElementById(n.id);
+            if (el) {
+                const sumEl = el.querySelector('.node-summary-display');
+                if (sumEl) sumEl.textContent = n.summaryText;
+            }
+        });
+
         group.isCollapsed = true;
-        
-        autoLayout(); // Trigger the crush animation
-        updateThermometer(activeNodeId); // Watch your token usage drop!
-        
+        autoLayout();
+        updateThermometer(activeNodeId);
+
     } catch (e) {
         console.error("Summarize failed:", e);
         if (btn) btn.textContent = "❌ Error";
@@ -862,8 +978,8 @@ function toggleGroupState(groupId) {
 
 window.addEventListener('contextmenu', (e) => {
     // Let the default right-click menu work if clicking inside the text editor
-    if (e.target.closest('.node-input')) return; 
-    
+    if (e.target.closest('.node-input')) return;
+
     const nodeEl = e.target.closest('.node');
     if (nodeEl) {
         e.preventDefault();
@@ -885,36 +1001,36 @@ window.addEventListener('click', (e) => {
 $('menu-rename').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (!targetNodeIdForMenu) return;
-    
+
     const newName = prompt("Enter new base name for this branch (e.g., Code_Refactor):");
     if (!newName || newName.trim() === "") return;
-    
+
     // Format the name cleanly
     const safeName = newName.trim().replace(/\s+/g, '_');
-    
+
     // The getDescendants function naturally returns top-down order, 
     // which is perfect because we must rename parents before children.
     const nodesToUpdate = [targetNodeIdForMenu, ...getDescendants(targetNodeIdForMenu)];
     const idMap = {}; // Tracks { oldId: newId } so we can rewire cables
-    
+
     nodesToUpdate.forEach(oldId => {
         const nodeData = nodes.find(n => n.id === oldId);
         if (!nodeData) return;
-        
+
         nodeData.name = safeName;
-        
+
         // If its parent just got a new ID in a previous loop iteration, update it
         if (idMap[nodeData.parentId]) {
             nodeData.parentId = idMap[nodeData.parentId];
         }
-        
+
         // Temporarily clear its ID so idfy doesn't trip on itself, then generate the new one
-        nodeData.id = undefined; 
+        nodeData.id = undefined;
         const newId = idfy(nodeData);
-        
+
         idMap[oldId] = newId;
         nodeData.id = newId;
-        
+
         // Update DOM element ID and visual label
         const el = document.getElementById(oldId);
         if (el) {
@@ -931,7 +1047,7 @@ $('menu-rename').addEventListener('click', () => {
     // Go through every node on the canvas and update yellow cables if they reference the old IDs
     nodes.forEach(node => {
         let changed = false;
-        
+
         // Update the internal reference array
         node.references = node.references.map(ref => {
             if (idMap[ref]) {
@@ -940,7 +1056,7 @@ $('menu-rename').addEventListener('click', () => {
             }
             return ref;
         });
-        
+
         if (changed) {
             const nodeEl = document.getElementById(node.id);
             if (nodeEl) {
@@ -951,7 +1067,7 @@ $('menu-rename').addEventListener('click', () => {
                     if (idMap[oldRef]) {
                         chip.setAttribute('data-ref', idMap[oldRef]);
                         chip.setAttribute('data-id', `@${idMap[oldRef]}`);
-                        
+
                         // Fix the hidden payload string
                         const hiddenSpan = chip.querySelector('.ref-text');
                         if (hiddenSpan) {
@@ -979,7 +1095,7 @@ function getLineagePath(idA, idB) {
         const n = nodes.find(x => x.id === curr);
         curr = n ? n.parentId : null;
     }
-    
+
     path = [];
     curr = idA;
     while (curr) {
@@ -988,10 +1104,9 @@ function getLineagePath(idA, idB) {
         const n = nodes.find(x => x.id === curr);
         curr = n ? n.parentId : null;
     }
-    
+
     return null;
 }
-
 
 $('menu-group').addEventListener('click', () => {
     contextMenu.style.display = 'none';
@@ -1005,7 +1120,7 @@ $('menu-group').addEventListener('click', () => {
 
     // Generate a unique ID for the group wrapper
     const groupId = 'group_' + Date.now();
-    
+
     // Create the group metadata
     groups[groupId] = {
         id: groupId,
@@ -1019,11 +1134,11 @@ $('menu-group').addEventListener('click', () => {
         if (nodeData) nodeData.groupId = groupId;
     });
 
-    console.log("Group created:", groups[groupId]);
-    
+    // console.log("Group created:", groups[groupId]);
+
     // Clear selection state visually
     selectedNodes.clear();
-    selectNode(activeNodeId); 
+    selectNode(activeNodeId);
     autoLayout()
 });
 
@@ -1035,26 +1150,23 @@ $('menu-ungroup').addEventListener('click', () => {
     if (!nodeData || !nodeData.groupId) return;
 
     const groupId = nodeData.groupId;
-    
+
     // Strip the groupId from all nodes that belonged to it
     nodes.forEach(n => {
         if (n.groupId === groupId) delete n.groupId;
     });
 
-    // Delete the group metadata
+    autoLayout()
     delete groups[groupId];
-    console.log(`Group ${groupId} removed.`);
 });
 
 function drawGroups() {
-    // Ensure the layer exists
     let groupsLayer = $('groups-layer');
     if (!groupsLayer) {
         groupsLayer = document.createElement('div');
         groupsLayer.id = 'groups-layer';
         nodesLayer.prepend(groupsLayer);
     }
-    
     groupsLayer.innerHTML = '';
 
     Object.values(groups).forEach(group => {
@@ -1066,9 +1178,7 @@ function drawGroups() {
         groupNodes.forEach(n => {
             const el = document.getElementById(n.id);
             if (!el) return;
-            
-            // Read live height to account for varying text lengths
-            const width = el.offsetWidth || 380; 
+            const width = el.offsetWidth || 380;
             const height = el.offsetHeight || 200;
 
             minX = Math.min(minX, n.x);
@@ -1077,44 +1187,102 @@ function drawGroups() {
             maxY = Math.max(maxY, n.y + height);
         });
 
-        const padding = 24; 
+        const padding = 24;
         const box = document.createElement('div');
         box.className = 'group-container';
         box.id = `box_${group.id}`;
-        
+
         box.style.left = `${minX - padding}px`;
         box.style.top = `${minY - padding}px`;
         box.style.width = `${(maxX - minX) + (padding * 2)}px`;
         box.style.height = `${(maxY - minY) + (padding * 2)}px`;
-        if (group.isCollapsed) {
-            box.style.width = '420px';
-            box.style.height = 'auto'; // Let the text dictate height
-            box.style.background = '#282a36'; // Solid background for readability
-            box.innerHTML = `
-                <div class="group-header">
-                    📦 ${group.name}
-                    <button class="summarize-btn" onclick="toggleGroupState('${group.id}')">🔍 Expand</button>
-                </div>
-                <div style="padding: 15px; padding-top: 25px; color: #f8f8f2; font-size: 14px; line-height: 1.4;">
-                    ${group.summaryText}
-                </div>
-            `;
-        } else {
-            box.style.background = 'rgba(30, 30, 46, 0.6)';
-            box.innerHTML = `
-                <div class="group-header">
-                    📦 ${group.name}
-                    <button class="summarize-btn" onclick="triggerSummarize('${group.id}')">✨ Summarize</button>
-                </div>
-            `;
-        }
-        
+        box.style.background = 'rgba(30, 30, 46, 0.6)'; // Always transparent now
+
+        box.innerHTML = `
+            <div class="group-header">
+                📦 ${group.name}
+                <button class="summarize-btn" onclick="${group.isCollapsed ? `toggleGroupState('${group.id}')` : `triggerSummarize('${group.id}')`}">${group.isCollapsed ? '🔍 Expand' : '✨ Summarize'}</button>
+            </div>
+        `;
         groupsLayer.appendChild(box);
     });
+}
+
+const nodeResizeObserver = new ResizeObserver(() => {
+    clearTimeout(layoutDebounceTimeout);
+    layoutDebounceTimeout = setTimeout(() => {
+        // Only trigger layout if we actually have nodes to organize
+        if (nodes.length > 0) autoLayout();
+    }, 30);
+});
+
+function saveState() {
+    // Capture live HTML from inputs to preserve visual @reference chips
+    nodes.forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el) {
+            const textarea = el.querySelector('.node-input');
+            if (textarea) n.htmlText = textarea.innerHTML;
+        }
+    });
+
+    const state = {
+        nodes: nodes,
+        groups: groups,
+        camera: camera,
+        activeNodeId: activeNodeId,
+        forkOffsetCounter: forkOffsetCounter
+    };
+    localStorage.setItem('flowchat_state', JSON.stringify(state));
+}
+
+function loadState() {
+    const saved = localStorage.getItem('flowchat_state');
+    if (!saved) return false;
+
+    try {
+        const state = JSON.parse(saved);
+        if (!state.nodes || state.nodes.length === 0) return false;
+
+        // Reset current memory variables
+        nodes = [];
+        groups = state.groups || {};
+        camera = state.camera || { x: 0, y: 0, zoom: 1 };
+        activeNodeId = state.activeNodeId || null;
+        forkOffsetCounter = state.forkOffsetCounter || 0;
+
+        // Wipe canvas elements before reconstruction
+        nodesLayer.querySelectorAll('.node').forEach(el => el.remove());
+        let groupsLayer = $('groups-layer');
+        if (groupsLayer) groupsLayer.innerHTML = '';
+
+        // Restore each node
+        state.nodes.forEach(savedNode => {
+            // Pass the saved object as the 8th parameter to createNode
+            createNode(null, null, null, null, null, null, null, savedNode);
+        });
+
+        updateCanvas();
+        autoLayout();
+        if (activeNodeId) selectNode(activeNodeId);
+        return true;
+    } catch (e) {
+        console.error("Save state corrupted:", e);
+        return false;
+    }
+}
+
+function wipeState() {
+    if (confirm("Are you sure you want to delete all saved nodes and start fresh?")) {
+        localStorage.removeItem('flowchat_state');
+        location.reload();
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 updateCanvas();
 window.addEventListener('DOMContentLoaded', () => {
-    createNode();
+    if (!loadState()) {
+        createNode();
+    }
 });
