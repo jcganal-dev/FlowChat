@@ -157,7 +157,7 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
             </div>
         </div>
         <div class="ai-section">
-            <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking}</div>
+            <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking || "Thinking..."}</div>
             <div class="ai-content">${nodeData.aiText}</div>
         </div>
         <div class="node-summary-display">${nodeData.summaryText || ''}</div>
@@ -868,8 +868,9 @@ function autoLayout() {
             el.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
 
             if (nodeData.groupId && groups[nodeData.groupId]?.isCollapsed) {
-                el.style.opacity = '0';
-                el.style.pointerEvents = 'none';
+                // Nodes must remain visible when collapsed so we can read the summary
+                el.style.opacity = '1';
+                el.style.pointerEvents = 'auto';
             } else {
                 el.style.opacity = '1';
                 el.style.pointerEvents = 'auto';
@@ -931,20 +932,25 @@ async function triggerSummarize(groupId) {
         const reader = response.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let summary = "";
+        let buffer = "";
 
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
 
-            const lines = decoder.decode(value, { stream: true }).split('\n');
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
             for (const line of lines) {
-                if (line.startsWith("data: ") && line !== "data: [DONE]") {
-                    try {
-                        const chunk = JSON.parse(line.slice(6));
-                        if (chunk.choices[0].delta.content) {
-                            summary += chunk.choices[0].delta.content;
-                        }
-                    } catch (e) { }
+                if (!line.trim()) continue;
+                try {
+                    const deltaObj = JSON.parse(line);
+                    if (deltaObj.content) {
+                        summary += deltaObj.content;
+                    }
+                } catch (e) {
+                    console.error("Summarize parse error:", e, line);
                 }
             }
         }
@@ -971,7 +977,7 @@ async function triggerSummarize(groupId) {
 }
 
 function toggleGroupState(groupId) {
-    groups[groupId].isCollapsed = false;
+    groups[groupId].isCollapsed = !groups[groupId].isCollapsed;
     autoLayout();
     updateThermometer(activeNodeId);
 }
@@ -1198,10 +1204,24 @@ function drawGroups() {
         box.style.height = `${(maxY - minY) + (padding * 2)}px`;
         box.style.background = 'rgba(30, 30, 46, 0.6)'; // Always transparent now
 
+        const hasSummary = groupNodes.some(n => n.summaryText && n.summaryText !== "Summary unavailable.");
+
+        let btnHtml = '';
+        if (group.isCollapsed) {
+            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')">🔍 Expand</button>`;
+        } else if (hasSummary) {
+            btnHtml = `
+                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')">📂 Collapse</button>
+                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')">🔄 Re-Summarize</button>
+            `;
+        } else {
+            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')">✨ Summarize</button>`;
+        }
+
         box.innerHTML = `
             <div class="group-header">
                 📦 ${group.name}
-                <button class="summarize-btn" onclick="${group.isCollapsed ? `toggleGroupState('${group.id}')` : `triggerSummarize('${group.id}')`}">${group.isCollapsed ? '🔍 Expand' : '✨ Summarize'}</button>
+                ${btnHtml}
             </div>
         `;
         groupsLayer.appendChild(box);
