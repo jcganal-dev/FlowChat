@@ -17,23 +17,62 @@ sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbo
 document.body.appendChild(sandboxContextMenu);
 
 let targetSandboxFile = null;
+let selectedSandboxFiles = new Set();
+let lastSelectedSandboxFileIndex = -1;
+let currentSandboxFiles = [];
+
+function updateSidebarSelection() {
+    const tree = document.getElementById('file-tree');
+    if (!tree) return;
+    const items = tree.querySelectorAll('.file-item');
+    items.forEach((item, index) => {
+        const filepath = currentSandboxFiles[index];
+        if (selectedSandboxFiles.has(filepath)) {
+            item.style.background = 'rgba(255, 255, 255, 0.15)';
+        } else {
+            item.style.background = '';
+        }
+    });
+}
 
 document.getElementById('menu-delete-sandbox-file').addEventListener('click', async () => {
     sandboxContextMenu.style.display = 'none';
-    if (!targetSandboxFile) return;
     
-    if (await window.customConfirm(`Are you sure you want to delete ${targetSandboxFile}?`)) {
-        const success = await apiDeleteSandboxFile(targetSandboxFile);
-        if (success) {
+    if (selectedSandboxFiles.size === 0 && targetSandboxFile) {
+        selectedSandboxFiles.add(targetSandboxFile);
+    }
+    
+    if (selectedSandboxFiles.size === 0) return;
+    
+    const fileCount = selectedSandboxFiles.size;
+    const msg = fileCount === 1 
+        ? `Are you sure you want to delete ${Array.from(selectedSandboxFiles)[0]}?` 
+        : `Are you sure you want to delete ${fileCount} files?`;
+        
+    if (await window.customConfirm(msg)) {
+        let allSuccess = true;
+        for (const filepath of selectedSandboxFiles) {
+            const success = await apiDeleteSandboxFile(filepath);
+            if (!success) allSuccess = false;
+        }
+        if (allSuccess) {
+            selectedSandboxFiles.clear();
+            lastSelectedSandboxFileIndex = -1;
             fetchSandboxFiles();
         } else {
-            window.customAlert('Failed to delete file.');
+            window.customAlert('Failed to delete one or more files.');
         }
     }
 });
 
-document.addEventListener('click', () => {
+document.addEventListener('click', (e) => {
     sandboxContextMenu.style.display = 'none';
+    const palette = document.getElementById('sandbox-palette');
+    if (palette && !palette.contains(e.target) && selectedSandboxFiles.size > 0) {
+        selectedSandboxFiles.clear();
+        lastSelectedSandboxFileIndex = -1;
+        updateSidebarSelection();
+    }
 });
 
 /**
@@ -47,33 +86,93 @@ async function fetchSandboxFiles() {
     if (!tree) return;
 
     tree.innerHTML = '';
-    data.files.forEach(filepath => {
+    currentSandboxFiles = data.files;
+    selectedSandboxFiles.clear();
+    lastSelectedSandboxFileIndex = -1;
+
+    data.files.forEach((filepath, index) => {
         const item = document.createElement('div');
         item.className = 'file-item';
         item.textContent = '📄 ' + filepath;
-        item.title = 'Click to open in new tab. Shift+Click to reference in focused node.';
+        item.title = 'Double-click to open. Click/Shift-Click/Ctrl-Click to select. Shift+Click in textbox to reference.';
+        item.style.cursor = 'pointer';
+        item.style.padding = '4px 8px';
+        item.style.borderRadius = '4px';
 
         item.addEventListener('mousedown', (e) => {
-            if (e.shiftKey) {
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
                 e.preventDefault();
             }
         });
 
+        item.draggable = true;
+        item.addEventListener('dragstart', (e) => {
+            if (!selectedSandboxFiles.has(filepath)) {
+                selectedSandboxFiles.clear();
+                selectedSandboxFiles.add(filepath);
+                lastSelectedSandboxFileIndex = index;
+                updateSidebarSelection();
+            }
+            e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+
         item.addEventListener('contextmenu', (e) => {
             e.preventDefault();
+            if (!selectedSandboxFiles.has(filepath)) {
+                selectedSandboxFiles.clear();
+                selectedSandboxFiles.add(filepath);
+                lastSelectedSandboxFileIndex = index;
+                updateSidebarSelection();
+            }
             targetSandboxFile = filepath;
+            
+            const delMenu = document.getElementById('menu-delete-sandbox-file');
+            if (delMenu) {
+                delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `🗑️ Delete ${selectedSandboxFiles.size} Files` : `🗑️ Delete File`;
+            }
+            
             sandboxContextMenu.style.display = 'block';
             sandboxContextMenu.style.left = `${e.clientX}px`;
             sandboxContextMenu.style.top = `${e.clientY}px`;
         });
 
         item.addEventListener('click', (e) => {
-            if (e.shiftKey) {
+            if (e.shiftKey && lastFocusedInput) {
                 e.preventDefault();
                 handleSandboxFileShiftClick(filepath);
-            } else {
-                window.open('/sandbox/' + filepath, '_blank');
+                return;
             }
+            
+            if (e.shiftKey) {
+                if (lastSelectedSandboxFileIndex === -1) {
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                } else {
+                    const start = Math.min(lastSelectedSandboxFileIndex, index);
+                    const end = Math.max(lastSelectedSandboxFileIndex, index);
+                    selectedSandboxFiles.clear();
+                    for (let i = start; i <= end; i++) {
+                        selectedSandboxFiles.add(currentSandboxFiles[i]);
+                    }
+                }
+            } else if (e.ctrlKey || e.metaKey) {
+                if (selectedSandboxFiles.has(filepath)) {
+                    selectedSandboxFiles.delete(filepath);
+                } else {
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                }
+            } else {
+                selectedSandboxFiles.clear();
+                selectedSandboxFiles.add(filepath);
+                lastSelectedSandboxFileIndex = index;
+            }
+            updateSidebarSelection();
+        });
+
+        item.addEventListener('dblclick', () => {
+            window.open('/sandbox/' + filepath, '_blank');
         });
 
         tree.appendChild(item);
@@ -109,7 +208,11 @@ async function uploadSandboxFiles(event) {
  */
 async function handleSandboxFileShiftClick(filepath) {
     if (!lastFocusedInput) {
-        window.customAlert('Please focus on a text input box first by clicking it!');
+        return;
+    }
+    
+    if (lastFocusedInput.contentEditable === 'false' || lastFocusedInput.getAttribute('contenteditable') === 'false') {
+        window.customAlert('Cannot add references to a finished node!');
         return;
     }
 

@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
 </head>
 
-<body>
-    <div id="toolbar-left" class="toolbar-left no-select hidden">
+<body class="no-select">
+    <div id="toolbar-left" class="toolbar-left hidden">
         <button id="center-btn" onclick="centerCanvas()" title="Pan to the last active node"><span
                 class="alt-key">H</span></button>
         <button id="auto-layout-btn" onclick="autoLayout()" title="Autolayout">A<span class="alt-key">L</span></button>
@@ -21,7 +21,7 @@
     </div>
 
     <!-- Floating Sandbox Palette -->
-    <div id="sandbox-palette" class="sandbox-palette no-select" style="display: none;">
+    <div id="sandbox-palette" class="sandbox-palette" style="display: none;">
         <div class="palette-header" id="sandbox-palette-header">
             <h3>Project Files</h3>
             <div class="header-actions">
@@ -50,8 +50,10 @@
             <h3 id="custom-modal-title">Alert</h3>
             <p id="custom-modal-message"></p>
             <div id="custom-modal-input-container" style="display: none; align-items: center; gap: 8px;">
-                <div id="custom-modal-color-proxy" class="group-color-proxy" style="background-color: #a0a0a0; display: none;" onclick="this.nextElementSibling.click()"></div>
-                <input type="color" id="custom-modal-color" style="display: none;" value="#a0a0a0" onchange="this.previousElementSibling.style.backgroundColor = this.value">
+                <div id="custom-modal-color-proxy" class="group-color-proxy"
+                    style="background-color: #a0a0a0; display: none;" onclick="this.nextElementSibling.click()"></div>
+                <input type="color" id="custom-modal-color" style="display: none;" value="#a0a0a0"
+                    onchange="this.previousElementSibling.style.backgroundColor = this.value">
                 <input type="text" id="custom-modal-input" class="modal-input" style="flex: 1;" />
             </div>
             <div class="custom-modal-actions">

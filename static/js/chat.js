@@ -255,7 +255,7 @@ async function triggerSummarize(groupId) {
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary as concise as possible without it lossing its meaning. You MUST separate each summary with the exact string '|||'. Do not include the node labels in your output. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary as concise as possible without losing its meaning. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>this is the summary</SUMMARY_0>. Do not include any other text. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
             { role: "user", content: rawText }
         ],
         max_tokens: groupNodes.length * token_per_node
@@ -274,9 +274,11 @@ async function triggerSummarize(groupId) {
             if (btn) btn.textContent = "❌ Error";
         },
         onComplete: () => {
-            const summaries = summary.split('|||').map(s => s.trim()).filter(s => s);
             groupNodes.forEach((n, idx) => {
-                n.summaryText = summaries[idx] || "Summary unavailable.";
+                const regex = new RegExp(`<SUMMARY_${idx}>([\\s\\S]*?)</SUMMARY_${idx}>`);
+                const match = summary.match(regex);
+                
+                n.summaryText = match && match[1].trim() ? match[1].trim() : "Summary unavailable.";
                 n.isCollapsed = true;
                 const el = document.getElementById(n.id);
                 if (el) {

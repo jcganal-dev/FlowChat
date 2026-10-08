@@ -79,6 +79,107 @@ window.addEventListener('mouseup', (e) => {
     }
 });
 
+viewport.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+});
+
+viewport.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const rawData = e.dataTransfer.getData('text/plain');
+    if (!rawData) return;
+    
+    let filepaths = [];
+    try {
+        filepaths = JSON.parse(rawData);
+    } catch (err) {
+        filepaths = [rawData];
+    }
+    
+    if (!Array.isArray(filepaths) || filepaths.length === 0) return;
+
+    const rect = viewport.getBoundingClientRect();
+    let dropX = (e.clientX - rect.left - camera.x) / camera.zoom;
+    let dropY = (e.clientY - rect.top - camera.y) / camera.zoom;
+
+    const targetNodeEl = e.target.closest('.node');
+
+    let filesData = [];
+    for (let i = 0; i < filepaths.length; i++) {
+        const filepath = filepaths[i];
+        const virtualId = 'sandbox/' + filepath;
+        let payload = null;
+        let nodeData = nodes.find(n => n.id === virtualId);
+        
+        if (nodeData && nodeData.files && nodeData.files.length > 0) {
+            payload = nodeData.files[0].payload;
+        } else {
+            const res = await apiFetchSandboxFile(filepath);
+            if (!res) {
+                window.customAlert(`Failed to load file content for ${filepath}.`);
+                continue;
+            }
+            const isImage = filepath.match(/\.(png|jpg|jpeg|gif|webp)$/i);
+            if (isImage) {
+                const blob = await res.blob();
+                payload = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                });
+            } else {
+                payload = await res.text();
+            }
+        }
+        filesData.push({ name: filepath, payload: payload });
+    }
+
+    if (filesData.length === 0) return;
+
+    if (targetNodeEl) {
+        const targetNodeData = nodes.find(n => n.id === targetNodeEl.id);
+        if (targetNodeData) {
+            if (targetNodeData.type === 'chat') {
+                // If dropped on a chat node, insert reference chips if possible
+                const inputEl = targetNodeEl.querySelector('.node-input');
+                if (inputEl) {
+                    if (inputEl.contentEditable === 'false' || inputEl.getAttribute('contenteditable') === 'false') {
+                        window.customAlert('Cannot add references to a finished node!');
+                    } else {
+                        filesData.forEach(fd => {
+                            const virtualId = 'sandbox/' + fd.name;
+                            // Just append to the end of the input since we don't have a specific text cursor range
+                            const range = document.createRange();
+                            range.selectNodeContents(inputEl);
+                            range.collapse(false);
+                            if (typeof insertChipAtRange === 'function') insertChipAtRange(inputEl, range, virtualId, false);
+                        });
+                    }
+                }
+            } else {
+                // If dropped on a file node, just append to its files
+                if (!targetNodeData.files) targetNodeData.files = [];
+                filesData.forEach(fd => targetNodeData.files.push(fd));
+                if (typeof targetNodeEl.renderFiles === 'function') targetNodeEl.renderFiles();
+            }
+            if (typeof saveState === 'function') saveState();
+        }
+    } else {
+        // Drop on empty canvas -> Create ONE new node for all files
+        const isFirstImage = filesData[0].name.match(/\.(png|jpg|jpeg|gif|webp)$/i);
+        const type = isFirstImage ? 'image' : 'document';
+        const title = filesData.length > 1 ? `${filesData.length} files` : filesData[0].name.replace(/\W+/g, '_');
+        
+        const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, type);
+        const newNode = nodes.find(n => n.id === newId);
+        if (newNode) {
+            newNode.files = filesData;
+            // The setTimeout in _createFileNode will automatically run renderFiles() after this!
+        }
+        if (typeof saveState === 'function') saveState();
+    }
+});
+
 viewport.addEventListener('wheel', (e) => {
     e.preventDefault();
     const zoomSensitivity = 0.001;
@@ -363,7 +464,7 @@ function autoLayout() {
 
             if (groupedChildren.length === 1) {
                 let child = groupedChildren[0];
-                let tightDrop = nodeData.nodeHeight + 20;
+                let tightDrop = nodeData.nodeHeight + (GRID_SIZE * 2);
                 let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
                 let offset = (nodeData.mainColumnWidth - childMainWidth) / 2;
                 placeSubtree(child, startX + offset, currentY + tightDrop);
@@ -459,9 +560,22 @@ function autoLayout() {
         currentRootX += root.subtreeWidth + HORIZONTAL_GAP;
     });
 
+    if (roots.length > 0) {
+        const primaryRoot = roots[0];
+        const deltaX = -primaryRoot.x;
+        const deltaY = -primaryRoot.y;
+        nodes.forEach(n => {
+            n.x += deltaX;
+            n.y += deltaY;
+        });
+    }
+
     nodes.forEach(nodeData => {
         const el = document.getElementById(nodeData.id);
         if (el) {
+            nodeData.x = Math.round(nodeData.x / GRID_SIZE) * GRID_SIZE;
+            nodeData.y = Math.round(nodeData.y / GRID_SIZE) * GRID_SIZE;
+
             el.style.zIndex = '10';
             el.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
             el.style.opacity = '1';
@@ -529,6 +643,7 @@ function updateTempEdge(e) {
 
 window.addEventListener('mousedown', (e) => {
     if (e.target.classList.contains('handle')) {
+        e.preventDefault();
         e.stopPropagation();
         const nodeEl = e.target.closest('.node');
         if (!nodeEl) return;

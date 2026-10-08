@@ -5,9 +5,7 @@ html {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    /* Hide scrollbars, we pan natively */
     background-color: #1F1F1F;
-    /* background-color: #121212; */
     color: #e0e0e0;
     font-family: sans-serif;
     display: flex;
@@ -225,7 +223,7 @@ html {
     height: 100vh;
     position: relative;
     /* The Infinite Dotted Grid */
-    /* background-image: radial-gradient(#444 1.5px, transparent 1.5px); */
+    background-image: radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px);
     background-size: 24px 24px;
     /* Base grid size */
     background-position: 0 0;
@@ -245,6 +243,31 @@ html {
     transform-origin: 0 0;
     pointer-events: none;
     /* Let the viewport handle panning */
+}
+
+/* Infinite X and Y Axes */
+#nodes-layer::before {
+    content: '';
+    position: absolute;
+    left: -1000000px;
+    right: -1000000px;
+    top: 0;
+    height: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+    z-index: 0;
+}
+
+#nodes-layer::after {
+    content: '';
+    position: absolute;
+    top: -1000000px;
+    bottom: -1000000px;
+    left: 0;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* Node Styles */
@@ -532,10 +555,6 @@ body.shift-pressed .node-id {
     display: none;
 }
 
-div[contentEditable='true'] {
-    cursor: text;
-}
-
 .reference-node {
     display: inline-block;
     background: #38bdf8;
@@ -775,9 +794,7 @@ div[contentEditable='true'] {
 
 .no-select {
     -webkit-user-select: none;
-    /* Safari */
     user-select: none;
-    /* Standard syntax for modern browsers */
 }
 
 .sidebar-left {
@@ -949,6 +966,26 @@ div[contentEditable='true'] {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
 }
 
-a {
+a,
+button {
+    -webkit-user-select: none;
     user-select: none;
+}
+
+div[contentEditable='true'] {
+    -webkit-user-select: text;
+    user-select: text;
+    cursor: text;
+}
+
+.node-input[contenteditable="false"] {
+    background-color: transparent;
+    border: none;
+}
+
+
+.user-section:hover,
+.ai-section:hover {
+    -webkit-user-select: text;
+    user-select: text;
 }

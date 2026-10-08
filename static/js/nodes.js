@@ -138,6 +138,7 @@ function attachBaseListeners(id, el, restoreData) {
         const header = el.querySelector('.node-header');
         if (header) {
             header.addEventListener('mousedown', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 el.style.zIndex = highestZIndex++;
 
@@ -247,6 +248,7 @@ function attachBaseListeners(id, el, restoreData) {
     const resizer = el.querySelector('.resize-handle');
     if (resizer) {
         resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
             e.stopPropagation();
 
             const startMouseX = e.clientX;
@@ -462,6 +464,8 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             if (typeof drawGroups === 'function') drawGroups();
             if (typeof drawEdges === 'function') drawEdges();
         }
+        
+        el.renderFiles = renderFiles;
 
         function processMultipleFiles(fileList) {
             const data = nodes.find(n => n.id === el.id);
@@ -567,6 +571,10 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
 
         textarea.addEventListener('focus', () => {
             lastFocusedInput = textarea;
+        });
+
+        textarea.addEventListener('blur', () => {
+            lastFocusedInput = null;
         });
 
         textarea.addEventListener('keydown', (e) => {
