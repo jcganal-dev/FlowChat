@@ -228,6 +228,7 @@ async function runUserNode(nodeId) {
  */
 async function triggerSummarize(groupId) {
     const group = groups[groupId];
+    const token_per_node = 150
     if (!group) return;
 
     const groupNodes = nodes.filter(n => n.groupId === groupId);
@@ -244,7 +245,7 @@ async function triggerSummarize(groupId) {
             { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary as concise as possible without it lossing its meaning. You MUST separate each summary with the exact string '|||'. Do not include the node labels in your output. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
             { role: "user", content: rawText }
         ],
-        max_tokens: 500
+        max_tokens: groupNodes.length * token_per_node
     };
 
     let summary = "";
@@ -268,7 +269,7 @@ async function triggerSummarize(groupId) {
                 if (el) {
                     el.classList.add('collapsed-node');
                     const sumEl = el.querySelector('.node-summary-display');
-                    if (sumEl) sumEl.textContent = n.summaryText;
+                    if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(n.summaryText) : n.summaryText;
 
                     const toggleBtn = el.querySelector('.toggle-btn');
                     if (toggleBtn) {
@@ -316,7 +317,7 @@ async function triggerSingleSummarize(nodeId) {
     await streamChatApi(payload, null, {
         onContent: (content) => {
             summary += content;
-            if (sumEl) sumEl.textContent = summary;
+            if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(summary) : summary;
         },
         onReasoning: (reasoning) => {
             if (sumEl && summary === "") sumEl.textContent = "⏳ Thinking...";
@@ -332,7 +333,7 @@ async function triggerSingleSummarize(nodeId) {
             if (el) {
                 el.classList.add('collapsed-node');
                 if (sumEl) {
-                    sumEl.textContent = node.summaryText;
+                    sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(node.summaryText) : node.summaryText;
                 }
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {

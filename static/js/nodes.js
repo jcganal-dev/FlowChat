@@ -148,10 +148,33 @@ function attachBaseListeners(id, el, restoreData) {
 
                 const startNodeX = nodeData.x;
                 const startNodeY = nodeData.y;
+                
+                const isShiftDrag = e.shiftKey;
+                const descendants = [];
+
+                if (isShiftDrag) {
+                    const queue = [nodeData.id];
+                    while (queue.length > 0) {
+                        const currentId = queue.shift();
+                        const children = nodes.filter(n => n.parentId === currentId);
+                        children.forEach(child => {
+                            descendants.push({
+                                node: child,
+                                startX: child.x,
+                                startY: child.y,
+                                el: document.getElementById(child.id)
+                            });
+                            queue.push(child.id);
+                        });
+                    }
+                }
+
+                let hasMovedNode = false;
 
                 function onMouseMove(moveEvent) {
                     const dx = (moveEvent.clientX - startX) / camera.zoom;
                     const dy = (moveEvent.clientY - startY) / camera.zoom;
+                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMovedNode = true;
 
                     let targetX = startNodeX + dx;
                     let targetY = startNodeY + dy;
@@ -163,14 +186,29 @@ function attachBaseListeners(id, el, restoreData) {
 
                     nodeData.x = targetX;
                     nodeData.y = targetY;
-
                     el.style.transform = `translate(${targetX}px, ${targetY}px)`;
+
+                    if (isShiftDrag) {
+                        const actualDx = targetX - startNodeX;
+                        const actualDy = targetY - startNodeY;
+                        
+                        descendants.forEach(desc => {
+                            desc.node.x = desc.startX + actualDx;
+                            desc.node.y = desc.startY + actualDy;
+                            if (desc.el) desc.el.style.transform = `translate(${desc.node.x}px, ${desc.node.y}px)`;
+                        });
+                    }
+
                     if (typeof drawEdges === 'function') drawEdges();
                 }
 
                 function onMouseUp() {
                     window.removeEventListener('mousemove', onMouseMove);
                     window.removeEventListener('mouseup', onMouseUp);
+                    if (hasMovedNode) {
+                        el.dataset.dragged = 'true';
+                        setTimeout(() => delete el.dataset.dragged, 0);
+                    }
                     if (typeof saveState === 'function') saveState();
                 }
 
@@ -190,21 +228,50 @@ function attachBaseListeners(id, el, restoreData) {
             e.stopPropagation();
 
             const startMouseX = e.clientX;
-            const startWidth = el.offsetWidth;
             const nodeData = nodes.find(n => n.id === el.id);
             if (!nodeData) return;
-            const startNodeX = nodeData.x;
+            
+            const targetStartWidth = el.offsetWidth;
+
+            const isMultiSelect = selectedNodes.has(el.id);
+            const nodesToResize = [];
+
+            if (isMultiSelect) {
+                selectedNodes.forEach(selId => {
+                    const selData = nodes.find(n => n.id === selId);
+                    const selEl = document.getElementById(selId);
+                    if (selData && selEl) {
+                        nodesToResize.push({
+                            data: selData,
+                            el: selEl,
+                            startWidth: selEl.offsetWidth,
+                            startNodeX: selData.x
+                        });
+                    }
+                });
+            } else {
+                nodesToResize.push({
+                    data: nodeData,
+                    el: el,
+                    startWidth: targetStartWidth,
+                    startNodeX: nodeData.x
+                });
+            }
 
             function onMouseMove(moveEvent) {
                 const deltaX = (moveEvent.clientX - startMouseX) / camera.zoom;
-                let rawWidth = Math.max(300, startWidth + deltaX * 2);
+                
+                let rawWidth = Math.max(300, targetStartWidth + deltaX * 2);
                 let snappedWidth = Math.round(rawWidth / GRID_SIZE) * GRID_SIZE;
-                el.style.width = `${snappedWidth}px`;
 
-                const widthDiff = snappedWidth - startWidth;
-                nodeData.x = startNodeX - (widthDiff / 2);
-                nodeData.nodeWidth = snappedWidth;
-                el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
+                nodesToResize.forEach(item => {
+                    item.el.style.width = `${snappedWidth}px`;
+
+                    const widthDiff = snappedWidth - item.startWidth;
+                    item.data.x = item.startNodeX - (widthDiff / 2);
+                    item.data.nodeWidth = snappedWidth;
+                    item.el.style.transform = `translate(${item.data.x}px, ${item.data.y}px)`;
+                });
 
                 clearTimeout(layoutDebounceTimeout);
                 layoutDebounceTimeout = setTimeout(() => {
@@ -406,6 +473,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
         }
 
         el.addEventListener('click', (e) => {
+            if (el.dataset.dragged) return;
             if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(el.id, e.shiftKey);
         });
 
@@ -448,7 +516,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking.trim() == '' ? 'Thinking...' : nodeData.aiThinking}</div>
             <div class="ai-content">${nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText) : ''}</div>
         </div>
-        <div class="node-summary-display">${nodeData.summaryText || ''}</div>
+        <div class="node-summary-display">${nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText) : ''}</div>
         <div class="handle handle-out"></div>
         <button class="add-child-btn ${nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
         <div class="resize-handle"></div>
@@ -579,6 +647,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
         });
 
         el.addEventListener('click', (e) => {
+            if (el.dataset.dragged) return;
             if (!e.target.closest('button') && !e.target.closest('textarea')) {
                 selectNode(el.id, e.shiftKey);
             }

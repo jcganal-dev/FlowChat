@@ -10,30 +10,74 @@ function updateCanvas() {
     viewport.style.backgroundSize = `${bgSize}px ${bgSize}px`;
 
     nodesLayer.style.transform = `translate(${camera.x}px, ${camera.y}px) scale(${camera.zoom})`;
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+
+    nodes.forEach(node => {
+        const el = document.getElementById(node.id);
+        if (!el) return;
+
+        if (el.style.display !== 'none') {
+            node.cachedWidth = el.offsetWidth;
+            node.cachedHeight = el.offsetHeight;
+        }
+
+        const w = (node.cachedWidth || 336) * camera.zoom;
+        const h = (node.cachedHeight || 200) * camera.zoom;
+        const screenX = node.x * camera.zoom + camera.x;
+        const screenY = node.y * camera.zoom + camera.y;
+
+        const isOffscreen = (screenX + w < 0) || (screenY + h < 0) || (screenX > vw) || (screenY > vh);
+
+        const edgeEl = document.getElementById('edge_' + node.id);
+
+        if (isOffscreen) {
+            if (el.style.display !== 'none') el.style.display = 'none';
+            if (edgeEl && edgeEl.style.display !== 'none') edgeEl.style.display = 'none';
+        } else {
+            if (el.style.display === 'none') el.style.display = '';
+            if (edgeEl && edgeEl.style.display === 'none') edgeEl.style.display = '';
+        }
+    });
 }
+
+let hasMovedDuringPan = false;
+let panStartX = 0;
+let panStartY = 0;
 
 viewport.addEventListener('mousedown', (e) => {
     if (e.target.closest('.node') || e.target.closest('#controls')) return;
 
-    // Clicking canvas clears any multi-selection
-    if (typeof selectNode === 'function' && activeNodeId) {
-        selectNode(activeNodeId);
-    }
-
     isPanning = true;
+    hasMovedDuringPan = false;
+    panStartX = e.clientX;
+    panStartY = e.clientY;
     startPanX = e.clientX - camera.x;
     startPanY = e.clientY - camera.y;
 });
 
 window.addEventListener('mousemove', (e) => {
     if (isPanning) {
+        if (Math.abs(e.clientX - panStartX) > 3 || Math.abs(e.clientY - panStartY) > 3) {
+            hasMovedDuringPan = true;
+        }
         camera.x = e.clientX - startPanX;
         camera.y = e.clientY - startPanY;
         updateCanvas();
     }
 });
 
-window.addEventListener('mouseup', () => isPanning = false);
+window.addEventListener('mouseup', (e) => {
+    if (isPanning) {
+        isPanning = false;
+        if (!hasMovedDuringPan && !e.target.closest('.node') && !e.target.closest('#controls')) {
+            if (typeof selectNode === 'function' && activeNodeId) {
+                selectNode(activeNodeId);
+            }
+        }
+    }
+});
 
 viewport.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -84,12 +128,17 @@ function drawEdges(activeLineage = null) {
         const childIn = childEl.querySelector('.handle-in');
         if (!parentOut || !childIn) return;
 
-        const startX = parent.x + parentEl.offsetWidth / 2;
-        const startY = parent.y + parentEl.offsetHeight;
-        const endX = node.x + childEl.offsetWidth / 2;
+        const pW = parentEl.offsetWidth || parent.cachedWidth || 336;
+        const pH = parentEl.offsetHeight || parent.cachedHeight || 200;
+        const cW = childEl.offsetWidth || node.cachedWidth || 336;
+
+        const startX = parent.x + pW / 2;
+        const startY = parent.y + pH;
+        const endX = node.x + cW / 2;
         const endY = node.y;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.id = 'edge_' + node.id;
         path.setAttribute('d', `M ${startX} ${startY} C ${startX} ${startY + 60}, ${endX} ${endY - 60}, ${endX} ${endY}`);
 
         let edgeClass = 'edge-path';
@@ -174,6 +223,14 @@ function drawGroups() {
  * Groups nodes logically, resolves overlapping branches, and animates them into their new positions.
  */
 function autoLayout() {
+    // Unhide all nodes temporarily for accurate layout measurement
+    nodes.forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el && el.style.display === 'none') {
+            el.style.display = '';
+        }
+    });
+
     const HORIZONTAL_GAP = GRID_SIZE * 4;
     let currentRootX = 400;
     const childrenMap = {};
@@ -206,22 +263,24 @@ function autoLayout() {
             return nodeData.subtreeWidth;
         }
 
-        if (groupedChildren.length > 0) {
-            let groupedWidth = 0;
-            groupedChildren.forEach((child, index) => {
-                groupedWidth += calculateSubtreeMetrics(child);
-                if (index < groupedChildren.length - 1) groupedWidth += HORIZONTAL_GAP;
-            });
-
+        if (groupedChildren.length === 1) {
+            let child = groupedChildren[0];
+            calculateSubtreeMetrics(child);
+            
             let otherWidth = 0;
-            otherChildren.forEach((child, index) => {
-                otherWidth += calculateSubtreeMetrics(child);
+            otherChildren.forEach((c, index) => {
+                otherWidth += calculateSubtreeMetrics(c);
                 if (index < otherChildren.length - 1) otherWidth += HORIZONTAL_GAP;
             });
 
-            let mainColumnWidth = Math.max(nodeWidth, groupedWidth);
+            let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
+            let mainColumnWidth = Math.max(nodeWidth, childMainWidth);
             nodeData.mainColumnWidth = mainColumnWidth;
-            nodeData.subtreeWidth = mainColumnWidth + (otherWidth > 0 ? HORIZONTAL_GAP + otherWidth : 0);
+            
+            let offset = (mainColumnWidth - childMainWidth) / 2;
+            nodeData.fullGroupedWidth = Math.max(mainColumnWidth, offset + child.subtreeWidth);
+            
+            nodeData.subtreeWidth = nodeData.fullGroupedWidth + (otherWidth > 0 ? HORIZONTAL_GAP + otherWidth : 0);
             nodeData.isGroupColumn = true;
         } else {
             let childrenTotalWidth = 0;
@@ -230,6 +289,8 @@ function autoLayout() {
                 if (index < children.length - 1) childrenTotalWidth += HORIZONTAL_GAP;
             });
 
+            nodeData.mainColumnWidth = nodeWidth;
+            nodeData.fullGroupedWidth = Math.max(nodeWidth, childrenTotalWidth);
             nodeData.subtreeWidth = Math.max(nodeWidth, childrenTotalWidth);
             nodeData.isGroupColumn = false;
         }
@@ -247,14 +308,15 @@ function autoLayout() {
             let groupedChildren = children.filter(c => nodeData.groupId && c.groupId === nodeData.groupId);
             let otherChildren = children.filter(c => !(nodeData.groupId && c.groupId === nodeData.groupId));
 
-            let currentGroupedX = startX;
-            groupedChildren.forEach(child => {
+            if (groupedChildren.length === 1) {
+                let child = groupedChildren[0];
                 let tightDrop = nodeData.nodeHeight + 20;
-                placeSubtree(child, currentGroupedX, currentY + tightDrop);
-                currentGroupedX += child.subtreeWidth + HORIZONTAL_GAP;
-            });
+                let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
+                let offset = (nodeData.mainColumnWidth - childMainWidth) / 2;
+                placeSubtree(child, startX + offset, currentY + tightDrop);
+            }
 
-            let currentOtherX = startX + nodeData.mainColumnWidth + HORIZONTAL_GAP;
+            let currentOtherX = startX + nodeData.fullGroupedWidth + HORIZONTAL_GAP;
             otherChildren.forEach(child => {
                 let standardDrop = nodeData.nodeHeight + (GRID_SIZE * 3);
                 placeSubtree(child, currentOtherX, currentY + standardDrop);
@@ -262,9 +324,6 @@ function autoLayout() {
             });
 
         } else {
-            nodeData.x = startX + (nodeData.subtreeWidth / 2) - (nodeData.nodeWidth / 2);
-            nodeData.y = currentY;
-
             let childrenTotalWidth = 0;
             children.forEach((c, index) => {
                 childrenTotalWidth += c.subtreeWidth;
@@ -278,6 +337,24 @@ function autoLayout() {
                 placeSubtree(child, currentChildX, currentY + standardDrop);
                 currentChildX += child.subtreeWidth + HORIZONTAL_GAP;
             });
+
+            if (children.length > 0) {
+                let firstChild = children[0];
+                let lastChild = children[children.length - 1];
+                let centerOfChildren = (firstChild.x + (firstChild.nodeWidth / 2) + lastChild.x + (lastChild.nodeWidth / 2)) / 2;
+                
+                let desiredX = centerOfChildren - (nodeData.nodeWidth / 2);
+                
+                if (desiredX < startX) desiredX = startX;
+                if (desiredX + nodeData.nodeWidth > startX + nodeData.subtreeWidth) {
+                    desiredX = startX + nodeData.subtreeWidth - nodeData.nodeWidth;
+                }
+                
+                nodeData.x = desiredX;
+            } else {
+                nodeData.x = startX + (nodeData.subtreeWidth / 2) - (nodeData.nodeWidth / 2);
+            }
+            nodeData.y = currentY;
         }
     }
 
@@ -357,6 +434,7 @@ function autoLayout() {
         }
     }
     requestAnimationFrame(animateEdges);
+    updateCanvas();
     if (typeof saveState === 'function') saveState();
 }
 

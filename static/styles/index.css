@@ -388,11 +388,13 @@ html {
 .think-content {
     max-height: 200px;
     overflow-y: auto;
-    scrollbar-width: none; /* Firefox */
+    scrollbar-width: none;
+    /* Firefox */
 }
 
 .think-content::-webkit-scrollbar {
-    display: none; /* Chrome, Safari, Edge */
+    display: none;
+    /* Chrome, Safari, Edge */
 }
 
 .hidden {
@@ -699,6 +701,10 @@ div[contentEditable='true'] {
 }
 
 /* Markdown Styles */
+.ai-content {
+    overflow: auto;
+}
+
 .ai-content p,
 .think-content p {
     margin: 0 0 10px 0;

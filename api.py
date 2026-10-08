@@ -117,7 +117,8 @@ async def chat_endpoint(user_data: ChatPayload):
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
 
     payload = {
-        "model": "apodex/apodex-1.1-mini:free",
+        "model": "inclusionai/ling-3.0-flash-sante:free",
+        # "model": "apodex/apodex-1.1-mini:free",
         # "model": "openrouter/free",
         # "provider": {
         #     "ignore": ["HuggingFace"] # Add provider names here to exclude their endpoints
@@ -171,7 +172,6 @@ async def chat_endpoint(user_data: ChatPayload):
                             delta = chunk['choices'][0]['delta']
                             
                             # OpenRouter uses 'reasoning', frontend expects 'reasoning_content'
-                            print(delta)
                             if 'reasoning' in delta:
                                 delta['reasoning_content'] = delta.pop('reasoning')
                                 

@@ -7,7 +7,7 @@ async function saveState() {
         if (el) {
             const textarea = el.querySelector('.node-input');
             if (textarea) n.htmlText = textarea.innerHTML;
-            n.nodeWidth = el.offsetWidth;
+            n.nodeWidth = el.offsetWidth || n.cachedWidth || n.nodeWidth;
         }
     });
 
@@ -106,7 +106,10 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
-        document.getElementById('menu-summarize').style.display = 'block';
+        
+        const summarizeMenu = document.getElementById('menu-summarize');
+        summarizeMenu.style.display = 'block';
+        summarizeMenu.textContent = (nodeData && nodeData.isCollapsed) ? 'Re-Summarize Node' : 'Summarize Node';
 
         contextMenu.style.display = 'block';
         contextMenu.style.left = `${e.clientX}px`;
