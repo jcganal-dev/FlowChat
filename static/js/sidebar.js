@@ -142,8 +142,7 @@ async function handleSandboxFileShiftClick(filepath) {
         const nodeData = {
             id: virtualId,
             type: type,
-            filePayload: payload,
-            fileName: filepath,
+            files: [{ name: filepath, payload: payload }],
             userText: '',
             htmlText: '',
             aiText: ' ',

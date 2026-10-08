@@ -7,14 +7,20 @@
     <title>FlowChat</title>
     <link rel="stylesheet" href="/static/styles/index.css">
     <link rel="icon" href="/static/icons/temp_icon.png" type="image/png">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
 </head>
 
 <body>
     <button id="sidebar-toggle" onclick="toggleSidebar()">≡</button>
     <div id="sidebar" class="sidebar no-select">
         <div class="sidebar-left">
-            <button id="auto-layout-btn" onclick="autoLayout()">AL</button>
-            <button onclick="wipeState()" class="wipe-btn">W</button>
+            <button id="center-btn" onclick="centerCanvas()" title="Pan to the last active node"><span
+                    class="alt-key">H</span></button>
+            <button id="auto-layout-btn" onclick="autoLayout()" title="Autolayout">A<span
+                    class="alt-key">L</span></button>
+            <button onclick="wipeState()" class="wipe-btn"><span class="alt-key"
+                    title="Wipe entire canvas">W</span></button>
         </div>
         <div class="sidebar-main">
             <div class="sidebar-header">
@@ -41,6 +47,15 @@
 </body>
 
 </html>
+
+<!-- Dependencies for Markdown, Math, and Highlighting -->
+<script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked-katex-extension@5.0.0/lib/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked-highlight@2.1.0/lib/index.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
+
 <script src="/static/js/globals.js"></script>
 <script src="/static/js/api.js"></script>
 <script src="/static/js/canvas.js"></script>

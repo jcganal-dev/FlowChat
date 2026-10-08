@@ -103,6 +103,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-image').style.display = 'none';
         document.getElementById('menu-add-file').style.display = 'none';
         document.getElementById('menu-rename').style.display = 'block';
+        document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
         document.getElementById('menu-summarize').style.display = 'block';
@@ -117,6 +118,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-image').style.display = 'block';
         document.getElementById('menu-add-file').style.display = 'block';
         document.getElementById('menu-rename').style.display = 'none';
+        document.getElementById('menu-rename-node').style.display = 'none';
         document.getElementById('menu-group').style.display = 'none';
         document.getElementById('menu-ungroup').style.display = 'none';
         document.getElementById('menu-summarize').style.display = 'none';
@@ -158,11 +160,107 @@ window.addEventListener('click', (e) => {
     }
 });
 
+window.addEventListener('keydown', (e) => {
+    if (e.altKey && e.key.toLowerCase() === 'w') {
+        e.preventDefault();
+        if (typeof wipeState === 'function') wipeState();
+    } else if (e.altKey && e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        if (typeof autoLayout === 'function') autoLayout();
+    } else if (e.altKey && e.key.toLowerCase() === 'h') {
+        e.preventDefault();
+        if (typeof centerCanvas === 'function') centerCanvas();
+    }
+});
+
 $('menu-summarize').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (targetNodeIdForMenu) {
         triggerSingleSummarize(targetNodeIdForMenu);
     }
+});
+
+$('menu-rename-node').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (!targetNodeIdForMenu) return;
+
+    const newName = prompt("Enter new base name for this node (e.g., Summary_Node):");
+    if (!newName || newName.trim() === "") return;
+
+    const safeName = newName.trim().replace(/\s+/g, '_');
+
+    const nodeData = nodes.find(n => n.id === targetNodeIdForMenu);
+    if (!nodeData) return;
+
+    const oldId = nodeData.id;
+    nodeData.name = safeName;
+    nodeData.id = undefined; // trigger idfy recalculation without the old id
+    const newId = idfy(nodeData);
+    
+    nodeData.id = newId;
+
+    const el = document.getElementById(oldId);
+    if (el) {
+        el.id = newId;
+        const idLabel = el.querySelector('.node-id');
+        if (idLabel) {
+            idLabel.textContent = newId;
+            idLabel.setAttribute('onclick', `handleIdClick(event, '${newId}')`);
+        }
+        const toggleBtn = el.querySelector('.toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.setAttribute('onclick', `event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${newId}')`);
+        }
+    }
+
+    // Update children's parentId
+    nodes.forEach(child => {
+        if (child.parentId === oldId) {
+            child.parentId = newId;
+        }
+    });
+
+    if (activeNodeId === oldId) activeNodeId = newId;
+    if (selectedNodes.has(oldId)) {
+        selectedNodes.delete(oldId);
+        selectedNodes.add(newId);
+    }
+
+    nodes.forEach(node => {
+        let changed = false;
+        node.references = node.references.map(ref => {
+            if (ref === oldId) {
+                changed = true;
+                return newId;
+            }
+            return ref;
+        });
+
+        if (changed) {
+            const nodeEl = document.getElementById(node.id);
+            if (nodeEl) {
+                const chips = nodeEl.querySelectorAll('.reference-node');
+                chips.forEach(chip => {
+                    const oldRef = chip.getAttribute('data-ref');
+                    if (oldRef === oldId) {
+                        chip.setAttribute('data-ref', newId);
+                        chip.setAttribute('data-id', `@${newId}`);
+                        const hiddenSpan = chip.querySelector('.ref-text');
+                        if (hiddenSpan) {
+                            hiddenSpan.textContent = hiddenSpan.textContent.replace(oldId, newId);
+                        }
+                        const labelSpan = chip.querySelector('.chip-label');
+                        if (labelSpan && labelSpan.textContent.includes(oldId)) {
+                            labelSpan.textContent = labelSpan.textContent.replace(oldId, newId);
+                        }
+                    }
+                });
+            }
+        }
+    });
+
+    if (typeof drawEdges === 'function') drawEdges();
+    if (typeof saveState === 'function') saveState();
 });
 
 $('menu-rename').addEventListener('click', () => {
@@ -199,7 +297,11 @@ $('menu-rename').addEventListener('click', () => {
             const idLabel = el.querySelector('.node-id');
             if (idLabel) {
                 idLabel.textContent = newId;
-                idLabel.setAttribute('onclick', `copy_text('${newId}')`);
+                idLabel.setAttribute('onclick', `handleIdClick(event, '${newId}')`);
+            }
+            const toggleBtn = el.querySelector('.toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.setAttribute('onclick', `event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${newId}')`);
             }
         }
     });

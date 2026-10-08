@@ -78,14 +78,10 @@ function drawEdges(activeLineage = null) {
         const childIn = childEl.querySelector('.handle-in');
         if (!parentOut || !childIn) return;
 
-        const pRect = parentOut.getBoundingClientRect();
-        const cRect = childIn.getBoundingClientRect();
-        const nlRect = nodesLayer.getBoundingClientRect();
-
-        const startX = (pRect.left + pRect.width / 2 - nlRect.left) / camera.zoom;
-        const startY = (pRect.top + pRect.height / 2 - nlRect.top) / camera.zoom;
-        const endX = (cRect.left + cRect.width / 2 - nlRect.left) / camera.zoom;
-        const endY = (cRect.top + cRect.height / 2 - nlRect.top) / camera.zoom;
+        const startX = parent.x + parentEl.offsetWidth / 2;
+        const startY = parent.y + parentEl.offsetHeight;
+        const endX = node.x + childEl.offsetWidth / 2;
+        const endY = node.y;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${startX} ${startY} C ${startX} ${startY + 60}, ${endX} ${endY - 60}, ${endX} ${endY}`);
@@ -97,6 +93,10 @@ function drawEdges(activeLineage = null) {
 
         edgesLayer.appendChild(path);
     });
+
+    if (typeof tempEdgePath !== 'undefined' && tempEdgePath && isDraggingEdge) {
+        edgesLayer.appendChild(tempEdgePath);
+    }
 }
 
 /**
@@ -284,8 +284,39 @@ function autoLayout() {
             } else {
                 el.classList.remove('collapsed-node');
             }
+            
+            if (!n.isCollapsed && (!n.groupId || groups[n.groupId]?.isCollapsed === false)) {
+                let iterations = 0;
+                const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
+                const maxW = 1200;
+                
+                while (iterations < 4) {
+                    const w = el.offsetWidth;
+                    const h = el.offsetHeight;
+                    const currentRatio = w / h;
+                    
+                    if (Math.abs(currentRatio - 1.25) < 0.05) break;
+                    
+                    const area = w * h;
+                    let targetW = Math.sqrt(area * 1.25);
+                    targetW = Math.max(minW, Math.min(targetW, maxW));
+                    
+                    el.style.width = `${targetW}px`;
+                    
+                    // Force reflow
+                    document.body.offsetHeight;
+                    iterations++;
+                }
+                
+                let finalW = Math.round(el.offsetWidth / GRID_SIZE) * GRID_SIZE;
+                finalW = Math.max(minW, Math.min(finalW, maxW));
+                el.style.width = `${finalW}px`;
+                n.nodeWidth = finalW;
+            }
         }
     });
+
+    document.body.offsetHeight;
 
     roots.forEach(root => {
         calculateSubtreeMetrics(root);
@@ -322,4 +353,156 @@ function autoLayout() {
     }
     requestAnimationFrame(animateEdges);
     if (typeof saveState === 'function') saveState();
+}
+
+// --- Edge Dragging Logic ---
+let isDraggingEdge = false;
+let dragEdgeStartNodeId = null;
+let dragEdgeType = null; // 'out' or 'in'
+let tempEdgePath = null;
+
+function updateTempEdge(e) {
+    if (!tempEdgePath) return;
+
+    const nlRect = nodesLayer.getBoundingClientRect();
+    const cursorX = (e.clientX - nlRect.left) / camera.zoom;
+    const cursorY = (e.clientY - nlRect.top) / camera.zoom;
+
+    const startNodeEl = document.getElementById(dragEdgeStartNodeId);
+    if (!startNodeEl) return;
+
+    let startX, startY, endX, endY;
+
+    const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+    if (!startNode) return;
+
+    if (dragEdgeType === 'out') {
+        startX = startNode.x + startNodeEl.offsetWidth / 2;
+        startY = startNode.y + startNodeEl.offsetHeight;
+        endX = cursorX;
+        endY = cursorY;
+    } else {
+        endX = startNode.x + startNodeEl.offsetWidth / 2;
+        endY = startNode.y;
+        startX = cursorX;
+        startY = cursorY;
+    }
+
+    tempEdgePath.setAttribute('d', `M ${startX} ${startY} C ${startX} ${startY + 60}, ${endX} ${endY - 60}, ${endX} ${endY}`);
+}
+
+window.addEventListener('mousedown', (e) => {
+    if (e.target.classList.contains('handle')) {
+        e.stopPropagation();
+        const nodeEl = e.target.closest('.node');
+        if (!nodeEl) return;
+        const nodeId = nodeEl.id;
+        const node = nodes.find(n => n.id === nodeId);
+        if (!node) return;
+
+        if (e.target.classList.contains('handle-out')) {
+            isDraggingEdge = true;
+            dragEdgeStartNodeId = nodeId;
+            dragEdgeType = 'out';
+        } else if (e.target.classList.contains('handle-in')) {
+            if (node.parentId) {
+                isDraggingEdge = true;
+                dragEdgeStartNodeId = node.parentId;
+                dragEdgeType = 'out';
+                node.parentId = null;
+                if (typeof drawEdges === 'function') drawEdges();
+            } else {
+                isDraggingEdge = true;
+                dragEdgeStartNodeId = nodeId;
+                dragEdgeType = 'in';
+            }
+        }
+
+        if (isDraggingEdge) {
+            tempEdgePath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            tempEdgePath.setAttribute('class', 'edge-path temp-edge');
+            tempEdgePath.style.pointerEvents = 'none';
+            tempEdgePath.style.strokeDasharray = '5, 5';
+            edgesLayer.appendChild(tempEdgePath);
+            updateTempEdge(e);
+        }
+    }
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (isDraggingEdge) {
+        updateTempEdge(e);
+    }
+});
+
+window.addEventListener('mouseup', (e) => {
+    if (isDraggingEdge) {
+        isDraggingEdge = false;
+        if (tempEdgePath) {
+            tempEdgePath.remove();
+            tempEdgePath = null;
+        }
+
+        let dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+        if (dropTarget && dropTarget.classList.contains('add-child-btn')) {
+            const nodeEl = dropTarget.closest('.node');
+            if (nodeEl) dropTarget = nodeEl.querySelector('.handle-out');
+        }
+
+        if (dropTarget && dropTarget.classList.contains('handle')) {
+            const targetNodeEl = dropTarget.closest('.node');
+            if (targetNodeEl) {
+                const targetNodeId = targetNodeEl.id;
+                
+                if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
+                    if (targetNodeId !== dragEdgeStartNodeId) {
+                        const targetNode = nodes.find(n => n.id === targetNodeId);
+                        if (targetNode) {
+                            targetNode.parentId = dragEdgeStartNodeId;
+                        }
+                    }
+                } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
+                    if (targetNodeId !== dragEdgeStartNodeId) {
+                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        if (startNode) {
+                            startNode.parentId = targetNodeId;
+                        }
+                    }
+                }
+            }
+        }
+        if (typeof drawEdges === 'function') drawEdges();
+        if (typeof saveState === 'function') saveState();
+    }
+});
+
+/**
+ * Pans and zooms the camera to center exactly on the last active node.
+ */
+function centerCanvas() {
+    if (typeof activeNodeId === 'undefined' || !activeNodeId) return;
+    const el = document.getElementById(activeNodeId);
+    if (!el) return;
+    const nodeData = nodes.find(n => n.id === activeNodeId);
+    if (!nodeData) return;
+
+    const vWidth = viewport.clientWidth;
+    const vHeight = viewport.clientHeight;
+
+    const nX = nodeData.x;
+    const nY = nodeData.y;
+    const nWidth = el.offsetWidth;
+    const nHeight = el.offsetHeight;
+
+    nodesLayer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+
+    camera.zoom = 1;
+    camera.x = vWidth / 2 - (nX + nWidth / 2) * camera.zoom;
+    camera.y = vHeight / 2 - (nY + nHeight / 2) * camera.zoom;
+
+    updateCanvas();
+
+    setTimeout(() => {
+        nodesLayer.style.transition = 'none';
+    }, 300);
 }

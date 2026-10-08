@@ -79,12 +79,20 @@ function setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, rest
         nodeData = restoreData;
         id = nodeData.id;
         nodeData.abortController = null;
+        if (!nodeData.files) nodeData.files = [];
+        if (nodeData.filePayload && nodeData.files.length === 0) {
+            nodeData.files.push({
+                name: nodeData.fileName || 'File',
+                payload: nodeData.filePayload
+            });
+        }
         if (typeof erase_thoughts !== 'undefined' && erase_thoughts && nodeData.aiText) nodeData.aiThinking = "";
         nodes.push(nodeData);
     } else {
         nodeData = {
             id: undefined,
             type: type,
+            files: [],
             filePayload: null,
             fileName: null,
             userText: initialUserText,
@@ -104,7 +112,7 @@ function setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, rest
         nodes.push(nodeData);
     }
 
-    const isCollapsed = nodeData.groupId && groups[nodeData.groupId]?.isCollapsed;
+    const isCollapsed = nodeData.isCollapsed || (nodeData.groupId && groups[nodeData.groupId]?.isCollapsed);
     const el = document.createElement('div');
 
     el.className = `node turn-node ${isCollapsed ? 'collapsed-node' : ''}`;
@@ -112,6 +120,7 @@ function setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, rest
     el.id = id;
     el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
     if (nodeData.nodeWidth) el.style.width = `${nodeData.nodeWidth}px`;
+    el.style.zIndex = highestZIndex++;
 
     return { id, nodeData, el, isCollapsed };
 }
@@ -130,10 +139,11 @@ function attachBaseListeners(id, el, restoreData) {
         if (header) {
             header.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
-
+                el.style.zIndex = highestZIndex++;
+                
                 const startX = e.clientX;
                 const startY = e.clientY;
-                const nodeData = nodes.find(n => n.id === id);
+                const nodeData = nodes.find(n => n.id === el.id);
                 if (!nodeData) return;
 
                 const startNodeX = nodeData.x;
@@ -143,20 +153,25 @@ function attachBaseListeners(id, el, restoreData) {
                     const dx = (moveEvent.clientX - startX) / camera.zoom;
                     const dy = (moveEvent.clientY - startY) / camera.zoom;
 
-                    const snapX = Math.round((startNodeX + dx) / GRID_SIZE) * GRID_SIZE;
-                    const snapY = Math.round((startNodeY + dy) / GRID_SIZE) * GRID_SIZE;
+                    let targetX = startNodeX + dx;
+                    let targetY = startNodeY + dy;
 
-                    nodeData.x = snapX;
-                    nodeData.y = snapY;
+                    if (moveEvent.altKey) {
+                        targetX = Math.round(targetX / GRID_SIZE) * GRID_SIZE;
+                        targetY = Math.round(targetY / GRID_SIZE) * GRID_SIZE;
+                    }
 
-                    el.style.transform = `translate(${snapX}px, ${snapY}px)`;
-                    if(typeof drawEdges === 'function') drawEdges();
+                    nodeData.x = targetX;
+                    nodeData.y = targetY;
+
+                    el.style.transform = `translate(${targetX}px, ${targetY}px)`;
+                    if (typeof drawEdges === 'function') drawEdges();
                 }
 
                 function onMouseUp() {
                     window.removeEventListener('mousemove', onMouseMove);
                     window.removeEventListener('mouseup', onMouseUp);
-                    if(typeof saveState === 'function') saveState();
+                    if (typeof saveState === 'function') saveState();
                 }
 
                 window.addEventListener('mousemove', onMouseMove);
@@ -176,7 +191,7 @@ function attachBaseListeners(id, el, restoreData) {
 
             const startMouseX = e.clientX;
             const startWidth = el.offsetWidth;
-            const nodeData = nodes.find(n => n.id === id);
+            const nodeData = nodes.find(n => n.id === el.id);
             if (!nodeData) return;
             const startNodeX = nodeData.x;
 
@@ -193,14 +208,14 @@ function attachBaseListeners(id, el, restoreData) {
 
                 clearTimeout(layoutDebounceTimeout);
                 layoutDebounceTimeout = setTimeout(() => {
-                    if(typeof drawEdges === 'function') drawEdges();
+                    if (typeof drawEdges === 'function') drawEdges();
                 }, 15);
             }
 
             function onMouseUp() {
                 window.removeEventListener('mousemove', onMouseMove);
                 window.removeEventListener('mouseup', onMouseUp);
-                if(typeof saveState === 'function') saveState();
+                if (typeof saveState === 'function') saveState();
             }
 
             window.addEventListener('mousemove', onMouseMove);
@@ -247,6 +262,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
     el.classList.add('file-node');
 
     el.innerHTML = `
+        <div class="handle handle-in"></div>
         <div class="node-header">
             <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
             <div>
@@ -254,24 +270,44 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             </div>
         </div>
         
+        <div class="files-container" id="files_${id}"></div>
+
         <div class="file-dropzone" id="drop_${id}">
-            <div class="drop-text" style="${nodeData.filePayload ? 'display:none;' : ''}">
-                📥 Drag ${type === 'image' ? 'Image' : 'Document'} Here<br><small>(or click to browse)</small>
-            </div>
-            <img class="file-preview" id="preview_${id}" src="${type === 'image' && nodeData.filePayload ? nodeData.filePayload : ''}" style="${type === 'image' && nodeData.filePayload ? 'display:block;' : ''}" />
+            <div class="drop-text">Drag ${type === 'image' ? 'Image' : 'Document'}(s) Here<br><small>(or click to browse)</small></div>
             <input type="file" id="input_${id}" style="display: none;" multiple accept="${type === 'image' ? 'image/*' : '.txt,.js,.py,.html,.css,.json,.md,.csv,.log'}" />
         </div>
         
         <div class="handle handle-out"></div>
+        <button class="add-child-btn" title="Branch">+</button>
         <div class="resize-handle"></div>
     `;
 
     setTimeout(() => {
         const deleteBtn = el.querySelector('.delete-btn');
-        const dropzone = document.getElementById(`drop_${id}`);
-        const fileInput = document.getElementById(`input_${id}`);
-        const preview = document.getElementById(`preview_${id}`);
-        const dropText = el.querySelector('.drop-text');
+        const dropzone = el.querySelector('.file-dropzone');
+        const fileInput = el.querySelector('input[type="file"]');
+        const addBtn = el.querySelector('.add-child-btn');
+
+        addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            forkOffsetCounter += 1;
+
+            const data = nodes.find(n => n.id === el.id);
+            const bottomY = data.y + el.offsetHeight;
+            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
+
+            const childWidth = 336; // default chat node width
+            const parentWidth = el.offsetWidth;
+            const forkX = data.x + (parentWidth / 2) - (childWidth / 2);
+            const forkY = snappedBottomY + (GRID_SIZE * 3);
+
+            const existingChildren = nodes.filter(n => n.parentId === data.id);
+            const newTurn = data.turn + 1;
+            const newBranch = data.branch + existingChildren.length;
+            const newName = data.name;
+
+            createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
+        });
 
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -299,42 +335,54 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             if (e.dataTransfer.files.length) processMultipleFiles(e.dataTransfer.files);
         });
 
+        function renderFiles() {
+            const data = nodes.find(n => n.id === el.id);
+            if (!data) return;
+            const container = el.querySelector('.files-container');
+            if (!container) return;
+
+            container.innerHTML = '';
+
+            data.files.forEach((f, idx) => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+
+                if (data.type === 'image') {
+                    item.innerHTML = `
+                        <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px; border-radius: 8px;" />
+                        <a class="remove-file-btn" data-idx="${idx}">✖</a>
+                    `;
+                } else {
+                    item.innerHTML = `📄 ${f.name} <a class="remove-file-btn" data-idx="${idx}">✖</a>`;
+                }
+
+                container.appendChild(item);
+            });
+
+            container.querySelectorAll('.remove-file-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const idx = parseInt(btn.getAttribute('data-idx'));
+                    data.files.splice(idx, 1);
+                    renderFiles();
+                    if (typeof saveState === 'function') saveState();
+                });
+            });
+
+            if (typeof drawGroups === 'function') drawGroups();
+            if (typeof drawEdges === 'function') drawEdges();
+        }
+
         function processMultipleFiles(fileList) {
             const data = nodes.find(n => n.id === el.id);
             if (!data) return;
-
             const files = Array.from(fileList);
-            if (files.length === 0) return;
-
-            processFile(files[0], data, el, dropText, preview);
-
-            for (let i = 1; i < files.length; i++) {
-                const newX = data.x + (i * 360);
-                const newId = createNode(data.parentId, newX, data.y, '', data.turn, data.branch + i, data.name + `_file_${i}`, null, data.type);
-
-                setTimeout(() => {
-                    const newEl = document.getElementById(newId);
-                    const newData = nodes.find(n => n.id === newId);
-                    if (!newEl || !newData) return;
-
-                    const newDropText = newEl.querySelector('.drop-text');
-                    const newPreview = document.getElementById(`preview_${newId}`);
-                    processFile(files[i], newData, newEl, newDropText, newPreview);
-                }, 50);
-            }
+            files.forEach(f => processFile(f, data));
         }
 
-        function processFile(file, targetData = null, targetEl = null, targetDropText = null, targetPreview = null) {
-            const data = nodes.find(n => n.id === el.id);
-            targetData = targetData || data;
-            targetEl = targetEl || el;
-            targetDropText = targetDropText || dropText;
-            targetPreview = targetPreview || preview;
-
-            if (!targetData) return;
-
-            const isImageNode = targetData.type === 'image';
-
+        function processFile(file, data) {
+            if (!data) return;
+            const isImageNode = data.type === 'image';
             if (isImageNode && !file.type.startsWith('image/')) {
                 alert("Please upload an image file for this node.");
                 return;
@@ -342,24 +390,12 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
 
             const reader = new FileReader();
             reader.onload = (e) => {
-                const result = e.target.result;
-
-                if (targetData) {
-                    targetData.filePayload = result;
-                    targetData.fileName = file.name;
-                }
-
-                targetDropText.style.display = 'none';
-                if (isImageNode) {
-                    targetPreview.src = result;
-                    targetPreview.style.display = 'block';
-                } else {
-                    targetPreview.style.display = 'none';
-                    targetDropText.innerHTML = `📄 ${file.name}<br><small>(${Math.round(file.size / 1024)} KB)</small>`;
-                    targetDropText.style.display = 'block';
-                }
-
-                if(typeof saveState === 'function') saveState();
+                data.files.push({
+                    name: file.name,
+                    payload: e.target.result
+                });
+                renderFiles();
+                if (typeof saveState === 'function') saveState();
             };
 
             if (isImageNode) {
@@ -370,8 +406,10 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
         }
 
         el.addEventListener('click', (e) => {
-            if (!e.target.closest('input')) selectNode(el.id, e.shiftKey);
+            if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(el.id, e.shiftKey);
         });
+
+        renderFiles();
     }, 0);
 
     attachBaseListeners(id, el, restoreData);
@@ -390,7 +428,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
     const isEditable = restoreData && nodeData.aiText ? 'false' : 'true';
 
     el.innerHTML = `
-        <div class="handle handle-in ${nodeData.parentId ? '' : 'hidden'}"></div>
+        <div class="handle handle-in"></div>
         <div class="node-header">
             <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
             <div>
@@ -408,7 +446,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
         </div>
         <div class="ai-section">
             <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking.trim() == '' ? 'Thinking...' : nodeData.aiThinking}</div>
-            <div class="ai-content">${nodeData.aiText}</div>
+            <div class="ai-content">${nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText) : ''}</div>
         </div>
         <div class="node-summary-display">${nodeData.summaryText || ''}</div>
         <div class="handle handle-out"></div>
@@ -433,7 +471,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
         });
 
         runBtn.addEventListener('click', () => {
-            if(typeof runUserNode === 'function') runUserNode(el.id);
+            if (typeof runUserNode === 'function') runUserNode(el.id);
         });
 
         textarea.addEventListener('focus', () => {
@@ -443,7 +481,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
         textarea.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                if(typeof runUserNode === 'function') runUserNode(el.id);
+                if (typeof runUserNode === 'function') runUserNode(el.id);
             }
         });
 
@@ -501,7 +539,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             if (!nodeData) return;
             const chips = Array.from(textarea.querySelectorAll('.reference-node'));
             nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
-            if(typeof drawEdges === 'function') drawEdges();
+            if (typeof drawEdges === 'function') drawEdges();
         });
 
         addBtn.addEventListener('click', (e) => {
@@ -512,7 +550,9 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             const bottomY = data.y + el.offsetHeight;
             const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
 
-            const forkX = data.x;
+            const childWidth = 336; // default chat node width
+            const parentWidth = el.offsetWidth;
+            const forkX = data.x + (parentWidth / 2) - (childWidth / 2);
             const forkY = snappedBottomY + (GRID_SIZE * 3);
 
             const existingChildren = nodes.filter(n => n.parentId === data.id);
@@ -594,7 +634,7 @@ function deleteNode(nodeId, deleteBranch) {
             createNode();
         }, 20);
     }
-    
+
     if (typeof saveState === 'function') saveState();
 }
 
@@ -605,6 +645,9 @@ function deleteNode(nodeId, deleteBranch) {
  * @param {boolean} isShiftClick - True if the shift key is held during selection.
  */
 function selectNode(id, isShiftClick = false) {
+    const el = document.getElementById(id);
+    if (el) el.style.zIndex = highestZIndex++;
+
     if (isShiftClick && activeNodeId && activeNodeId !== id) {
         const path = getLineagePath(activeNodeId, id);
 
@@ -634,8 +677,8 @@ function selectNode(id, isShiftClick = false) {
         el.classList.toggle('multi-selected', selectedNodes.size > 1 && selectedNodes.has(el.id));
     });
 
-    if(typeof drawEdges === 'function') drawEdges(lineage);
-    if(typeof updateThermometer === 'function') updateThermometer(activeNodeId);
+    if (typeof drawEdges === 'function') drawEdges(lineage);
+    if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
 }
 
 /**
@@ -694,12 +737,12 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         const refData = nodes.find(n => n.id === refId);
         if (!refData) return;
 
-        if (refData.type === 'image' && refData.filePayload !== null && refData.filePayload !== undefined) {
-            chipLabel = `🖼️ ${refData.fileName || refId}`;
-            refText = `[IMAGE_ATTACHED: ${refData.fileName || refId}]`;
-        } else if (refData.type === 'document' && refData.filePayload !== null && refData.filePayload !== undefined) {
-            chipLabel = `📄 ${refData.fileName || refId}`;
-            refText = `[DOCUMENT_ATTACHED: ${refData.fileName || refId}]`;
+        if (refData.type === 'image' && refData.files && refData.files.length > 0) {
+            chipLabel = `🖼️ ${refData.files.map(f => f.name).join(', ')}`;
+            refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
+        } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
+            chipLabel = `📄 ${refData.files.map(f => f.name).join(', ')}`;
+            refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
             chipLabel = `Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
@@ -752,7 +795,7 @@ function handleIdClick(event, id, isGroup = false) {
         event.stopPropagation();
         insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
     } else {
-        if(typeof copy_text === 'function') copy_text(isGroup ? groups[id].name : id);
+        if (typeof copy_text === 'function') copy_text(isGroup ? groups[id].name : id);
     }
 }
 

@@ -148,20 +148,16 @@ html {
 }
 
 .node-header {
-    /* padding: 8px 12px; */
-    /* background: #252525; */
     border-bottom: 1px solid #333;
     font-size: 12px;
     font-weight: bold;
     cursor: default;
-    /* border-top-left-radius: 7px; */
-    border-top-right-radius: 7px;
+    /* border-top-right-radius: 7px; */
     color: #aaa;
     display: flex;
     justify-content: space-between;
     padding: 8px;
     background: #111;
-    border-radius: 8px 8px 0 0;
 
     .node-id {
         cursor: copy;
@@ -277,9 +273,10 @@ html {
     max-height: 100px;
     min-height: 0px;
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
     height: fit-content;
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
 /* If the thinking div is empty, don't show the border/margin */
@@ -289,9 +286,8 @@ html {
 
 .turn-node {
     width: 336px;
-    background: #1e1e24;
+    background: #25252D;
     border: 1px solid #333;
-    border-radius: 8px;
     display: flex;
     flex-direction: column;
     position: absolute;
@@ -383,6 +379,16 @@ html {
 
 .duplicate-btn:hover {
     filter: grayscale(0);
+}
+
+.think-content {
+    max-height: 200px;
+    overflow-y: auto;
+    scrollbar-width: none; /* Firefox */
+}
+
+.think-content::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Edge */
 }
 
 .hidden {
@@ -512,7 +518,7 @@ div[contentEditable='true'] {
 .group-container {
     position: absolute;
     background: rgba(30, 30, 46, 0.6);
-    border: 2px dashed #6272a4;
+    border: 2px dashed #555555;
     border-radius: 12px;
     pointer-events: none;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -527,7 +533,6 @@ div[contentEditable='true'] {
     font-size: 14px;
     font-weight: bold;
     pointer-events: auto;
-    /* Allow clicking the summarize button */
     display: flex;
     gap: 12px;
     align-items: center;
@@ -553,7 +558,7 @@ div[contentEditable='true'] {
     cursor: ew-resize;
     z-index: 20;
     background: linear-gradient(135deg, transparent 50%, #6272a4 50%);
-    border-bottom-right-radius: 8px;
+    /* border-bottom-right-radius: 8px; */
 }
 
 .node.collapsed-node .user-section,
@@ -576,14 +581,7 @@ div[contentEditable='true'] {
 }
 
 .node.file-node {
-    background-color: rgba(30, 41, 59, 0.9);
-    /* Dark slate */
-    border: 2px solid #38bdf8;
-    /* Glowing blue/teal */
-    border-radius: 24px;
-    /* Pill shape */
     min-width: 260px;
-    box-shadow: 0 0 15px rgba(56, 189, 248, 0.15);
 }
 
 .file-dropzone {
@@ -591,7 +589,7 @@ div[contentEditable='true'] {
     padding: 24px 10px;
     text-align: center;
     color: #94a3b8;
-    border: 2px dashed #475569;
+    border: 2px dashed #555555;
     border-radius: 16px;
     transition: all 0.2s ease;
     cursor: pointer;
@@ -602,8 +600,24 @@ div[contentEditable='true'] {
 }
 
 .file-dropzone:hover {
-    border-color: #38bdf8;
+    border-color: #8F8F8F;
     background: rgba(56, 189, 248, 0.05);
+}
+
+.file-item {
+    color: #94a3b8;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-item .remove-file-btn {
+    position: absolute;
+    top: 5px;
+    right: 10px;
+    cursor: pointer;
+    color: #ff5555;
+    font-size: 12px;
 }
 
 .file-dropzone.dragover {
@@ -639,6 +653,7 @@ div[contentEditable='true'] {
     align-items: center;
     gap: 5px;
     padding-top: 50px;
+
     button {
         width: 90%;
         aspect-ratio: 1/1;
@@ -649,11 +664,13 @@ div[contentEditable='true'] {
         border-radius: 4px;
         cursor: pointer;
         font-weight: bold;
-    } 
+    }
+
     button:hover {
         background-color: rgba(178, 212, 226, 0.05);
     }
 }
+
 #sidebar-toggle {
     position: fixed;
     top: 3px;
@@ -672,6 +689,105 @@ div[contentEditable='true'] {
     justify-content: center;
     cursor: pointer;
 }
+
 .sidebar-main {
     width: 100%;
+}
+
+/* Markdown Styles */
+.ai-content p,
+.think-content p {
+    margin: 0 0 10px 0;
+}
+
+.ai-content p:last-child,
+.think-content p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-content pre,
+.think-content pre {
+    background: #1e1e1e;
+    padding: 10px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 10px 0;
+}
+
+.ai-content code,
+.think-content code {
+    font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+    background: #1e1e1e;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
+}
+
+.ai-content pre code,
+.think-content pre code {
+    background: transparent;
+    padding: 0;
+    font-size: 0.95em;
+}
+
+.ai-content ul,
+.ai-content ol,
+.think-content ul,
+.think-content ol {
+    margin: 0 0 10px 20px;
+    padding: 0;
+}
+
+.ai-content blockquote,
+.think-content blockquote {
+    border-left: 4px solid #444;
+    margin: 10px 0;
+    padding-left: 10px;
+    color: #bbb;
+}
+
+.ai-content table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.ai-content th,
+.ai-content td {
+    border: 1px solid #444;
+    padding: 6px;
+    text-align: left;
+}
+
+.ai-content th {
+    background: #252525;
+}
+
+.alt-key {
+    text-decoration: underline;
+}
+
+/* Collapsed Node State */
+.node.collapsed-node .user-section,
+.node.collapsed-node .ai-section,
+.node.collapsed-node .file-dropzone {
+    display: none !important;
+}
+
+.node.collapsed-node .node-summary-display {
+    display: block;
+}
+
+.node:not(.collapsed-node) .node-summary-display {
+    display: none;
+}
+
+.node-summary-display {
+    padding: 10px;
+    font-style: italic;
+    color: #aaa;
+    white-space: pre-wrap;
+    background: #252525;
+    border-radius: 4px;
+    margin-top: 5px;
 }

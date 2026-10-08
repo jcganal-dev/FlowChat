@@ -16,8 +16,17 @@ function walkContext(leafNodeId) {
                 history.push({ role: 'system', content: `[COMPRESSED HISTORY]: ${node.summaryText}` });
             }
         } else if (!node.muted) {
-            if (node.aiText) history.push({ role: 'assistant', content: node.aiText });
-            if (node.userText) history.push({ role: 'user', content: node.userText });
+            if (node.type === 'document' && (node.files && node.files.length > 0)) {
+                node.files.forEach(f => {
+                    history.push({ role: 'system', content: `[DOCUMENT ATTACHED: ${f.name || 'Document'}]\n${f.payload}` });
+                });
+            } else if (node.type === 'image' && (node.files && node.files.length > 0)) {
+                const images = node.files.map(f => ({ type: "image_url", image_url: { url: f.payload } }));
+                history.push({ role: 'user', content: images });
+            } else {
+                if (node.aiText) history.push({ role: 'assistant', content: node.aiText });
+                if (node.userText) history.push({ role: 'user', content: node.userText });
+            }
         }
         currentId = node.parentId;
     }
@@ -106,16 +115,17 @@ async function runUserNode(nodeId) {
         refs.forEach(rId => {
             const rNode = nodes.find(n => n.id === rId);
             if (rNode) {
-                if (rNode.type === 'image' && rNode.filePayload) {
+                if (rNode.type === 'image' && (rNode.files && rNode.files.length > 0)) {
                     hasImageRefs = true;
-                    imageContents.push({
-                        type: "image_url",
-                        image_url: { url: rNode.filePayload }
+                    rNode.files.forEach(f => {
+                        imageContents.push({ type: "image_url", image_url: { url: f.payload } });
                     });
-                } else if (rNode.type === 'document' && rNode.filePayload) {
+                } else if (rNode.type === 'document' && (rNode.files && rNode.files.length > 0)) {
                     hasTextRefs = true;
-                    systemDirectives += `\n[DOCUMENT ATTACHED: ${rNode.fileName}]\n${rNode.filePayload}\n`;
-                } else {
+                    rNode.files.forEach(f => {
+                        systemDirectives += `\n[DOCUMENT ATTACHED: ${f.name}]\n${f.payload}\n`;
+                    });
+                } else if (rNode.type === 'chat' || !rNode.type) {
                     hasTextRefs = true;
                     systemDirectives += `\nRule: ${rNode.userText}\nStatus: ${rNode.aiText}\n`;
                 }
@@ -161,15 +171,24 @@ async function runUserNode(nodeId) {
                 }
                 erased_thoughts = true;
             }
-            aiContentEl.innerHTML += content;
             nodeData.aiText += content;
+            if (typeof renderMarkdown === 'function') {
+                aiContentEl.innerHTML = renderMarkdown(nodeData.aiText);
+            } else {
+                aiContentEl.innerHTML += content;
+            }
             if (typeof drawEdges === 'function') drawEdges();
             updateThermometer(nodeId);
         },
         onReasoning: (reasoning) => {
             aiThinkEl.style.display = "flex";
-            aiThinkEl.innerHTML += reasoning;
             nodeData.aiThinking += reasoning;
+            if (typeof renderMarkdown === 'function') {
+                aiThinkEl.innerHTML = renderMarkdown(nodeData.aiThinking);
+            } else {
+                aiThinkEl.innerHTML += reasoning;
+            }
+            aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
             if (typeof drawEdges === 'function') drawEdges();
             updateThermometer(nodeId);
         },
@@ -247,6 +266,7 @@ async function triggerSummarize(groupId) {
                 n.isCollapsed = true;
                 const el = document.getElementById(n.id);
                 if (el) {
+                    el.classList.add('collapsed-node');
                     const sumEl = el.querySelector('.node-summary-display');
                     if (sumEl) sumEl.textContent = n.summaryText;
 
@@ -310,9 +330,9 @@ async function triggerSingleSummarize(nodeId) {
             node.isCollapsed = true;
 
             if (el) {
+                el.classList.add('collapsed-node');
                 if (sumEl) {
                     sumEl.textContent = node.summaryText;
-                    sumEl.style.display = ''; 
                 }
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
@@ -340,6 +360,7 @@ function toggleGroupState(groupId) {
             n.isCollapsed = group.isCollapsed;
             const el = document.getElementById(n.id);
             if (el) {
+                el.classList.toggle('collapsed-node', n.isCollapsed);
                 const btn = el.querySelector('.toggle-btn');
                 if (btn) btn.textContent = n.isCollapsed ? '🔍' : '📂';
             }
@@ -362,6 +383,7 @@ function toggleNodeState(nodeId) {
 
     const el = document.getElementById(nodeId);
     if (el) {
+        el.classList.toggle('collapsed-node', node.isCollapsed);
         const btn = el.querySelector('.toggle-btn');
         if (btn) btn.textContent = node.isCollapsed ? '🔍' : '📂';
     }

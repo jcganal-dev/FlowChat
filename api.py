@@ -125,11 +125,11 @@ async def chat_endpoint(user_data: ChatPayload):
         "messages": user_data.messages,
         "include_reasoning": True,
         # "max_tokens": user_data.max_tokens,
-        "temperature": 0.2,
-        "repetition_penalty": 1.15,
-        "frequency_penalty": 0.3,
-        "presence_penalty": 0.2,
-        "top_k": 80,
+        # "temperature": 0.2,
+        # "repetition_penalty": 1.15,
+        # "frequency_penalty": 0.3,
+        # "presence_penalty": 0.2,
+        # "top_k": 80,
         "stream": True
     }
 
