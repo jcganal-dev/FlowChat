@@ -32,6 +32,7 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-add-node">Add Chat Node</div>
     <div class="context-item" id="menu-add-image">Add Image Node</div>
     <div class="context-item" id="menu-add-file">Add Document Node</div>
+    <div class="context-item" id="menu-open-palette">Open Sandbox Files</div>
     <div class="context-item" id="menu-rename-node">Rename Node</div>
     <div class="context-item" id="menu-rename">Rename Branch</div>
     <div class="context-item" id="menu-summarize">Summarize Node</div>

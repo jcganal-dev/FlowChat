@@ -12,28 +12,28 @@
 </head>
 
 <body>
-    <button id="sidebar-toggle" onclick="toggleSidebar()">≡</button>
-    <div id="sidebar" class="sidebar no-select">
-        <div class="sidebar-left">
-            <button id="center-btn" onclick="centerCanvas()" title="Pan to the last active node"><span
-                    class="alt-key">H</span></button>
-            <button id="auto-layout-btn" onclick="autoLayout()" title="Autolayout">A<span
-                    class="alt-key">L</span></button>
-            <button onclick="wipeState()" class="wipe-btn"><span class="alt-key"
-                    title="Wipe entire canvas">W</span></button>
-        </div>
-        <div class="sidebar-main">
-            <div class="sidebar-header">
-                <h3>Project Files</h3>
+    <div id="toolbar-left" class="toolbar-left no-select hidden">
+        <button id="center-btn" onclick="centerCanvas()" title="Pan to the last active node"><span
+                class="alt-key">H</span></button>
+        <button id="auto-layout-btn" onclick="autoLayout()" title="Autolayout">A<span class="alt-key">L</span></button>
+        <button onclick="wipeState()" class="wipe-btn"><span class="alt-key"
+                title="Wipe entire canvas">W</span></button>
+    </div>
+
+    <!-- Floating Sandbox Palette -->
+    <div id="sandbox-palette" class="sandbox-palette no-select" style="display: none;">
+        <div class="palette-header" id="sandbox-palette-header">
+            <h3>Project Files</h3>
+            <div class="header-actions">
                 <button id="upload-btn" onclick="document.getElementById('sidebar-file-input').click()">Upload</button>
                 <input type="file" id="sidebar-file-input" style="display: none;" multiple
                     onchange="uploadSandboxFiles(event)">
+                <button id="close-palette-btn"
+                    onclick="document.getElementById('sandbox-palette').style.display='none'">✖</button>
             </div>
-            <div id="file-tree" class="file-tree"></div>
         </div>
+        <div id="file-tree" class="file-tree"></div>
     </div>
-
-    <div id="sidebar-resizer"></div>
 
     <div id="viewport">
         <div id="nodes-layer">

@@ -102,6 +102,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-node').style.display = 'none';
         document.getElementById('menu-add-image').style.display = 'none';
         document.getElementById('menu-add-file').style.display = 'none';
+        document.getElementById('menu-open-palette').style.display = 'none';
         document.getElementById('menu-rename').style.display = 'block';
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
@@ -120,6 +121,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-node').style.display = 'block';
         document.getElementById('menu-add-image').style.display = 'block';
         document.getElementById('menu-add-file').style.display = 'block';
+        document.getElementById('menu-open-palette').style.display = 'block';
         document.getElementById('menu-rename').style.display = 'none';
         document.getElementById('menu-rename-node').style.display = 'none';
         document.getElementById('menu-group').style.display = 'none';
@@ -134,6 +136,14 @@ window.addEventListener('contextmenu', (e) => {
         contextMenu.style.left = `${e.clientX}px`;
         contextMenu.style.top = `${e.clientY}px`;
     }
+});
+
+$('menu-open-palette').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    const palette = document.getElementById('sandbox-palette');
+    palette.style.display = 'flex';
+    palette.style.left = contextMenu.style.left;
+    palette.style.top = contextMenu.style.top;
 });
 
 $('menu-add-node').addEventListener('click', () => {
