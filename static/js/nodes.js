@@ -811,7 +811,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     let chipLabel = '';
 
     if (isGroup) {
-        if (!groups[refId]) return;
+        if (!groups[refId]) return false;
         const groupObj = groups[refId];
         const gNodes = nodes.filter(n => n.groupId === refId);
 
@@ -831,10 +831,10 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             });
         }
 
-        if (!refText) return;
+        if (!refText) return false;
     } else {
         const refData = nodes.find(n => n.id === refId);
-        if (!refData) return;
+        if (!refData) return false;
 
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
             chipLabel = `🖼️ ${refData.files.map(f => f.name).join(', ')}`;
@@ -846,7 +846,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             chipLabel = `Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else {
-            if (!refData.aiText || refData.aiText.trim() === '') return;
+            if (!refData.aiText || refData.aiText.trim() === '') return false;
             chipLabel = `${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         }
@@ -881,6 +881,8 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     lastSelectionRange = range.cloneRange();
     textarea.dispatchEvent(new Event('input'));
     textarea.focus();
+    
+    return true;
 }
 
 /**
@@ -890,9 +892,18 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
  * @param {boolean} isGroup - True if the ID belongs to a group.
  */
 function handleIdClick(event, id, isGroup = false) {
-    if (event.shiftKey && lastFocusedInput && lastSelectionRange) {
-        event.stopPropagation();
-        insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
+    if (event.shiftKey) {
+        let inserted = false;
+        if (lastFocusedInput && lastSelectionRange) {
+            inserted = insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
+        }
+        
+        if (inserted) {
+            event.stopPropagation();
+        }
+        // If not inserted, we intentionally do nothing and do NOT stop propagation.
+        // This lets the click event bubble up to `.node` which will naturally trigger
+        // lineage selection via `selectNode(el.id, e.shiftKey)`.
     } else {
         if (typeof copy_text === 'function') copy_text(isGroup ? groups[id].name : id);
     }

@@ -22,6 +22,13 @@ let lastFocusedInput = null;
 let lastSelectionRange = null;
 let virtualFileNodes = {};
 
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Shift') document.body.classList.add('shift-pressed');
+});
+window.addEventListener('keyup', (e) => {
+    if (e.key === 'Shift') document.body.classList.remove('shift-pressed');
+});
+
 const viewport = $('viewport');
 const nodesLayer = $('nodes-layer');
 const edgesLayer = $('edges-layer');

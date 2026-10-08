@@ -258,12 +258,13 @@ html {
     box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
     pointer-events: auto;
     /* Re-enable pointer events for clicking */
-    user-select: none;
+    /* user-select: none; */
     resize: horizontal;
     /* overflow: hidden;  */
     min-width: 300px;
     /* Prevent crushing it too small */
     max-width: 1200px;
+    cursor: auto;
     /* Prevent stretching it into infinity */
 }
 
@@ -276,7 +277,7 @@ html {
     border-bottom: 1px solid #333;
     font-size: 12px;
     font-weight: bold;
-    cursor: default;
+    cursor: grab;
     /* border-top-right-radius: 7px; */
     color: #aaa;
     display: flex;
@@ -285,9 +286,13 @@ html {
     background: #111;
 
     .node-id {
-        cursor: copy;
+        cursor: grab;
         width: 80%;
     }
+}
+
+body.shift-pressed .node-id {
+    cursor: copy !important;
 }
 
 .node-content {
@@ -935,7 +940,6 @@ div[contentEditable='true'] {
     padding: 0;
     cursor: pointer;
     border-radius: 4px;
-    margin-right: 8px;
     display: inline-block;
     vertical-align: middle;
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
@@ -943,4 +947,8 @@ div[contentEditable='true'] {
 
 .group-color-proxy:hover {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
+}
+
+a {
+    user-select: none;
 }

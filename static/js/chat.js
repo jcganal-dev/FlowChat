@@ -74,14 +74,14 @@ async function runUserNode(nodeId) {
     const textarea = nodeEl.querySelector('.node-input');
     const usertext = textarea.textContent.trim();
     if (!usertext) return;
-    const text = `[System Reminder] 1. Do not overthing, determine the task, immidiately stop thinking after you arrive at an answer. [End System Reminder] ${usertext}`;
+    
     const nodeData = nodes.find(n => n.id === nodeId);
 
     const chips = Array.from(nodeEl.querySelectorAll('.reference-node'));
     const refs = chips.map(chip => chip.getAttribute('data-ref')).filter(id => id);
     nodeData.references = refs;
 
-    nodeData.userText = text;
+    nodeData.userText = usertext;
     nodeData.aiText = "";
     nodeData.aiThinking = "";
 
@@ -159,6 +159,19 @@ async function runUserNode(nodeId) {
     textarea.style.color = "#eee";
 
     let erased_thoughts = false;
+
+    // Dynamically inject the system reminder into the final user message for the API call only
+    if (history.length > 0) {
+        const lastMsg = history[history.length - 1];
+        if (lastMsg.role === 'user') {
+            const reminderText = "[System Reminder] 1. Do not overthing, determine the task, immidiately stop thinking after you arrive at an answer. [End System Reminder]\n";
+            if (typeof lastMsg.content === 'string') {
+                lastMsg.content = reminderText + lastMsg.content;
+            } else if (Array.isArray(lastMsg.content) && lastMsg.content.length > 0 && lastMsg.content[0].type === 'text') {
+                lastMsg.content[0].text = reminderText + lastMsg.content[0].text;
+            }
+        }
+    }
 
     const payload = { messages: history, max_tokens: 1000 };
 

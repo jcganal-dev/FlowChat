@@ -214,7 +214,7 @@ function drawGroups() {
                 <div class="group-color-proxy" style="background-color: ${group.color || '#a0a0a0'};" onclick="this.nextElementSibling.click()"></div>
                 <input type="color" class="group-color-picker" value="${group.color || '#a0a0a0'}" 
                     onchange="changeGroupColor('${group.id}', this.value)" style="display: none;">
-                <span class="node-id" style="color: ${group.color || '#a0a0a0'}; cursor:copy;" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
+                <span class="node-id" style="color: ${group.color || '#a0a0a0'};" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
                 ${btnHtml}
             </div>
         `;
