@@ -295,7 +295,9 @@ async function triggerSummarize(groupId) {
             });
 
             group.isCollapsed = true;
+            if (typeof drawGroups === 'function') drawGroups();
             updateThermometer(activeNodeId);
+            if (typeof saveState === 'function') saveState();
         }
     });
 }
@@ -385,6 +387,7 @@ function toggleGroupState(groupId) {
 
     if (typeof drawGroups === 'function') drawGroups();
     updateThermometer(activeNodeId);
+    if (typeof saveState === 'function') saveState();
 }
 
 /**
@@ -406,4 +409,5 @@ function toggleNodeState(nodeId) {
 
     if (typeof drawGroups === 'function') drawGroups();
     updateThermometer(activeNodeId);
+    if (typeof saveState === 'function') saveState();
 }

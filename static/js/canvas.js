@@ -88,14 +88,14 @@ viewport.addEventListener('drop', async (e) => {
     e.preventDefault();
     const rawData = e.dataTransfer.getData('text/plain');
     if (!rawData) return;
-    
+
     let filepaths = [];
     try {
         filepaths = JSON.parse(rawData);
     } catch (err) {
         filepaths = [rawData];
     }
-    
+
     if (!Array.isArray(filepaths) || filepaths.length === 0) return;
 
     const rect = viewport.getBoundingClientRect();
@@ -110,7 +110,7 @@ viewport.addEventListener('drop', async (e) => {
         const virtualId = 'sandbox/' + filepath;
         let payload = null;
         let nodeData = nodes.find(n => n.id === virtualId);
-        
+
         if (nodeData && nodeData.files && nodeData.files.length > 0) {
             payload = nodeData.files[0].payload;
         } else {
@@ -169,7 +169,7 @@ viewport.addEventListener('drop', async (e) => {
         const isFirstImage = filesData[0].name.match(/\.(png|jpg|jpeg|gif|webp)$/i);
         const type = isFirstImage ? 'image' : 'document';
         const title = filesData.length > 1 ? `${filesData.length} files` : filesData[0].name.replace(/\W+/g, '_');
-        
+
         const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, type);
         const newNode = nodes.find(n => n.id === newId);
         if (newNode) {
@@ -343,24 +343,24 @@ window.changeGroupColor = function (groupId, color, save = true) {
         groupNodes.forEach(n => {
             const el = document.getElementById(n.id);
             if (el) {
-                let colorIndicator = el.querySelector('.node-group-color');
-                if (!colorIndicator) {
-                    const nodeIdEl = el.querySelector('.node-id');
-                    if (nodeIdEl) {
-                        colorIndicator = document.createElement('span');
-                        colorIndicator.className = 'node-group-color';
-                        colorIndicator.style.display = 'inline-block';
-                        colorIndicator.style.width = '12px';
-                        colorIndicator.style.height = '12px';
-                        colorIndicator.style.borderRadius = '3px';
-                        colorIndicator.style.marginRight = '6px';
-                        colorIndicator.style.verticalAlign = 'middle';
-                        nodeIdEl.parentNode.insertBefore(colorIndicator, nodeIdEl);
-                    }
-                }
-                if (colorIndicator) {
-                    colorIndicator.style.backgroundColor = color;
-                }
+                // let colorIndicator = el.querySelector('.node-group-color');
+                // if (!colorIndicator) {
+                //     const nodeIdEl = el.querySelector('.node-id');
+                //     if (nodeIdEl) {
+                //         colorIndicator = document.createElement('span');
+                //         colorIndicator.className = 'node-group-color';
+                //         colorIndicator.style.display = 'inline-block';
+                //         colorIndicator.style.width = '12px';
+                //         colorIndicator.style.height = '12px';
+                //         colorIndicator.style.borderRadius = '3px';
+                //         colorIndicator.style.marginRight = '6px';
+                //         colorIndicator.style.verticalAlign = 'middle';
+                //         nodeIdEl.parentNode.insertBefore(colorIndicator, nodeIdEl);
+                //     }
+                // }
+                // if (colorIndicator) {
+                //     colorIndicator.style.backgroundColor = color;
+                // }
                 const nodeIdEl = el.querySelector('.node-id');
                 if (nodeIdEl) {
                     nodeIdEl.style.color = color;

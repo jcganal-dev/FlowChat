@@ -112,7 +112,7 @@ function setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, rest
         nodes.push(nodeData);
     }
 
-    const isCollapsed = nodeData.isCollapsed || (nodeData.groupId && groups[nodeData.groupId]?.isCollapsed);
+    const isCollapsed = nodeData.isCollapsed;
     const el = document.createElement('div');
 
     el.className = `node turn-node ${isCollapsed ? 'collapsed-node' : ''}`;
