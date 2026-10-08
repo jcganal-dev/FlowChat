@@ -44,6 +44,23 @@
         </div>
     </div>
 
+    <!-- Custom Popup Modal -->
+    <div id="custom-modal" class="custom-modal" style="display: none;">
+        <div class="custom-modal-content">
+            <h3 id="custom-modal-title">Alert</h3>
+            <p id="custom-modal-message"></p>
+            <div id="custom-modal-input-container" style="display: none; align-items: center; gap: 8px;">
+                <div id="custom-modal-color-proxy" class="group-color-proxy" style="background-color: #a0a0a0; display: none;" onclick="this.nextElementSibling.click()"></div>
+                <input type="color" id="custom-modal-color" style="display: none;" value="#a0a0a0" onchange="this.previousElementSibling.style.backgroundColor = this.value">
+                <input type="text" id="custom-modal-input" class="modal-input" style="flex: 1;" />
+            </div>
+            <div class="custom-modal-actions">
+                <button id="custom-modal-cancel" class="modal-btn secondary" style="display: none;">Cancel</button>
+                <button id="custom-modal-confirm" class="modal-btn primary">OK</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 
 </html>

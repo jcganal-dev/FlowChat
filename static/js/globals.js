@@ -100,3 +100,90 @@ function renderMarkdown(text) {
     }
     return text;
 }
+
+window.showModal = function (title, message, isConfirm = false, isPrompt = false, defaultValue = '', showColor = false, defaultColor = '#a0a0a0') {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('custom-modal');
+        const titleEl = document.getElementById('custom-modal-title');
+        const messageEl = document.getElementById('custom-modal-message');
+        const cancelBtn = document.getElementById('custom-modal-cancel');
+        const confirmBtn = document.getElementById('custom-modal-confirm');
+
+        const inputContainer = document.getElementById('custom-modal-input-container');
+        const inputEl = document.getElementById('custom-modal-input');
+        const colorProxy = document.getElementById('custom-modal-color-proxy');
+        const colorInput = document.getElementById('custom-modal-color');
+
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+
+        if (isPrompt) {
+            inputContainer.style.display = 'flex';
+            inputEl.style.display = 'block';
+            inputEl.value = defaultValue;
+            
+            if (showColor) {
+                colorProxy.style.display = 'inline-block';
+                colorProxy.style.backgroundColor = defaultColor;
+                colorInput.value = defaultColor;
+            } else {
+                colorProxy.style.display = 'none';
+            }
+            
+            inputEl.focus();
+        } else {
+            inputContainer.style.display = 'none';
+        }
+
+        if (isConfirm || isPrompt) {
+            cancelBtn.style.display = 'inline-block';
+        } else {
+            cancelBtn.style.display = 'none';
+        }
+
+        modal.style.display = 'flex';
+
+        function cleanup() {
+            modal.style.display = 'none';
+            confirmBtn.removeEventListener('click', onConfirm);
+            cancelBtn.removeEventListener('click', onCancel);
+        }
+
+        function onConfirm() {
+            cleanup();
+            if (isPrompt) {
+                if (showColor) {
+                    resolve({ name: inputEl.value, color: colorInput.value });
+                } else {
+                    resolve(inputEl.value);
+                }
+            } else {
+                resolve(true);
+            }
+        }
+
+        function onCancel() {
+            cleanup();
+            resolve(isPrompt ? null : false);
+        }
+
+        confirmBtn.addEventListener('click', onConfirm);
+        cancelBtn.addEventListener('click', onCancel);
+    });
+};
+
+window.customAlert = function (message) {
+    showModal('Alert', message, false, false);
+};
+
+window.customConfirm = function (message) {
+    return showModal('Confirm', message, true, false);
+};
+
+window.customPrompt = function (message, defaultValue = '') {
+    return showModal('Prompt', message, true, true, defaultValue);
+};
+
+window.customGroupPrompt = function(message, defaultValue = '', defaultColor = '#a0a0a0') {
+    return showModal('Group Settings', message, true, true, defaultValue, true, defaultColor);
+};

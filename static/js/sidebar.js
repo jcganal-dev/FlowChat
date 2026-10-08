@@ -22,12 +22,12 @@ document.getElementById('menu-delete-sandbox-file').addEventListener('click', as
     sandboxContextMenu.style.display = 'none';
     if (!targetSandboxFile) return;
     
-    if (confirm(`Are you sure you want to delete ${targetSandboxFile}?`)) {
+    if (await window.customConfirm(`Are you sure you want to delete ${targetSandboxFile}?`)) {
         const success = await apiDeleteSandboxFile(targetSandboxFile);
         if (success) {
             fetchSandboxFiles();
         } else {
-            alert('Failed to delete file.');
+            window.customAlert('Failed to delete file.');
         }
     }
 });
@@ -97,7 +97,7 @@ async function uploadSandboxFiles(event) {
     if (success) {
         fetchSandboxFiles();
     } else {
-        alert('Upload failed!');
+        window.customAlert('Upload failed!');
     }
     event.target.value = '';
 }
@@ -109,7 +109,7 @@ async function uploadSandboxFiles(event) {
  */
 async function handleSandboxFileShiftClick(filepath) {
     if (!lastFocusedInput) {
-        alert('Please focus on a text input box first by clicking it!');
+        window.customAlert('Please focus on a text input box first by clicking it!');
         return;
     }
 
@@ -119,7 +119,7 @@ async function handleSandboxFileShiftClick(filepath) {
     if (!virtualFileNodes[virtualId]) {
         const res = await apiFetchSandboxFile(filepath);
         if (!res) {
-            alert('Failed to load file content.');
+            window.customAlert('Failed to load file content.');
             return;
         }
 

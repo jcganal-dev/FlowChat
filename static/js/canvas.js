@@ -210,13 +210,66 @@ function drawGroups() {
         }
 
         box.innerHTML = `
-            <div class="group-header"><span class="node-id" style="cursor:copy;" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
+            <div class="group-header">
+                <div class="group-color-proxy" style="background-color: ${group.color || '#a0a0a0'};" onclick="this.nextElementSibling.click()"></div>
+                <input type="color" class="group-color-picker" value="${group.color || '#a0a0a0'}" 
+                    onchange="changeGroupColor('${group.id}', this.value)" style="display: none;">
+                <span class="node-id" style="color: ${group.color || '#a0a0a0'}; cursor:copy;" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
                 ${btnHtml}
             </div>
         `;
         groupsLayer.appendChild(box);
+
+        // Ensure nodes inside this group show the color indicator
+        changeGroupColor(group.id, group.color || '#a0a0a0', false);
     });
 }
+
+window.changeGroupColor = function (groupId, color, save = true) {
+    if (groups[groupId]) {
+        groups[groupId].color = color;
+
+        const groupEl = document.getElementById(`box_${groupId}`);
+        if (groupEl) {
+            const proxy = groupEl.querySelector('.group-color-proxy');
+            if (proxy) proxy.style.backgroundColor = color;
+            const groupIdText = groupEl.querySelector('.node-id');
+            if (groupIdText) groupIdText.style.color = color;
+        }
+
+        // Update nodes in this group
+        const groupNodes = nodes.filter(n => n.groupId === groupId);
+        groupNodes.forEach(n => {
+            const el = document.getElementById(n.id);
+            if (el) {
+                let colorIndicator = el.querySelector('.node-group-color');
+                if (!colorIndicator) {
+                    const nodeIdEl = el.querySelector('.node-id');
+                    if (nodeIdEl) {
+                        colorIndicator = document.createElement('span');
+                        colorIndicator.className = 'node-group-color';
+                        colorIndicator.style.display = 'inline-block';
+                        colorIndicator.style.width = '12px';
+                        colorIndicator.style.height = '12px';
+                        colorIndicator.style.borderRadius = '3px';
+                        colorIndicator.style.marginRight = '6px';
+                        colorIndicator.style.verticalAlign = 'middle';
+                        nodeIdEl.parentNode.insertBefore(colorIndicator, nodeIdEl);
+                    }
+                }
+                if (colorIndicator) {
+                    colorIndicator.style.backgroundColor = color;
+                }
+                const nodeIdEl = el.querySelector('.node-id');
+                if (nodeIdEl) {
+                    nodeIdEl.style.color = color;
+                }
+            }
+        });
+
+        if (save && typeof saveState === 'function') saveState();
+    }
+};
 
 /**
  * Automatically organizes the conversation tree into a structured vertical/horizontal layout.
@@ -266,7 +319,7 @@ function autoLayout() {
         if (groupedChildren.length === 1) {
             let child = groupedChildren[0];
             calculateSubtreeMetrics(child);
-            
+
             let otherWidth = 0;
             otherChildren.forEach((c, index) => {
                 otherWidth += calculateSubtreeMetrics(c);
@@ -276,10 +329,10 @@ function autoLayout() {
             let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
             let mainColumnWidth = Math.max(nodeWidth, childMainWidth);
             nodeData.mainColumnWidth = mainColumnWidth;
-            
+
             let offset = (mainColumnWidth - childMainWidth) / 2;
             nodeData.fullGroupedWidth = Math.max(mainColumnWidth, offset + child.subtreeWidth);
-            
+
             nodeData.subtreeWidth = nodeData.fullGroupedWidth + (otherWidth > 0 ? HORIZONTAL_GAP + otherWidth : 0);
             nodeData.isGroupColumn = true;
         } else {
@@ -342,14 +395,14 @@ function autoLayout() {
                 let firstChild = children[0];
                 let lastChild = children[children.length - 1];
                 let centerOfChildren = (firstChild.x + (firstChild.nodeWidth / 2) + lastChild.x + (lastChild.nodeWidth / 2)) / 2;
-                
+
                 let desiredX = centerOfChildren - (nodeData.nodeWidth / 2);
-                
+
                 if (desiredX < startX) desiredX = startX;
                 if (desiredX + nodeData.nodeWidth > startX + nodeData.subtreeWidth) {
                     desiredX = startX + nodeData.subtreeWidth - nodeData.nodeWidth;
                 }
-                
+
                 nodeData.x = desiredX;
             } else {
                 nodeData.x = startX + (nodeData.subtreeWidth / 2) - (nodeData.nodeWidth / 2);

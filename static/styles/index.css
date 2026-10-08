@@ -85,6 +85,98 @@ html {
     color: #f8fafc;
 }
 
+/* Custom Modal */
+.custom-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 99999;
+}
+
+.custom-modal-content {
+    background: #1e1e2e;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 24px;
+    width: 400px;
+    max-width: 90%;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.custom-modal-content h3 {
+    margin: 0;
+    font-size: 18px;
+    color: #f8fafc;
+}
+
+.custom-modal-content p {
+    margin: 0;
+    font-size: 14px;
+    color: #cdd6f4;
+    line-height: 1.5;
+}
+
+.custom-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.modal-btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    font-weight: 500;
+}
+
+.modal-btn.primary {
+    background: #89b4fa;
+    color: #11111b;
+}
+
+.modal-btn.primary:hover {
+    background: #b4befe;
+}
+
+.modal-btn.secondary {
+    background: transparent;
+    color: #a6adc8;
+    border: 1px solid #45475a;
+}
+
+.modal-btn.secondary:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.modal-input {
+    background: #181825;
+    border: 1px solid #45475a;
+    border-radius: 6px;
+    padding: 8px 12px;
+    color: #cdd6f4;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    outline: none;
+}
+
+.modal-input:focus {
+    border-color: #89b4fa;
+}
+
 #upload-btn {
     background: rgba(255, 255, 255, 0.1);
     color: white;
@@ -194,6 +286,7 @@ html {
 
     .node-id {
         cursor: copy;
+        width: 80%;
     }
 }
 
@@ -833,4 +926,21 @@ div[contentEditable='true'] {
     background: #252525;
     border-radius: 4px;
     margin-top: 5px;
+}
+
+.group-color-proxy {
+    width: 14px;
+    height: 14px;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-right: 8px;
+    display: inline-block;
+    vertical-align: middle;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+}
+
+.group-color-proxy:hover {
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.4);
 }

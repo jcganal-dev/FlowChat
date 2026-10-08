@@ -63,7 +63,7 @@ async function loadState() {
  * Deletes all nodes and groups from the saved state database and resets the canvas locally.
  */
 async function wipeState() {
-    if (confirm("Are you sure you want to delete all saved nodes and start fresh?")) {
+    if (await window.customConfirm("Are you sure you want to delete all saved nodes and start fresh?")) {
         await apiSaveState({ nodes: [] });
         location.reload();
     }
@@ -107,7 +107,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
-        
+
         const summarizeMenu = document.getElementById('menu-summarize');
         summarizeMenu.style.display = 'block';
         summarizeMenu.textContent = (nodeData && nodeData.isCollapsed) ? 'Re-Summarize Node' : 'Summarize Node';
@@ -356,10 +356,10 @@ $('menu-rename').addEventListener('click', () => {
     }
 });
 
-$('menu-group').addEventListener('click', () => {
+$('menu-group').addEventListener('click', async () => {
     contextMenu.style.display = 'none';
     if (selectedNodes.size < 2) {
-        alert("Shift-click to select multiple nodes in a lineage first.");
+        window.customAlert("Shift-click to select multiple nodes in a lineage first.");
         return;
     }
 
@@ -372,7 +372,7 @@ $('menu-group').addEventListener('click', () => {
     });
 
     if (existingGroupIds.size > 1) {
-        alert("Selected nodes belong to multiple different groups. Please ungroup them first.");
+        window.customAlert("Selected nodes belong to multiple different groups. Please ungroup them first.");
         return;
     }
 
@@ -396,13 +396,17 @@ $('menu-group').addEventListener('click', () => {
             });
         }
     } else {
-        const groupName = prompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
-        if (!groupName) return;
+        const groupResult = await window.customGroupPrompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
+        if (!groupResult || !groupResult.name) return;
+
+        const groupName = groupResult.name;
+        const groupColor = groupResult.color || '#a0a0a0';
 
         const groupId = 'group_' + Date.now();
         groups[groupId] = {
             id: groupId,
             name: groupName,
+            color: groupColor,
             nodes: Array.from(selectedNodes)
         };
 
@@ -428,7 +432,17 @@ $('menu-ungroup').addEventListener('click', () => {
     const groupId = nodeData.groupId;
 
     nodes.forEach(n => {
-        if (n.groupId === groupId) delete n.groupId;
+        if (n.groupId === groupId) {
+            delete n.groupId;
+            const el = document.getElementById(n.id);
+            if (el) {
+                const colorIndicator = el.querySelector('.node-group-color');
+                if (colorIndicator) colorIndicator.style.display = 'none';
+                
+                const nodeIdEl = el.querySelector('.node-id');
+                if (nodeIdEl) nodeIdEl.style.color = '';
+            }
+        }
     });
 
     delete groups[groupId];

@@ -150,21 +150,40 @@ function attachBaseListeners(id, el, restoreData) {
                 const startNodeY = nodeData.y;
                 
                 const isShiftDrag = e.shiftKey;
-                const descendants = [];
+                const isMultiSelect = selectedNodes.has(el.id);
+                const draggedNodes = [];
 
+                if (isMultiSelect) {
+                    selectedNodes.forEach(selId => {
+                        const selData = nodes.find(n => n.id === selId);
+                        const selEl = document.getElementById(selId);
+                        if (selData && selEl) {
+                            draggedNodes.push({ node: selData, startX: selData.x, startY: selData.y, el: selEl });
+                        }
+                    });
+                } else {
+                    draggedNodes.push({ node: nodeData, startX: nodeData.x, startY: nodeData.y, el: el });
+                }
+
+                const descendants = [];
                 if (isShiftDrag) {
-                    const queue = [nodeData.id];
+                    const queue = draggedNodes.map(dn => dn.node.id);
+                    const seen = new Set(queue);
+                    
                     while (queue.length > 0) {
                         const currentId = queue.shift();
                         const children = nodes.filter(n => n.parentId === currentId);
                         children.forEach(child => {
-                            descendants.push({
-                                node: child,
-                                startX: child.x,
-                                startY: child.y,
-                                el: document.getElementById(child.id)
-                            });
-                            queue.push(child.id);
+                            if (!seen.has(child.id)) {
+                                seen.add(child.id);
+                                descendants.push({
+                                    node: child,
+                                    startX: child.x,
+                                    startY: child.y,
+                                    el: document.getElementById(child.id)
+                                });
+                                queue.push(child.id);
+                            }
                         });
                     }
                 }
@@ -176,22 +195,24 @@ function attachBaseListeners(id, el, restoreData) {
                     const dy = (moveEvent.clientY - startY) / camera.zoom;
                     if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMovedNode = true;
 
-                    let targetX = startNodeX + dx;
-                    let targetY = startNodeY + dy;
+                    let primaryTargetX = startNodeX + dx;
+                    let primaryTargetY = startNodeY + dy;
 
                     if (moveEvent.altKey) {
-                        targetX = Math.round(targetX / GRID_SIZE) * GRID_SIZE;
-                        targetY = Math.round(targetY / GRID_SIZE) * GRID_SIZE;
+                        primaryTargetX = Math.round(primaryTargetX / GRID_SIZE) * GRID_SIZE;
+                        primaryTargetY = Math.round(primaryTargetY / GRID_SIZE) * GRID_SIZE;
                     }
 
-                    nodeData.x = targetX;
-                    nodeData.y = targetY;
-                    el.style.transform = `translate(${targetX}px, ${targetY}px)`;
+                    const actualDx = primaryTargetX - startNodeX;
+                    const actualDy = primaryTargetY - startNodeY;
+
+                    draggedNodes.forEach(dn => {
+                        dn.node.x = dn.startX + actualDx;
+                        dn.node.y = dn.startY + actualDy;
+                        if (dn.el) dn.el.style.transform = `translate(${dn.node.x}px, ${dn.node.y}px)`;
+                    });
 
                     if (isShiftDrag) {
-                        const actualDx = targetX - startNodeX;
-                        const actualDy = targetY - startNodeY;
-                        
                         descendants.forEach(desc => {
                             desc.node.x = desc.startX + actualDx;
                             desc.node.y = desc.startY + actualDy;
@@ -200,6 +221,7 @@ function attachBaseListeners(id, el, restoreData) {
                     }
 
                     if (typeof drawEdges === 'function') drawEdges();
+                    if (typeof drawGroups === 'function') drawGroups();
                 }
 
                 function onMouseUp() {
@@ -276,6 +298,7 @@ function attachBaseListeners(id, el, restoreData) {
                 clearTimeout(layoutDebounceTimeout);
                 layoutDebounceTimeout = setTimeout(() => {
                     if (typeof drawEdges === 'function') drawEdges();
+                    if (typeof drawGroups === 'function') drawGroups();
                 }, 15);
             }
 
@@ -451,7 +474,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             if (!data) return;
             const isImageNode = data.type === 'image';
             if (isImageNode && !file.type.startsWith('image/')) {
-                alert("Please upload an image file for this node.");
+                window.customAlert("Please upload an image file for this node.");
                 return;
             }
 
