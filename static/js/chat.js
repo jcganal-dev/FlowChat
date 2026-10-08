@@ -340,9 +340,9 @@ async function triggerSingleSummarize(nodeId) {
                     toggleBtn.textContent = '📂';
                 }
             }
-            if(typeof drawGroups === 'function') drawGroups();
+            if (typeof drawGroups === 'function') drawGroups();
             updateThermometer(activeNodeId);
-            if(typeof saveState === 'function') saveState();
+            if (typeof saveState === 'function') saveState();
         }
     });
 }
@@ -367,7 +367,7 @@ function toggleGroupState(groupId) {
         }
     });
 
-    if(typeof drawGroups === 'function') drawGroups();
+    if (typeof drawGroups === 'function') drawGroups();
     updateThermometer(activeNodeId);
 }
 
@@ -388,6 +388,6 @@ function toggleNodeState(nodeId) {
         if (btn) btn.textContent = node.isCollapsed ? '🔍' : '📂';
     }
 
-    if(typeof drawGroups === 'function') drawGroups();
+    if (typeof drawGroups === 'function') drawGroups();
     updateThermometer(activeNodeId);
 }

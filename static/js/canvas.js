@@ -14,6 +14,12 @@ function updateCanvas() {
 
 viewport.addEventListener('mousedown', (e) => {
     if (e.target.closest('.node') || e.target.closest('#controls')) return;
+
+    // Clicking canvas clears any multi-selection
+    if (typeof selectNode === 'function' && activeNodeId) {
+        selectNode(activeNodeId);
+    }
+
     isPanning = true;
     startPanX = e.clientX - camera.x;
     startPanY = e.clientY - camera.y;
@@ -155,8 +161,7 @@ function drawGroups() {
         }
 
         box.innerHTML = `
-            <div class="group-header">
-                📦 <span class="node-id" style="cursor:copy;" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
+            <div class="group-header"><span class="node-id" style="cursor:copy;" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
                 ${btnHtml}
             </div>
         `;
@@ -284,30 +289,30 @@ function autoLayout() {
             } else {
                 el.classList.remove('collapsed-node');
             }
-            
+
             if (!n.isCollapsed && (!n.groupId || groups[n.groupId]?.isCollapsed === false)) {
                 let iterations = 0;
                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
                 const maxW = 1200;
-                
+
                 while (iterations < 4) {
                     const w = el.offsetWidth;
                     const h = el.offsetHeight;
                     const currentRatio = w / h;
-                    
+
                     if (Math.abs(currentRatio - 1.25) < 0.05) break;
-                    
+
                     const area = w * h;
                     let targetW = Math.sqrt(area * 1.25);
                     targetW = Math.max(minW, Math.min(targetW, maxW));
-                    
+
                     el.style.width = `${targetW}px`;
-                    
+
                     // Force reflow
                     document.body.offsetHeight;
                     iterations++;
                 }
-                
+
                 let finalW = Math.round(el.offsetWidth / GRID_SIZE) * GRID_SIZE;
                 finalW = Math.max(minW, Math.min(finalW, maxW));
                 el.style.width = `${finalW}px`;
@@ -453,7 +458,7 @@ window.addEventListener('mouseup', (e) => {
             const targetNodeEl = dropTarget.closest('.node');
             if (targetNodeEl) {
                 const targetNodeId = targetNodeEl.id;
-                
+
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
                         const targetNode = nodes.find(n => n.id === targetNodeId);

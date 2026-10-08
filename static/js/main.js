@@ -53,7 +53,7 @@ async function loadState() {
         }
     });
 
-    if(typeof updateCanvas === 'function') updateCanvas();
+    if (typeof updateCanvas === 'function') updateCanvas();
 
     if (activeNodeId) selectNode(activeNodeId);
     return true;
@@ -196,7 +196,7 @@ $('menu-rename-node').addEventListener('click', () => {
     nodeData.name = safeName;
     nodeData.id = undefined; // trigger idfy recalculation without the old id
     const newId = idfy(nodeData);
-    
+
     nodeData.id = newId;
 
     const el = document.getElementById(oldId);
@@ -337,7 +337,7 @@ $('menu-rename').addEventListener('click', () => {
         }
     });
 
-    if(typeof drawEdges === 'function') drawEdges();
+    if (typeof drawEdges === 'function') drawEdges();
     if (activeNodeId && idMap[activeNodeId]) {
         selectNode(idMap[activeNodeId]);
     }
@@ -350,25 +350,59 @@ $('menu-group').addEventListener('click', () => {
         return;
     }
 
-    const groupName = prompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
-    if (!groupName) return;
-
-    const groupId = 'group_' + Date.now();
-
-    groups[groupId] = {
-        id: groupId,
-        name: groupName,
-        nodes: Array.from(selectedNodes)
-    };
-
+    const existingGroupIds = new Set();
     selectedNodes.forEach(id => {
         const nodeData = nodes.find(n => n.id === id);
-        if (nodeData) nodeData.groupId = groupId;
+        if (nodeData && nodeData.groupId) {
+            existingGroupIds.add(nodeData.groupId);
+        }
     });
+
+    if (existingGroupIds.size > 1) {
+        alert("Selected nodes belong to multiple different groups. Please ungroup them first.");
+        return;
+    }
+
+    let targetGroupId = null;
+    if (existingGroupIds.size === 1) {
+        targetGroupId = Array.from(existingGroupIds)[0];
+    }
+
+    if (targetGroupId) {
+        // Add all selected nodes to the existing group
+        const group = groups[targetGroupId];
+        if (group) {
+            selectedNodes.forEach(id => {
+                const nodeData = nodes.find(n => n.id === id);
+                if (nodeData) {
+                    nodeData.groupId = targetGroupId;
+                    if (!group.nodes.includes(id)) {
+                        group.nodes.push(id);
+                    }
+                }
+            });
+        }
+    } else {
+        const groupName = prompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
+        if (!groupName) return;
+
+        const groupId = 'group_' + Date.now();
+        groups[groupId] = {
+            id: groupId,
+            name: groupName,
+            nodes: Array.from(selectedNodes)
+        };
+
+        selectedNodes.forEach(id => {
+            const nodeData = nodes.find(n => n.id === id);
+            if (nodeData) nodeData.groupId = groupId;
+        });
+    }
 
     selectedNodes.clear();
     selectNode(activeNodeId);
-    if(typeof saveState === 'function') saveState();
+    if (typeof saveState === 'function') saveState();
+    autoLayout();
 });
 
 $('menu-ungroup').addEventListener('click', () => {
@@ -385,16 +419,16 @@ $('menu-ungroup').addEventListener('click', () => {
     });
 
     delete groups[groupId];
-    if(typeof drawGroups === 'function') drawGroups();
-    if(typeof saveState === 'function') saveState();
+    if (typeof drawGroups === 'function') drawGroups();
+    if (typeof saveState === 'function') saveState();
 });
 
 window.addEventListener('DOMContentLoaded', async () => {
-    if(typeof updateCanvas === 'function') updateCanvas();
-    if(typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
-    
+    if (typeof updateCanvas === 'function') updateCanvas();
+    if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
+
     const loaded = await loadState();
     if (!loaded) {
-        if(typeof createNode === 'function') createNode();
+        if (typeof createNode === 'function') createNode();
     }
 });

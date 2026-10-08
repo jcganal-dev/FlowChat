@@ -227,6 +227,10 @@ html {
     /* box-shadow: 0 0 15px rgba(33, 150, 243, 0.3); */
 }
 
+.node.multi-selected {
+    box-shadow: 0 0 0 2px rgba(20, 55, 255, 0.7);
+}
+
 .node.ai-node {
     border-top: 4px solid #9C27B0;
     /* Purple for AI, Green for User */

@@ -12,6 +12,7 @@ let activeNodeId = null;
 let targetNodeIdForMenu = null;
 let forkOffsetCounter = 0;
 let highestZIndex = 10;
+let shiftSelectionStartId = null;
 
 let isPanning = false;
 let startPanX = 0, startPanY = 0;
@@ -28,14 +29,14 @@ const contextMenu = $make('div');
 
 contextMenu.id = 'context-menu';
 contextMenu.innerHTML = `
-    <div class="context-item" id="menu-add-node">📝 Add Chat Node</div>
-    <div class="context-item" id="menu-add-image">🖼️ Add Image Node</div>
-    <div class="context-item" id="menu-add-file">📄 Add Document Node</div>
-    <div class="context-item" id="menu-rename">✏️ Rename Branch</div>
-    <div class="context-item" id="menu-rename-node">🏷️ Rename Node</div>
-    <div class="context-item" id="menu-group">📦 Group Selected Nodes</div>
-    <div class="context-item" id="menu-ungroup">🔓 Ungroup Node</div>
-    <div class="context-item" id="menu-summarize">✨ Summarize Node</div>
+    <div class="context-item" id="menu-add-node">Add Chat Node</div>
+    <div class="context-item" id="menu-add-image">Add Image Node</div>
+    <div class="context-item" id="menu-add-file">Add Document Node</div>
+    <div class="context-item" id="menu-rename-node">Rename Node</div>
+    <div class="context-item" id="menu-rename">Rename Branch</div>
+    <div class="context-item" id="menu-summarize">Summarize Node</div>
+    <div class="context-item" id="menu-group">Group Selected Nodes</div>
+    <div class="context-item" id="menu-ungroup">Ungroup Node</div>
 `;
 document.body.appendChild(contextMenu);
 
@@ -80,16 +81,16 @@ function renderMarkdown(text) {
                     }
                 }));
             }
-            
+
             // Configure marked with KaTeX
             if (typeof markedKatex !== 'undefined') {
                 marked.use(markedKatex({ throwOnError: false }));
             }
             marked.configured = true;
         }
-        
+
         const html = marked.parse(text);
-        
+
         // Configure DOMPurify to allow KaTeX attributes and tags
         return DOMPurify.sanitize(html, {
             ADD_TAGS: ['math', 'menclose', 'merror', 'mfrac', 'mi', 'mlabeledtr', 'mmultiscripts', 'mn', 'mo', 'mover', 'mpadded', 'mphantom', 'mroot', 'mrow', 'ms', 'mspace', 'msqrt', 'mstyle', 'msub', 'msubsup', 'msup', 'mtable', 'mtd', 'mtext', 'mtr', 'munder', 'semantics', 'annotation', 'annotation-xml'],

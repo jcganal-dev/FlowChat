@@ -140,7 +140,7 @@ function attachBaseListeners(id, el, restoreData) {
             header.addEventListener('mousedown', (e) => {
                 e.stopPropagation();
                 el.style.zIndex = highestZIndex++;
-                
+
                 const startX = e.clientX;
                 const startY = e.clientY;
                 const nodeData = nodes.find(n => n.id === el.id);
@@ -648,20 +648,26 @@ function selectNode(id, isShiftClick = false) {
     const el = document.getElementById(id);
     if (el) el.style.zIndex = highestZIndex++;
 
-    if (isShiftClick && activeNodeId && activeNodeId !== id) {
-        const path = getLineagePath(activeNodeId, id);
-
-        if (path) {
-            path.forEach(nodeId => selectedNodes.add(nodeId));
-            activeNodeId = path[path.length - 1];
-        } else {
-            console.warn("Cannot group: Nodes must be in the same direct lineage.");
-            return;
+    if (isShiftClick) {
+        if (!shiftSelectionStartId) {
+            shiftSelectionStartId = id;
+            selectedNodes.clear();
+            selectedNodes.add(id);
+        } else if (shiftSelectionStartId !== id) {
+            const path = getLineagePath(shiftSelectionStartId, id);
+            if (path) {
+                path.forEach(nodeId => selectedNodes.add(nodeId));
+                shiftSelectionStartId = null;
+            } else {
+                console.warn("Cannot group: Nodes must be in the same direct lineage.");
+                return;
+            }
         }
     } else {
         selectedNodes.clear();
         selectedNodes.add(id);
         activeNodeId = id;
+        shiftSelectionStartId = null;
     }
 
     const lineage = new Set();
@@ -674,7 +680,8 @@ function selectNode(id, isShiftClick = false) {
 
     document.querySelectorAll('.node').forEach(el => {
         el.classList.toggle('active-branch', lineage.has(el.id));
-        el.classList.toggle('multi-selected', selectedNodes.size > 1 && selectedNodes.has(el.id));
+        const isMulti = (selectedNodes.size > 1 && selectedNodes.has(el.id)) || (shiftSelectionStartId === el.id);
+        el.classList.toggle('multi-selected', isMulti);
     });
 
     if (typeof drawEdges === 'function') drawEdges(lineage);
