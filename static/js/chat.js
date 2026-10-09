@@ -74,7 +74,7 @@ async function runUserNode(nodeId) {
     const textarea = nodeEl.querySelector('.node-input');
     const usertext = textarea.textContent.trim();
     if (!usertext) return;
-    
+
     const nodeData = nodes.find(n => n.id === nodeId);
 
     const chips = Array.from(nodeEl.querySelectorAll('.reference-node'));
@@ -247,7 +247,7 @@ async function triggerSummarize(groupId) {
     const groupNodes = nodes.filter(n => n.groupId === groupId);
     let rawText = "";
     const summarizableNodes = [];
-    
+
     groupNodes.forEach((n, idx) => {
         if (n.type === 'document' || n.type === 'image') return;
         rawText += `[NODE_${idx}]\nUser: ${n.userText}\nAI: ${n.aiText}\n\n`;
@@ -255,9 +255,9 @@ async function triggerSummarize(groupId) {
     });
 
     const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
-    
+
     if (summarizableNodes.length === 0) {
-        if (btn) btn.textContent = "✨ Summarize";
+        if (btn) btn.innerHTML = `<img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px;'> Summarize`
         group.isSummarized = true;
         if (typeof renderGroups === 'function') renderGroups();
         return;
@@ -267,7 +267,7 @@ async function triggerSummarize(groupId) {
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary as concise as possible without losing its meaning. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>this is the summary</SUMMARY_0>. Do not include any other text. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures BOTH what the user asked/requested and what the AI did/said in response. Be as concise as possible without losing the core meaning of the interaction. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>User asked about X, AI explained Y.</SUMMARY_0>. Do not include any other text. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
             { role: "user", content: rawText }
         ],
         max_tokens: summarizableNodes.length * token_per_node
@@ -296,7 +296,7 @@ async function triggerSummarize(groupId) {
 
                 const regex = new RegExp(`<SUMMARY_${idx}>([\\s\\S]*?)</SUMMARY_${idx}>`);
                 const match = summary.match(regex);
-                
+
                 n.summaryText = match && match[1].trim() ? match[1].trim() : "Summary unavailable.";
                 n.isCollapsed = true;
                 const el = document.getElementById(n.id);

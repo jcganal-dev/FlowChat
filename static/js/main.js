@@ -114,7 +114,8 @@ window.addEventListener('contextmenu', (e) => {
         } else {
             summarizeMenu.style.display = 'block';
             const hasSummary = nodeData && nodeData.nodeSummary && nodeData.nodeSummary.trim() !== "";
-            summarizeMenu.textContent = hasSummary ? 'Re-Summarize Node' : 'Summarize Node';
+            const icon = `<img src="${getIconpath('bulb')}" class="file-icon"></img>`
+            summarizeMenu.innerHTML = hasSummary ? icon + 'Re-Summarize Node' : icon + 'Summarize Node';
         }
 
         contextMenu.style.display = 'block';
@@ -443,7 +444,7 @@ $('menu-ungroup').addEventListener('click', () => {
             if (el) {
                 const colorIndicator = el.querySelector('.node-group-color');
                 if (colorIndicator) colorIndicator.style.display = 'none';
-                
+
                 const nodeIdEl = el.querySelector('.node-id');
                 if (nodeIdEl) nodeIdEl.style.color = '';
             }

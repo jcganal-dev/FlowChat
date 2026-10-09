@@ -351,7 +351,7 @@ function drawGroups() {
                 <button class="summarize-btn" onclick="triggerSummarize('${group.id}')">🔄 Re-Summarize</button>
             `;
         } else {
-            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')">✨ Summarize</button>`;
+            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
         }
 
         box.innerHTML = `
@@ -422,7 +422,7 @@ window.changeGroupColor = function (groupId, color, save = true) {
  */
 function autoLayout() {
     // Unhide all nodes temporarily for accurate layout measurement
-    nodes.forEach(n => {
+    nodes.filter(n => !n.isVirtual).forEach(n => {
         const el = document.getElementById(n.id);
         if (el && el.style.display === 'none') {
             el.style.display = '';
@@ -434,8 +434,8 @@ function autoLayout() {
     const childrenMap = {};
     const roots = [];
 
-    nodes.forEach(n => {
-        if (n.parentId && nodes.some(p => p.id === n.parentId)) {
+    nodes.filter(n => !n.isVirtual).forEach(n => {
+        if (n.parentId && nodes.some(p => p.id === n.parentId && !p.isVirtual)) {
             if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
             childrenMap[n.parentId].push(n);
         } else {
@@ -556,7 +556,7 @@ function autoLayout() {
         }
     }
 
-    nodes.forEach(n => {
+    nodes.filter(n => !n.isVirtual).forEach(n => {
         const el = document.getElementById(n.id);
         if (el) {
             if (n.isCollapsed) {
@@ -565,7 +565,7 @@ function autoLayout() {
                 el.classList.remove('collapsed-node');
             }
 
-            if (!n.isCollapsed && (!n.groupId || groups[n.groupId]?.isCollapsed === false)) {
+            if (!n.isCollapsed && (!n.groupId || groups[n.groupId]?.isCollapsed !== true)) {
 
                 let iterations = 0;
                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
@@ -609,13 +609,13 @@ function autoLayout() {
         const primaryRoot = roots[0];
         const deltaX = -primaryRoot.x;
         const deltaY = -primaryRoot.y;
-        nodes.forEach(n => {
+        nodes.filter(n => !n.isVirtual).forEach(n => {
             n.x += deltaX;
             n.y += deltaY;
         });
     }
 
-    nodes.forEach(nodeData => {
+    nodes.filter(n => !n.isVirtual).forEach(nodeData => {
         const el = document.getElementById(nodeData.id);
         if (el) {
             nodeData.x = Math.round(nodeData.x / GRID_SIZE) * GRID_SIZE;

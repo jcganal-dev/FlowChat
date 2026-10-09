@@ -651,6 +651,10 @@ body.shift-pressed .node-id {
     cursor: pointer;
     font-size: 14px;
     transition: background 0.2s;
+
+    img {
+        margin-bottom: -2px;
+    }
 }
 
 .context-item:hover {
@@ -760,6 +764,18 @@ body.shift-pressed .node-id {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+.file-dropzone.minimized {
+    margin: 4px 10px 10px 10px;
+    padding: 4px;
+    border-radius: 6px;
+}
+
+.file-dropzone.minimized .drop-text {
+    font-size: 16px;
+    font-weight: bold;
+    color: #94a3b8;
 }
 
 .file-dropzone:hover {
@@ -1006,4 +1022,23 @@ div[contentEditable='true'] {
 .reference-node .file-icon {
     margin-bottom: -2px;
     margin-right: -3px;
+}
+
+/* WebKit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    /* Hides the track/background */
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }

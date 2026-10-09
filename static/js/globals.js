@@ -39,15 +39,15 @@ const contextMenu = $make('div');
 
 contextMenu.id = 'context-menu';
 contextMenu.innerHTML = `
-    <div class="context-item" id="menu-add-node">Add Chat Node</div>
-    <div class="context-item" id="menu-add-image">Add Image Node</div>
-    <div class="context-item" id="menu-add-file">Add Document Node</div>
-    <div class="context-item" id="menu-open-palette">Open Sandbox Files</div>
-    <div class="context-item" id="menu-rename-node">Rename Node</div>
-    <div class="context-item" id="menu-rename">Rename Branch</div>
-    <div class="context-item" id="menu-summarize">Summarize Node</div>
-    <div class="context-item" id="menu-group">Group Selected Nodes</div>
-    <div class="context-item" id="menu-ungroup">Ungroup Node</div>
+    <div class="context-item" id="menu-add-node"><img src="${getIconpath('chatnode')}" class="file-icon"> Add Chat Node</div>
+    <div class="context-item" id="menu-add-image"><img src="${getIconpath('image')}" class="file-icon"> Add Image Node</div>
+    <div class="context-item" id="menu-add-file"><img src="${getIconpath('file')}" class="file-icon"> Add Document Node</div>
+    <div class="context-item" id="menu-open-palette"><img src="${getIconpath('sandbox')}" class="file-icon"> Open Sandbox Files</div>
+    <div class="context-item" id="menu-rename-node"><img src="${getIconpath('pencil')}" class="file-icon"> Rename Node</div>
+    <div class="context-item" id="menu-rename"><img src="${getIconpath('brush')}" class="file-icon"> Rename Branch</div>
+    <div class="context-item" id="menu-summarize"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Node</div>
+    <div class="context-item" id="menu-group"><img src="${getIconpath('group')}" class="file-icon"> Group Selected Nodes</div>
+    <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon">Ungroup Node</div>
 `;
 document.body.appendChild(contextMenu);
 
@@ -84,8 +84,22 @@ function getIconpath(filepath) {
             return '/static/icons/py.svg';
         case 'node':
             return '/static/icons/node.svg';
+        case 'chatnode':
+            return '/static/icons/chatnode.svg';
+        case 'pencil':
+            return '/static/icons/pencil.svg';
+        case 'brush':
+            return '/static/icons/brush.svg';
         case 'image':
             return '/static/icons/image.svg';
+        case 'sandbox':
+            return '/static/icons/sandbox.svg';
+        case 'bulb':
+            return '/static/icons/bulb.svg';
+        case 'group':
+            return '/static/icons/group.svg';
+        case 'ungroup':
+            return '/static/icons/ungroup.svg';
         default:
             return '/static/icons/default.svg';
     }

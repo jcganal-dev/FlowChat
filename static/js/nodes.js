@@ -284,15 +284,28 @@ function attachBaseListeners(id, el, restoreData) {
 
             function onMouseMove(moveEvent) {
                 const deltaX = (moveEvent.clientX - startMouseX) / camera.zoom;
+                const isSymmetrical = moveEvent.ctrlKey || moveEvent.metaKey;
 
-                let rawWidth = Math.max(300, targetStartWidth + deltaX * 2);
-                let snappedWidth = Math.round(rawWidth / GRID_SIZE) * GRID_SIZE;
+                let snappedWidth;
+                if (isSymmetrical) {
+                    const diff = Math.round((deltaX * 2) / (GRID_SIZE * 2)) * (GRID_SIZE * 2);
+                    snappedWidth = Math.max(300, targetStartWidth + diff);
+                } else {
+                    const diff = Math.round(deltaX / GRID_SIZE) * GRID_SIZE;
+                    snappedWidth = Math.max(300, targetStartWidth + diff);
+                }
 
                 nodesToResize.forEach(item => {
                     item.el.style.width = `${snappedWidth}px`;
 
                     const widthDiff = snappedWidth - item.startWidth;
-                    item.data.x = item.startNodeX - (widthDiff / 2);
+
+                    if (isSymmetrical) {
+                        item.data.x = item.startNodeX - (widthDiff / 2);
+                    } else {
+                        item.data.x = item.startNodeX;
+                    }
+
                     item.data.nodeWidth = snappedWidth;
                     item.el.style.transform = `translate(${item.data.x}px, ${item.data.y}px)`;
                 });
@@ -431,6 +444,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             const data = nodes.find(n => n.id === el.id);
             if (!data) return;
             const container = el.querySelector('.files-container');
+            const dropzone = el.querySelector('.file-dropzone');
             if (!container) return;
 
             container.innerHTML = '';
@@ -451,6 +465,18 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
 
                 container.appendChild(item);
             });
+
+            if (dropzone) {
+                if (data.files.length > 0) {
+                    dropzone.classList.add('minimized');
+                    const dt = dropzone.querySelector('.drop-text');
+                    if (dt) dt.innerHTML = '↑';
+                } else {
+                    dropzone.classList.remove('minimized');
+                    const dt = dropzone.querySelector('.drop-text');
+                    if (dt) dt.innerHTML = `Drag ${data.type === 'image' ? 'Image' : 'Document'}(s) Here<br><small>(or click to browse)</small>`;
+                }
+            }
 
             container.querySelectorAll('.remove-file-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -576,6 +602,46 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
 
         textarea.addEventListener('blur', () => {
             lastFocusedInput = null;
+        });
+
+        textarea.addEventListener('drop', async (e) => {
+            const data = e.dataTransfer.getData('text/plain');
+            if (!data) return;
+            try {
+                const parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const selection = window.getSelection();
+                    let range = null;
+                    if (document.caretRangeFromPoint) {
+                        range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                    } else if (e.rangeParent) {
+                        range = document.createRange();
+                        range.setStart(e.rangeParent, e.rangeOffset);
+                    }
+
+                    if (range) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                    
+                    lastFocusedInput = textarea;
+
+                    const filteredPaths = parsed.filter(p => {
+                        return !parsed.some(other => other !== p && p.startsWith(other + '/'));
+                    });
+
+                    for (const filepath of filteredPaths) {
+                        if (typeof handleSandboxFileShiftClick === 'function') {
+                            await handleSandboxFileShiftClick(filepath);
+                        }
+                    }
+                }
+            } catch (err) {
+                // Not JSON, just let the native drop behavior or paste handler deal with it
+            }
         });
 
         textarea.addEventListener('paste', (e) => {
@@ -855,10 +921,19 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             chipLabel = `<img src="${getIconpath('image')}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
-            let src = getIconpath(refData.files[0].name.split('.').pop().toLowerCase())
-            src = refData.files.length > 1 ? getIconpath('') : src;
-            chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
-            refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
+            if (refId.endsWith('/*')) {
+                const folderName = refId.split('/').slice(1, -1).join('/');
+                chipLabel = `📁 ${folderName}/*`;
+                refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
+                refData.files.forEach(f => {
+                    refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
+                });
+            } else {
+                let src = getIconpath(refData.files[0].name.split('.').pop().toLowerCase())
+                src = refData.files.length > 1 ? getIconpath('') : src;
+                chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
+                refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
+            }
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
             chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;

@@ -212,10 +212,14 @@ async function fetchSandboxFiles() {
             });
 
             item.addEventListener('click', (e) => {
+                if (e.shiftKey && lastFocusedInput) {
+                    e.preventDefault();
+                    handleSandboxFileShiftClick(filepath);
+                    return;
+                }
+
                 if (child.type === 'directory') {
-                    // For directories, toggle expand/collapse if clicking chevron, else just select
-                    const isChevron = e.target.classList.contains('chevron');
-                    if (isChevron) {
+                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
                         e.stopPropagation();
                         const childrenContainer = itemWrapper.querySelector('.folder-children');
                         const chevron = item.querySelector('.chevron');
@@ -229,14 +233,7 @@ async function fetchSandboxFiles() {
                             collapsedSandboxFolders.add(filepath);
                         }
                         localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-                        return;
                     }
-                }
-
-                if (e.shiftKey && lastFocusedInput && child.type === 'file') {
-                    e.preventDefault();
-                    handleSandboxFileShiftClick(filepath);
-                    return;
                 }
 
                 if (e.shiftKey) {
@@ -244,11 +241,22 @@ async function fetchSandboxFiles() {
                         selectedSandboxFiles.add(filepath);
                         lastSelectedSandboxFileIndex = index;
                     } else {
-                        const start = Math.min(lastSelectedSandboxFileIndex, index);
-                        const end = Math.max(lastSelectedSandboxFileIndex, index);
-                        selectedSandboxFiles.clear();
-                        for (let i = start; i <= end; i++) {
-                            selectedSandboxFiles.add(currentSandboxFiles[i]);
+                        const visibleItems = Array.from(document.querySelectorAll('.file-item'))
+                            .filter(el => el.offsetParent !== null)
+                            .map(el => el.dataset.path);
+                        const lastPath = currentSandboxFiles[lastSelectedSandboxFileIndex];
+                        const startIndex = visibleItems.indexOf(lastPath);
+                        const endIndex = visibleItems.indexOf(filepath);
+                        
+                        if (startIndex !== -1 && endIndex !== -1) {
+                            const start = Math.min(startIndex, endIndex);
+                            const end = Math.max(startIndex, endIndex);
+                            selectedSandboxFiles.clear();
+                            for (let i = start; i <= end; i++) {
+                                selectedSandboxFiles.add(visibleItems[i]);
+                            }
+                        } else {
+                            selectedSandboxFiles.add(filepath);
                         }
                     }
                 } else if (e.ctrlKey || e.metaKey) {
@@ -322,7 +330,65 @@ async function handleSandboxFileShiftClick(filepath) {
         return;
     }
 
-    const isImage = filepath.match(/\\.(png|jpg|jpeg|gif|webp)$/i);
+    const selection = window.getSelection();
+    let range;
+
+    if (selection.rangeCount > 0 && lastFocusedInput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+        range = selection.getRangeAt(0);
+    } else {
+        range = document.createRange();
+        range.selectNodeContents(lastFocusedInput);
+        range.collapse(false);
+    }
+
+    const sandboxData = await apiFetchSandboxFiles();
+    if (sandboxData && sandboxData.files) {
+        if (!sandboxData.files.includes(filepath)) {
+            const prefix = filepath + '/';
+            let expanded = [];
+            for (const sf of sandboxData.files) {
+                if (sf.startsWith(prefix)) {
+                    expanded.push(sf);
+                }
+            }
+
+            if (expanded.length > 0) {
+                const virtualId = 'sandbox/' + filepath + '/*';
+                if (!virtualFileNodes[virtualId]) {
+                    let folderFiles = [];
+                    for (const fp of expanded) {
+                        const isImg = fp.match(/\.(png|jpg|jpeg|gif|webp)$/i);
+                        if (isImg) continue; 
+                        const r = await apiFetchSandboxFile(fp);
+                        if (r) folderFiles.push({ name: fp, payload: await r.text() });
+                    }
+                    if (folderFiles.length === 0) {
+                        window.customAlert('No valid text documents found in folder.');
+                        return;
+                    }
+                    const nodeData = {
+                        id: virtualId,
+                        type: 'document',
+                        files: folderFiles,
+                        userText: '',
+                        htmlText: '',
+                        aiText: ' ',
+                        aiThinking: '',
+                        references: [],
+                        hasChild: false,
+                        isCollapsed: false,
+                        isVirtual: true
+                    };
+                    virtualFileNodes[virtualId] = nodeData;
+                    if (!nodes.find(n => n.id === virtualId)) nodes.push(nodeData);
+                }
+                if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false);
+                return;
+            }
+        }
+    }
+
+    const isImage = filepath.match(/\.(png|jpg|jpeg|gif|webp)$/i);
     const virtualId = 'sandbox/' + filepath;
 
     if (!virtualFileNodes[virtualId]) {
@@ -366,17 +432,6 @@ async function handleSandboxFileShiftClick(filepath) {
         if (!nodes.find(n => n.id === virtualId)) {
             nodes.push(nodeData);
         }
-    }
-
-    const selection = window.getSelection();
-    let range;
-
-    if (selection.rangeCount > 0 && lastFocusedInput.contains(selection.getRangeAt(0).commonAncestorContainer)) {
-        range = selection.getRangeAt(0);
-    } else {
-        range = document.createRange();
-        range.selectNodeContents(lastFocusedInput);
-        range.collapse(false);
     }
 
     if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false);
