@@ -239,7 +239,8 @@ html {
     background-position: 0 0;
 }
 
-body.is-panning, body.is-panning * {
+body.is-panning,
+body.is-panning * {
     cursor: grabbing !important;
 }
 
@@ -283,7 +284,7 @@ body.is-panning, body.is-panning * {
 .node {
     box-sizing: border-box;
     position: absolute;
-    width: 280px;
+    width: 360px;
     background: #1e1e1e;
     border: 1px solid #333;
     /* border-radius: 8px; */
@@ -452,7 +453,7 @@ body.shift-pressed .node-id {
 }
 
 .turn-node {
-    width: 336px;
+    width: 360px;
     background: #25252D;
     border: 1px solid #333;
     display: flex;
