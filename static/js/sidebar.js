@@ -283,7 +283,25 @@ async function promptCreateFolder() {
     const folderName = await window.customPrompt(message = 'Enter new folder name:', defaultValue = 'New Folder', title = 'Create Folder');
     if (!folderName) return;
 
-    const success = await apiCreateSandboxFolder(folderName);
+    let targetDir = "";
+    if (selectedSandboxFiles.size > 0) {
+        const selectedPath = Array.from(selectedSandboxFiles)[0];
+        const el = document.querySelector(`.file-item[data-path="${CSS.escape(selectedPath)}"]`);
+        if (el) {
+            const isFolder = el.innerHTML.includes('📁');
+            if (isFolder) {
+                targetDir = selectedPath;
+            } else {
+                const parts = selectedPath.split('/');
+                parts.pop();
+                targetDir = parts.join('/');
+            }
+        }
+    }
+    
+    const finalFolderName = targetDir ? `${targetDir}/${folderName}` : folderName;
+
+    const success = await apiCreateSandboxFolder(finalFolderName);
     if (success) {
         fetchSandboxFiles();
     } else {
@@ -299,10 +317,29 @@ async function uploadSandboxFiles(event) {
     const files = event.target.files;
     if (!files.length) return;
 
+    let targetDir = "";
+    if (selectedSandboxFiles.size > 0) {
+        const selectedPath = Array.from(selectedSandboxFiles)[0];
+        const el = document.querySelector(`.file-item[data-path="${CSS.escape(selectedPath)}"]`);
+        if (el) {
+            const isFolder = el.innerHTML.includes('📁');
+            if (isFolder) {
+                targetDir = selectedPath;
+            } else {
+                const parts = selectedPath.split('/');
+                parts.pop();
+                targetDir = parts.join('/');
+            }
+        }
+    }
+
     const formData = new FormData();
     for (let file of files) {
         // Use webkitRelativePath to maintain folder structure if uploading a folder
-        const filename = file.webkitRelativePath || file.name;
+        let filename = file.webkitRelativePath || file.name;
+        if (targetDir) {
+            filename = targetDir + '/' + filename;
+        }
         formData.append('files', file, filename);
     }
 
