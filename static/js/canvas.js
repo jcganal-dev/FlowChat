@@ -431,7 +431,7 @@ window.changeGroupColor = function (groupId, color, save = true) {
  * Automatically organizes the conversation tree into a structured vertical/horizontal layout.
  * Groups nodes logically, resolves overlapping branches, and animates them into their new positions.
  */
-function autoLayout() {
+function autoLayout(preserveRoots = true) {
     // Unhide all nodes temporarily for accurate layout measurement
     nodes.filter(n => !n.isVirtual).forEach(n => {
         const el = document.getElementById(n.id);
@@ -620,13 +620,76 @@ function autoLayout() {
 
     document.body.offsetHeight;
 
+    let placedBounds = [];
+
+    function shiftSubtree(nodeData, deltaX, deltaY) {
+        nodeData.x += deltaX;
+        nodeData.y += deltaY;
+        const children = childrenMap[nodeData.id] || [];
+        children.forEach(c => shiftSubtree(c, deltaX, deltaY));
+    }
+
+    function getSubtreeBounds(nodeData) {
+        let bounds = {
+            minX: nodeData.x,
+            maxX: nodeData.x + nodeData.nodeWidth,
+            minY: nodeData.y,
+            maxY: nodeData.y + nodeData.nodeHeight
+        };
+        const children = childrenMap[nodeData.id] || [];
+        children.forEach(c => {
+            let cb = getSubtreeBounds(c);
+            bounds.minX = Math.min(bounds.minX, cb.minX);
+            bounds.maxX = Math.max(bounds.maxX, cb.maxX);
+            bounds.minY = Math.min(bounds.minY, cb.minY);
+            bounds.maxY = Math.max(bounds.maxY, cb.maxY);
+        });
+        return bounds;
+    }
+
     roots.forEach(root => {
         calculateSubtreeMetrics(root);
-        placeSubtree(root, currentRootX, 200);
-        currentRootX += root.subtreeWidth + HORIZONTAL_GAP;
+
+        if (preserveRoots) {
+            const originalX = root.x;
+            const originalY = root.y;
+            
+            placeSubtree(root, 0, 0);
+            
+            let deltaX = originalX - root.x;
+            let deltaY = originalY - root.y;
+            shiftSubtree(root, deltaX, deltaY);
+
+            let bounds = getSubtreeBounds(root);
+            let hasOverlap = true;
+            let safety = 0;
+            while (hasOverlap && safety < 100) {
+                hasOverlap = false;
+                for (let pb of placedBounds) {
+                    const pad = GRID_SIZE * 4;
+                    if (
+                        bounds.minX < pb.maxX + pad &&
+                        bounds.maxX + pad > pb.minX &&
+                        bounds.minY < pb.maxY + pad &&
+                        bounds.maxY + pad > pb.minY
+                    ) {
+                        hasOverlap = true;
+                        let shiftAmount = (pb.maxX + pad) - bounds.minX;
+                        shiftSubtree(root, shiftAmount, 0);
+                        bounds = getSubtreeBounds(root);
+                        break;
+                    }
+                }
+                safety++;
+            }
+            placedBounds.push(bounds);
+        } else {
+            placeSubtree(root, currentRootX, 200);
+            currentRootX += root.subtreeWidth + HORIZONTAL_GAP;
+        }
     });
 
-    if (roots.length > 0) {
+    if (!preserveRoots && roots.length > 0) {
         const primaryRoot = roots[0];
         const deltaX = -primaryRoot.x;
         const deltaY = -primaryRoot.y;

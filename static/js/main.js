@@ -200,7 +200,13 @@ window.addEventListener('keydown', (e) => {
         if (typeof wipeState === 'function') wipeState();
     } else if (e.altKey && e.key.toLowerCase() === 'l') {
         e.preventDefault();
-        if (typeof autoLayout === 'function') autoLayout();
+        if (typeof autoLayout === 'function') {
+            if (e.ctrlKey || e.metaKey) {
+                autoLayout(false);
+            } else {
+                autoLayout(true);
+            }
+        }
     } else if (e.altKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         if (typeof centerCanvas === 'function') centerCanvas();
