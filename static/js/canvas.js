@@ -600,8 +600,18 @@ function autoLayout() {
                     iterations++;
                 }
 
-                let finalW = Math.round(el.offsetWidth / GRID_SIZE) * GRID_SIZE;
-                finalW = Math.max(minW, Math.min(finalW, maxW));
+                let q = Math.round(el.offsetWidth / GRID_SIZE);
+                if (q % 2 === 0) q += 1;
+
+                let minQ = Math.ceil(minW / GRID_SIZE);
+                if (minQ % 2 === 0) minQ += 1;
+                
+                let maxQ = Math.floor(maxW / GRID_SIZE);
+                if (maxQ % 2 === 0) maxQ -= 1;
+
+                q = Math.max(minQ, Math.min(q, maxQ));
+                let finalW = q * GRID_SIZE;
+
                 el.style.width = `${finalW}px`;
                 n.nodeWidth = finalW;
             }
