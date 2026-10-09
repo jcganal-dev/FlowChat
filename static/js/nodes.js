@@ -418,7 +418,12 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
 
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteNode(el.id, e.shiftKey);
+            if (selectedNodes.has(el.id) && selectedNodes.size > 1) {
+                Array.from(selectedNodes).forEach(id => deleteNode(id, e.shiftKey));
+                selectedNodes.clear();
+            } else {
+                deleteNode(el.id, e.shiftKey);
+            }
         });
 
         dropzone.addEventListener('click', () => fileInput.click());
@@ -530,7 +535,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
 
         el.addEventListener('click', (e) => {
             if (el.dataset.dragged) return;
-            if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(el.id, e.shiftKey);
+            if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(el.id, e.shiftKey, e.ctrlKey || e.metaKey);
         });
 
         renderFiles();
@@ -749,13 +754,18 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
 
         deleteBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            deleteNode(el.id, e.shiftKey);
+            if (selectedNodes.has(el.id) && selectedNodes.size > 1) {
+                Array.from(selectedNodes).forEach(id => deleteNode(id, e.shiftKey));
+                selectedNodes.clear();
+            } else {
+                deleteNode(el.id, e.shiftKey);
+            }
         });
 
         el.addEventListener('click', (e) => {
             if (el.dataset.dragged) return;
             if (!e.target.closest('button') && !e.target.closest('textarea')) {
-                selectNode(el.id, e.shiftKey);
+                selectNode(el.id, e.shiftKey, e.ctrlKey || e.metaKey);
             }
         });
     }, 0);
@@ -819,11 +829,26 @@ function deleteNode(nodeId, deleteBranch) {
  * @param {string} id - The ID of the node to select.
  * @param {boolean} isShiftClick - True if the shift key is held during selection.
  */
-function selectNode(id, isShiftClick = false) {
+function selectNode(id, isShiftClick = false, isCtrlClick = false) {
     const el = document.getElementById(id);
     if (el) el.style.zIndex = highestZIndex++;
 
-    if (isShiftClick) {
+    if (isCtrlClick) {
+        if (selectedNodes.size === 1 && selectedNodes.has(activeNodeId) && id !== activeNodeId) {
+            selectedNodes.delete(activeNodeId);
+        }
+
+        if (selectedNodes.has(id)) {
+            selectedNodes.delete(id);
+            if (activeNodeId === id) {
+                activeNodeId = selectedNodes.size > 0 ? Array.from(selectedNodes)[selectedNodes.size - 1] : null;
+            }
+        } else {
+            selectedNodes.add(id);
+            if (!activeNodeId) activeNodeId = id;
+        }
+        shiftSelectionStartId = null;
+    } else if (isShiftClick) {
         if (!shiftSelectionStartId) {
             shiftSelectionStartId = id;
             selectedNodes.clear();
@@ -855,7 +880,7 @@ function selectNode(id, isShiftClick = false) {
 
     document.querySelectorAll('.node').forEach(el => {
         el.classList.toggle('active-branch', lineage.has(el.id));
-        const isMulti = (selectedNodes.size > 1 && selectedNodes.has(el.id)) || (shiftSelectionStartId === el.id);
+        const isMulti = selectedNodes.has(el.id) && (selectedNodes.size > 1 || el.id !== activeNodeId || shiftSelectionStartId === el.id);
         el.classList.toggle('multi-selected', isMulti);
     });
 

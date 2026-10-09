@@ -83,7 +83,22 @@ window.addEventListener('contextmenu', (e) => {
         const groupItem = document.getElementById('menu-group');
         const ungroupItem = document.getElementById('menu-ungroup');
 
+        let allSameGroup = false;
         if (selectedNodes.size > 1) {
+            const groupIds = new Set();
+            let anyUngrouped = false;
+            selectedNodes.forEach(id => {
+                const n = nodes.find(x => x.id === id);
+                if (n && n.groupId) {
+                    groupIds.add(n.groupId);
+                } else {
+                    anyUngrouped = true;
+                }
+            });
+            allSameGroup = !anyUngrouped && groupIds.size === 1;
+        }
+
+        if (selectedNodes.size > 1 && !allSameGroup) {
             groupItem.style.opacity = '1';
             groupItem.style.pointerEvents = 'auto';
         } else {
