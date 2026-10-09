@@ -138,6 +138,7 @@ function attachBaseListeners(id, el, restoreData) {
         const header = el.querySelector('.node-header');
         if (header) {
             header.addEventListener('mousedown', (e) => {
+                if (e.button === 1) return; // Allow middle-click to bubble
                 e.preventDefault();
                 e.stopPropagation();
                 el.style.zIndex = highestZIndex++;
@@ -248,6 +249,7 @@ function attachBaseListeners(id, el, restoreData) {
     const resizer = el.querySelector('.resize-handle');
     if (resizer) {
         resizer.addEventListener('mousedown', (e) => {
+            if (e.button === 1) return; // Allow middle-click to bubble
             e.preventDefault();
             e.stopPropagation();
 

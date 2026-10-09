@@ -47,14 +47,20 @@ let panStartX = 0;
 let panStartY = 0;
 
 viewport.addEventListener('mousedown', (e) => {
-    if (e.target.closest('.node') || e.target.closest('#controls')) return;
-
-    isPanning = true;
-    hasMovedDuringPan = false;
-    panStartX = e.clientX;
-    panStartY = e.clientY;
-    startPanX = e.clientX - camera.x;
-    startPanY = e.clientY - camera.y;
+    if (e.button === 1) { // Middle click
+        e.preventDefault();
+        isPanning = true;
+        hasMovedDuringPan = false;
+        panStartX = e.clientX;
+        panStartY = e.clientY;
+        startPanX = e.clientX - camera.x;
+        startPanY = e.clientY - camera.y;
+        document.body.classList.add('is-panning');
+    } else if (e.button === 0) {
+        if (!e.target.closest('.node') && !e.target.closest('#controls')) {
+            viewport.dataset.mightDeselect = "true";
+        }
+    }
 });
 
 window.addEventListener('mousemove', (e) => {
@@ -69,9 +75,14 @@ window.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    if (isPanning) {
+    if (e.button === 1 && isPanning) {
         isPanning = false;
-        if (!hasMovedDuringPan && !e.target.closest('.node') && !e.target.closest('#controls')) {
+        document.body.classList.remove('is-panning');
+    }
+    
+    if (e.button === 0 && viewport.dataset.mightDeselect === "true") {
+        viewport.dataset.mightDeselect = "false";
+        if (!e.target.closest('.node') && !e.target.closest('#controls')) {
             if (typeof selectNode === 'function' && activeNodeId) {
                 selectNode(activeNodeId);
             }

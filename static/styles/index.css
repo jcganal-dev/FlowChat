@@ -237,11 +237,10 @@ html {
     background-size: 24px 24px;
     /* Base grid size */
     background-position: 0 0;
-    cursor: grab;
 }
 
-#viewport:active {
-    cursor: grabbing;
+body.is-panning, body.is-panning * {
+    cursor: grabbing !important;
 }
 
 #nodes-layer {
