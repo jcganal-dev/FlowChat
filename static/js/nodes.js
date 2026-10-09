@@ -149,7 +149,7 @@ function attachBaseListeners(id, el, restoreData) {
 
                 const startNodeX = nodeData.x;
                 const startNodeY = nodeData.y;
-                
+
                 const isShiftDrag = e.shiftKey;
                 const isMultiSelect = selectedNodes.has(el.id);
                 const draggedNodes = [];
@@ -170,7 +170,7 @@ function attachBaseListeners(id, el, restoreData) {
                 if (isShiftDrag) {
                     const queue = draggedNodes.map(dn => dn.node.id);
                     const seen = new Set(queue);
-                    
+
                     while (queue.length > 0) {
                         const currentId = queue.shift();
                         const children = nodes.filter(n => n.parentId === currentId);
@@ -254,7 +254,7 @@ function attachBaseListeners(id, el, restoreData) {
             const startMouseX = e.clientX;
             const nodeData = nodes.find(n => n.id === el.id);
             if (!nodeData) return;
-            
+
             const targetStartWidth = el.offsetWidth;
 
             const isMultiSelect = selectedNodes.has(el.id);
@@ -284,7 +284,7 @@ function attachBaseListeners(id, el, restoreData) {
 
             function onMouseMove(moveEvent) {
                 const deltaX = (moveEvent.clientX - startMouseX) / camera.zoom;
-                
+
                 let rawWidth = Math.max(300, targetStartWidth + deltaX * 2);
                 let snappedWidth = Math.round(rawWidth / GRID_SIZE) * GRID_SIZE;
 
@@ -445,7 +445,8 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
                         <a class="remove-file-btn" data-idx="${idx}">✖</a>
                     `;
                 } else {
-                    item.innerHTML = `📄 ${f.name} <a class="remove-file-btn" data-idx="${idx}">✖</a>`;
+                    const src = getIconpath(f.name.split('.').pop().toLowerCase());
+                    item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}">✖</a>`;
                 }
 
                 container.appendChild(item);
@@ -464,7 +465,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             if (typeof drawGroups === 'function') drawGroups();
             if (typeof drawEdges === 'function') drawEdges();
         }
-        
+
         el.renderFiles = renderFiles;
 
         function processMultipleFiles(fileList) {
@@ -575,6 +576,12 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
 
         textarea.addEventListener('blur', () => {
             lastFocusedInput = null;
+        });
+
+        textarea.addEventListener('paste', (e) => {
+            e.preventDefault();
+            const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+            document.execCommand('insertText', false, text);
         });
 
         textarea.addEventListener('keydown', (e) => {
@@ -845,17 +852,19 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (!refData) return false;
 
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `🖼️ ${refData.files.map(f => f.name).join(', ')}`;
+            chipLabel = `<img src="${getIconpath('image')}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
-            chipLabel = `📄 ${refData.files.map(f => f.name).join(', ')}`;
+            let src = getIconpath(refData.files[0].name.split('.').pop().toLowerCase())
+            src = refData.files.length > 1 ? getIconpath('') : src;
+            chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
             refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
-            chipLabel = `Summary of ${refId}`;
+            chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `${refId}`;
+            chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         }
     }
@@ -865,6 +874,11 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     chip.contentEditable = 'false';
     chip.setAttribute('data-id', chipLabel);
     chip.setAttribute('data-ref', refId);
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'ref-label';
+    labelSpan.innerHTML = chipLabel;
+    chip.appendChild(labelSpan);
 
     const hiddenText = document.createElement('span');
     hiddenText.className = 'ref-text';
@@ -889,7 +903,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     lastSelectionRange = range.cloneRange();
     textarea.dispatchEvent(new Event('input'));
     textarea.focus();
-    
+
     return true;
 }
 
@@ -905,7 +919,7 @@ function handleIdClick(event, id, isGroup = false) {
         if (lastFocusedInput && lastSelectionRange) {
             inserted = insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
         }
-        
+
         if (inserted) {
             event.stopPropagation();
         }

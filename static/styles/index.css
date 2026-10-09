@@ -32,6 +32,7 @@ html {
     top: 100px;
     left: 100px;
     width: 300px;
+    min-height: 450px;
     max-height: 500px;
     background-color: #181818;
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -62,6 +63,15 @@ html {
     display: flex;
     gap: 8px;
     align-items: center;
+
+    a {
+        background-color: transparent;
+        cursor: pointer;
+    }
+
+    a:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
 }
 
 #close-palette-btn {
@@ -556,7 +566,9 @@ body.shift-pressed .node-id {
 }
 
 .reference-node {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
     background: #38bdf8;
     color: #111;
     border-radius: 4px;
@@ -564,13 +576,8 @@ body.shift-pressed .node-id {
     margin: 0 2px;
     font-size: 12px;
     font-family: monospace;
-    vertical-align: baseline;
+    vertical-align: middle;
     user-select: none;
-}
-
-.reference-node::before {
-    content: attr(data-id);
-    /* Displays "@node-12345" */
 }
 
 .ref-text {
@@ -764,7 +771,7 @@ body.shift-pressed .node-id {
     color: #94a3b8;
     position: relative;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 }
 
 .file-item .remove-file-btn {
@@ -988,4 +995,15 @@ div[contentEditable='true'] {
 .ai-section:hover {
     -webkit-user-select: text;
     user-select: text;
+}
+
+.file-icon {
+    width: 14px;
+    margin-right: 5px;
+    aspect-ratio: 1/1;
+}
+
+.reference-node .file-icon {
+    margin-bottom: -2px;
+    margin-right: -3px;
 }

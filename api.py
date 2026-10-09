@@ -50,15 +50,31 @@ templates = Jinja2Templates(directory="templates")
 
 @app.get("/api/sandbox/files")
 async def get_sandbox_files():
+    items = []
     files = []
-    for root, _, filenames in os.walk("sandbox"):
+    for root, dirnames, filenames in os.walk("sandbox"):
+        rel_dir = os.path.relpath(root, "sandbox")
+        if rel_dir == ".":
+            rel_dir = ""
+        for dirname in dirnames:
+            dirpath = os.path.join(rel_dir, dirname).replace("\\", "/")
+            items.append({"path": dirpath, "type": "directory"})
         for filename in filenames:
-            rel_dir = os.path.relpath(root, "sandbox")
-            if rel_dir == ".":
-                rel_dir = ""
             filepath = os.path.join(rel_dir, filename).replace("\\", "/")
+            items.append({"path": filepath, "type": "file"})
             files.append(filepath)
-    return JSONResponse(content={"files": files})
+    return JSONResponse(content={"items": items, "files": files})
+
+class FolderCreateRequest(BaseModel):
+    name: str
+
+@app.post("/api/sandbox/create_folder")
+async def create_sandbox_folder(req: FolderCreateRequest):
+    if ".." in req.name:
+        raise HTTPException(status_code=400, detail="Invalid folder name")
+    folder_path = os.path.join("sandbox", req.name)
+    os.makedirs(folder_path, exist_ok=True)
+    return JSONResponse(content={"message": "Folder created successfully"})
 
 @app.post("/api/sandbox/upload")
 async def upload_file(files: List[UploadFile] = File(...)):
@@ -66,7 +82,10 @@ async def upload_file(files: List[UploadFile] = File(...)):
     for file in files:
         if file.filename is None:
             raise HTTPException(status_code=400, detail="Uploaded file must have a filename")
+        if ".." in file.filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
         file_path = os.path.join("sandbox", file.filename)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
         saved.append(file.filename)
@@ -76,10 +95,13 @@ async def upload_file(files: List[UploadFile] = File(...)):
 async def delete_sandbox_file(filename: str):
     file_path = os.path.join("sandbox", filename)
     if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
+        return JSONResponse(content={"message": "File/Folder already deleted"})
     try:
-        os.remove(file_path)
-        return JSONResponse(content={"message": "File deleted successfully"})
+        if os.path.isdir(file_path):
+            shutil.rmtree(file_path)
+        else:
+            os.remove(file_path)
+        return JSONResponse(content={"message": "File/Folder deleted successfully"})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -117,20 +139,9 @@ async def chat_endpoint(user_data: ChatPayload):
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
 
     payload = {
-        "model": "inclusionai/ling-3.0-flash-sante:free",
-        # "model": "apodex/apodex-1.1-mini:free",
-        # "model": "openrouter/free",
-        # "provider": {
-        #     "ignore": ["HuggingFace"] # Add provider names here to exclude their endpoints
-        # },
+        "model": "apodex/apodex-1.1-mini:free",
         "messages": user_data.messages,
         "include_reasoning": True,
-        # "max_tokens": user_data.max_tokens,
-        # "temperature": 0.2,
-        # "repetition_penalty": 1.15,
-        # "frequency_penalty": 0.3,
-        # "presence_penalty": 0.2,
-        # "top_k": 80,
         "stream": True
     }
 

@@ -98,6 +98,28 @@ viewport.addEventListener('drop', async (e) => {
 
     if (!Array.isArray(filepaths) || filepaths.length === 0) return;
 
+    const originalFilepaths = [...filepaths];
+    const sandboxData = await apiFetchSandboxFiles();
+    if (sandboxData && sandboxData.files) {
+        let expanded = new Set();
+        for (const fp of filepaths) {
+            if (sandboxData.files.includes(fp)) {
+                expanded.add(fp);
+            } else {
+                const prefix = fp + '/';
+                let found = false;
+                for (const sf of sandboxData.files) {
+                    if (sf.startsWith(prefix)) {
+                        expanded.add(sf);
+                        found = true;
+                    }
+                }
+                if (!found) expanded.add(fp);
+            }
+        }
+        filepaths = Array.from(expanded);
+    }
+
     const rect = viewport.getBoundingClientRect();
     let dropX = (e.clientX - rect.left - camera.x) / camera.zoom;
     let dropY = (e.clientY - rect.top - camera.y) / camera.zoom;
@@ -105,8 +127,19 @@ viewport.addEventListener('drop', async (e) => {
     const targetNodeEl = e.target.closest('.node');
 
     let filesData = [];
+    let skippedFiles = [];
+
     for (let i = 0; i < filepaths.length; i++) {
         const filepath = filepaths[i];
+
+        const isImage = filepath.match(imageWhitelist);
+        const isText = filepath.match(textWhitelist) || filepath.match(exactNameWhitelist);
+
+        if (!isImage && !isText) {
+            skippedFiles.push(filepath);
+            continue;
+        }
+
         const virtualId = 'sandbox/' + filepath;
         let payload = null;
         let nodeData = nodes.find(n => n.id === virtualId);
@@ -119,7 +152,6 @@ viewport.addEventListener('drop', async (e) => {
                 window.customAlert(`Failed to load file content for ${filepath}.`);
                 continue;
             }
-            const isImage = filepath.match(/\.(png|jpg|jpeg|gif|webp)$/i);
             if (isImage) {
                 const blob = await res.blob();
                 payload = await new Promise((resolve) => {
@@ -134,13 +166,18 @@ viewport.addEventListener('drop', async (e) => {
         filesData.push({ name: filepath, payload: payload });
     }
 
+    if (skippedFiles.length > 0) {
+        const payload = "The following unsupported files are present in the directory structure but their contents were intentionally skipped:\n" + skippedFiles.map(f => "- " + f).join("\n");
+        filesData.push({ name: 'unsupported_files.txt', payload: payload });
+        window.customAlert(`Skipped ${skippedFiles.length} unsupported files. A reference list was created for the LLM.`);
+    }
+
     if (filesData.length === 0) return;
 
     if (targetNodeEl) {
         const targetNodeData = nodes.find(n => n.id === targetNodeEl.id);
         if (targetNodeData) {
             if (targetNodeData.type === 'chat') {
-                // If dropped on a chat node, insert reference chips if possible
                 const inputEl = targetNodeEl.querySelector('.node-input');
                 if (inputEl) {
                     if (inputEl.contentEditable === 'false' || inputEl.getAttribute('contenteditable') === 'false') {
@@ -148,7 +185,6 @@ viewport.addEventListener('drop', async (e) => {
                     } else {
                         filesData.forEach(fd => {
                             const virtualId = 'sandbox/' + fd.name;
-                            // Just append to the end of the input since we don't have a specific text cursor range
                             const range = document.createRange();
                             range.selectNodeContents(inputEl);
                             range.collapse(false);
@@ -157,7 +193,6 @@ viewport.addEventListener('drop', async (e) => {
                     }
                 }
             } else {
-                // If dropped on a file node, just append to its files
                 if (!targetNodeData.files) targetNodeData.files = [];
                 filesData.forEach(fd => targetNodeData.files.push(fd));
                 if (typeof targetNodeEl.renderFiles === 'function') targetNodeEl.renderFiles();
@@ -165,17 +200,26 @@ viewport.addEventListener('drop', async (e) => {
             if (typeof saveState === 'function') saveState();
         }
     } else {
-        // Drop on empty canvas -> Create ONE new node for all files
-        const isFirstImage = filesData[0].name.match(/\.(png|jpg|jpeg|gif|webp)$/i);
-        const type = isFirstImage ? 'image' : 'document';
-        const title = filesData.length > 1 ? `${filesData.length} files` : filesData[0].name.replace(/\W+/g, '_');
+        const imageFiles = filesData.filter(fd => fd.name.match(/\.(png|jpg|jpeg|gif|webp)$/i));
+        const documentFiles = filesData.filter(fd => !fd.name.match(/\.(png|jpg|jpeg|gif|webp)$/i));
 
-        const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, type);
-        const newNode = nodes.find(n => n.id === newId);
-        if (newNode) {
-            newNode.files = filesData;
-            // The setTimeout in _createFileNode will automatically run renderFiles() after this!
+        const baseTitle = originalFilepaths.length === 1 ? originalFilepaths[0].split('/').pop() : `${filesData.length} items`;
+
+        if (imageFiles.length > 0) {
+            const title = imageFiles.length === filesData.length ? baseTitle : `${baseTitle} (Images)`;
+            const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, 'image');
+            const newNode = nodes.find(n => n.id === newId);
+            if (newNode) newNode.files = imageFiles;
+            dropX += 300;
         }
+
+        if (documentFiles.length > 0) {
+            const title = documentFiles.length === filesData.length ? baseTitle : `${baseTitle} (Docs)`;
+            const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, 'document');
+            const newNode = nodes.find(n => n.id === newId);
+            if (newNode) newNode.files = documentFiles;
+        }
+
         if (typeof saveState === 'function') saveState();
     }
 });
@@ -522,6 +566,7 @@ function autoLayout() {
             }
 
             if (!n.isCollapsed && (!n.groupId || groups[n.groupId]?.isCollapsed === false)) {
+
                 let iterations = 0;
                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
                 const maxW = 1200;

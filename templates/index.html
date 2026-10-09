@@ -25,11 +25,17 @@
         <div class="palette-header" id="sandbox-palette-header">
             <h3>Project Files</h3>
             <div class="header-actions">
-                <button id="upload-btn" onclick="document.getElementById('sidebar-file-input').click()">Upload</button>
+                <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder">📁+</a>
+                <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
+                    title="Upload Folder">📁↑</a>
+                <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
+                    title="Upload File">📄↑</a>
+                <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory multiple
+                    onchange="uploadSandboxFiles(event)">
                 <input type="file" id="sidebar-file-input" style="display: none;" multiple
                     onchange="uploadSandboxFiles(event)">
-                <button id="close-palette-btn"
-                    onclick="document.getElementById('sandbox-palette').style.display='none'">✖</button>
+                <a id="close-palette-btn"
+                    onclick="document.getElementById('sandbox-palette').style.display='none'">✖</a>
             </div>
         </div>
         <div id="file-tree" class="file-tree"></div>

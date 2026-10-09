@@ -18,7 +18,7 @@ function walkContext(leafNodeId) {
         } else if (!node.muted) {
             if (node.type === 'document' && (node.files && node.files.length > 0)) {
                 node.files.forEach(f => {
-                    history.push({ role: 'system', content: `[DOCUMENT ATTACHED: ${f.name || 'Document'}]\n${f.payload}` });
+                    history.push({ role: 'user', content: `[DOCUMENT ATTACHED: ${f.name || 'Document'}]\n${f.payload}` });
                 });
             } else if (node.type === 'image' && (node.files && node.files.length > 0)) {
                 const images = node.files.map(f => ({ type: "image_url", image_url: { url: f.payload } }));
@@ -246,11 +246,23 @@ async function triggerSummarize(groupId) {
 
     const groupNodes = nodes.filter(n => n.groupId === groupId);
     let rawText = "";
+    const summarizableNodes = [];
+    
     groupNodes.forEach((n, idx) => {
+        if (n.type === 'document' || n.type === 'image') return;
         rawText += `[NODE_${idx}]\nUser: ${n.userText}\nAI: ${n.aiText}\n\n`;
+        summarizableNodes.push(n);
     });
 
     const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
+    
+    if (summarizableNodes.length === 0) {
+        if (btn) btn.textContent = "✨ Summarize";
+        group.isSummarized = true;
+        if (typeof renderGroups === 'function') renderGroups();
+        return;
+    }
+
     if (btn) btn.textContent = "⏳ Summarizing...";
 
     const payload = {
@@ -258,7 +270,7 @@ async function triggerSummarize(groupId) {
             { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary as concise as possible without losing its meaning. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>this is the summary</SUMMARY_0>. Do not include any other text. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
             { role: "user", content: rawText }
         ],
-        max_tokens: groupNodes.length * token_per_node
+        max_tokens: summarizableNodes.length * token_per_node
     };
 
     let summary = "";
@@ -275,6 +287,13 @@ async function triggerSummarize(groupId) {
         },
         onComplete: () => {
             groupNodes.forEach((n, idx) => {
+                if (n.type === 'document' || n.type === 'image') {
+                    n.isCollapsed = true;
+                    const el = document.getElementById(n.id);
+                    if (el) el.classList.add('collapsed-node');
+                    return;
+                }
+
                 const regex = new RegExp(`<SUMMARY_${idx}>([\\s\\S]*?)</SUMMARY_${idx}>`);
                 const match = summary.match(regex);
                 

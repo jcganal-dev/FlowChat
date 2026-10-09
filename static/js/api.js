@@ -103,12 +103,27 @@ async function apiUploadSandboxFiles(formData) {
 }
 
 /**
+ * Creates a new folder in the sandbox directory.
+ * @param {string} folderName - The name of the folder to create.
+ * @returns {boolean} True if creation was successful, false otherwise.
+ */
+async function apiCreateSandboxFolder(folderName) {
+    const res = await fetch('/api/sandbox/create_folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: folderName })
+    });
+    return res.ok;
+}
+
+/**
  * Deletes a file from the sandbox directory.
  * @param {string} filename - The relative path of the file to delete.
  * @returns {boolean} True if the deletion was successful, false otherwise.
  */
 async function apiDeleteSandboxFile(filename) {
-    const res = await fetch('/api/sandbox/delete/' + encodeURIComponent(filename), {
+    const encodedPath = filename.split('/').map(encodeURIComponent).join('/');
+    const res = await fetch('/api/sandbox/delete/' + encodedPath, {
         method: 'DELETE'
     });
     return res.ok;

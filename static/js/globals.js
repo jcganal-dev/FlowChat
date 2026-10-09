@@ -3,6 +3,9 @@ const $make = (tag) => document.createElement(tag);
 const erase_thoughts = true;
 const GRID_SIZE = 24;
 const CONTEXT_LIMIT = 4096;
+const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs)$/i;
+const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
+const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
 let nodes = [];
 let groups = {};
@@ -68,6 +71,26 @@ async function copy_text(text) {
     }
 }
 
+function getIconpath(filepath) {
+    const extension = filepath.split('.').pop().toLowerCase();
+    switch (extension) {
+        case 'js':
+            return '/static/icons/js.svg';
+        case 'html':
+            return '/static/icons/html.svg';
+        case 'css':
+            return '/static/icons/css.svg';
+        case 'py':
+            return '/static/icons/py.svg';
+        case 'node':
+            return '/static/icons/node.svg';
+        case 'image':
+            return '/static/icons/image.svg';
+        default:
+            return '/static/icons/default.svg';
+    }
+}
+
 /**
  * Renders Markdown, Math, and Code Blocks safely.
  * @param {string} text - The raw markdown text
@@ -128,7 +151,7 @@ window.showModal = function (title, message, isConfirm = false, isPrompt = false
             inputContainer.style.display = 'flex';
             inputEl.style.display = 'block';
             inputEl.value = defaultValue;
-            
+
             if (showColor) {
                 colorProxy.style.display = 'inline-block';
                 colorProxy.style.backgroundColor = defaultColor;
@@ -136,7 +159,7 @@ window.showModal = function (title, message, isConfirm = false, isPrompt = false
             } else {
                 colorProxy.style.display = 'none';
             }
-            
+
             inputEl.focus();
         } else {
             inputContainer.style.display = 'none';
@@ -149,6 +172,7 @@ window.showModal = function (title, message, isConfirm = false, isPrompt = false
         }
 
         modal.style.display = 'flex';
+        inputEl.focus()
 
         function cleanup() {
             modal.style.display = 'none';
@@ -183,14 +207,14 @@ window.customAlert = function (message) {
     showModal('Alert', message, false, false);
 };
 
-window.customConfirm = function (message) {
-    return showModal('Confirm', message, true, false);
+window.customConfirm = function (message, title = 'Confirm') {
+    return showModal(title, message, true, false);
 };
 
-window.customPrompt = function (message, defaultValue = '') {
-    return showModal('Prompt', message, true, true, defaultValue);
+window.customPrompt = function (message, defaultValue = '', title = 'Prompt') {
+    return showModal(title, message, true, true, defaultValue);
 };
 
-window.customGroupPrompt = function(message, defaultValue = '', defaultColor = '#a0a0a0') {
-    return showModal('Group Settings', message, true, true, defaultValue, true, defaultColor);
+window.customGroupPrompt = function (message, defaultValue = '', defaultColor = '#a0a0a0', title = 'Group Settings') {
+    return showModal(title, message, true, true, defaultValue, true, defaultColor);
 };

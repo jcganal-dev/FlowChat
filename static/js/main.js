@@ -109,8 +109,13 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-ungroup').style.display = 'block';
 
         const summarizeMenu = document.getElementById('menu-summarize');
-        summarizeMenu.style.display = 'block';
-        summarizeMenu.textContent = (nodeData && nodeData.isCollapsed) ? 'Re-Summarize Node' : 'Summarize Node';
+        if (nodeData && (nodeData.type === 'document' || nodeData.type === 'image')) {
+            summarizeMenu.style.display = 'none';
+        } else {
+            summarizeMenu.style.display = 'block';
+            const hasSummary = nodeData && nodeData.nodeSummary && nodeData.nodeSummary.trim() !== "";
+            summarizeMenu.textContent = hasSummary ? 'Re-Summarize Node' : 'Summarize Node';
+        }
 
         contextMenu.style.display = 'block';
         contextMenu.style.left = `${e.clientX}px`;
