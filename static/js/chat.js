@@ -187,6 +187,7 @@ async function runUserNode(nodeId) {
             nodeData.aiText += content;
             if (typeof renderMarkdown === 'function') {
                 aiContentEl.innerHTML = renderMarkdown(nodeData.aiText);
+                if (window.Prism) Prism.highlightAllUnder(aiContentEl);
             } else {
                 aiContentEl.innerHTML += content;
             }
@@ -198,6 +199,7 @@ async function runUserNode(nodeId) {
             nodeData.aiThinking += reasoning;
             if (typeof renderMarkdown === 'function') {
                 aiThinkEl.innerHTML = renderMarkdown(nodeData.aiThinking);
+                if (window.Prism) Prism.highlightAllUnder(aiThinkEl);
             } else {
                 aiThinkEl.innerHTML += reasoning;
             }

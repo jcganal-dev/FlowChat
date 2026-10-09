@@ -9,9 +9,11 @@
     <link rel="icon" href="/static/icons/temp_icon.png" type="image/png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 </head>
 
-<body class="no-select">
+<body class="no-select" onload="Prism.highlightAll()">
     <div id="toolbar-left" class="toolbar-left hidden">
         <button id="center-btn" onclick="centerCanvas()" title="Pan to the last active node"><span
                 class="alt-key">H</span></button>

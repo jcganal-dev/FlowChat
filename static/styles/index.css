@@ -872,9 +872,9 @@ body.shift-pressed .node-id {
 }
 
 /* Markdown Styles */
-.ai-content {
+/* .ai-content {
     overflow: auto;
-}
+} */
 
 .ai-content p,
 .think-content p {
