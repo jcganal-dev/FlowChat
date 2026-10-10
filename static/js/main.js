@@ -98,7 +98,9 @@ window.addEventListener('contextmenu', (e) => {
             allSameGroup = !anyUngrouped && groupIds.size === 1;
         }
 
-        if (selectedNodes.size > 1 && !allSameGroup) {
+        const sameLineage = (typeof areNodesInSameLineage === 'function') ? areNodesInSameLineage(selectedNodes) : true;
+
+        if (selectedNodes.size > 1 && !allSameGroup && sameLineage) {
             groupItem.style.opacity = '1';
             groupItem.style.pointerEvents = 'auto';
         } else {
@@ -140,7 +142,7 @@ window.addEventListener('contextmenu', (e) => {
             let anyExpanded = false;
             selectedNodes.forEach(id => {
                 const n = nodes.find(x => x.id === id);
-                if (n) {
+                if (n && n.summaryText && n.summaryText.trim() !== "") {
                     if (n.isCollapsed) anyCollapsed = true;
                     else anyExpanded = true;
                 }
@@ -174,12 +176,16 @@ window.addEventListener('contextmenu', (e) => {
             toggleNodeMenu.style.display = 'none';
             if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
         } else {
-            toggleNodeMenu.style.display = 'block';
             if(deleteNodeMenu) deleteNodeMenu.style.display = 'block';
-            if (nodeData.isCollapsed) {
-                toggleNodeMenu.innerHTML = `<img src="/static/icons/expand.svg" class="file-icon"> Expand Node`;
+            if (!nodeData.summaryText || nodeData.summaryText.trim() === "") {
+                toggleNodeMenu.style.display = 'none';
             } else {
-                toggleNodeMenu.innerHTML = `<img src="/static/icons/collapse.svg" class="file-icon"> Collapse Node`;
+                toggleNodeMenu.style.display = 'block';
+                if (nodeData.isCollapsed) {
+                    toggleNodeMenu.innerHTML = `<img src="/static/icons/expand.svg" class="file-icon"> Expand Node`;
+                } else {
+                    toggleNodeMenu.innerHTML = `<img src="/static/icons/collapse.svg" class="file-icon"> Collapse Node`;
+                }
             }
         }
 

@@ -59,6 +59,45 @@ function getLineagePath(idA, idB) {
     return null;
 }
 
+/**
+ * Checks if a set of nodes all belong to the same lineage (a single ancestry path).
+ * @param {Set<string>} nodeIds - The set of node IDs to check.
+ * @returns {boolean} True if they form a single lineage path, false otherwise.
+ */
+function areNodesInSameLineage(nodeIds) {
+    if (nodeIds.size <= 1) return true;
+    
+    let deepestNode = null;
+    let maxDepth = -1;
+    
+    const nodesArray = Array.from(nodeIds).map(id => nodes.find(n => n.id === id)).filter(Boolean);
+    if (nodesArray.length !== nodeIds.size) return false;
+    
+    nodesArray.forEach(n => {
+        let depth = 0;
+        let curr = n.parentId;
+        while (curr) {
+            depth++;
+            const parent = nodes.find(x => x.id === curr);
+            curr = parent ? parent.parentId : null;
+        }
+        if (depth > maxDepth) {
+            maxDepth = depth;
+            deepestNode = n;
+        }
+    });
+    
+    let hitCount = 0;
+    let curr = deepestNode ? deepestNode.id : null;
+    while (curr) {
+        if (nodeIds.has(curr)) hitCount++;
+        const n = nodes.find(x => x.id === curr);
+        curr = n ? n.parentId : null;
+    }
+    
+    return hitCount === nodeIds.size;
+}
+
 function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat") {
     if (restoreData) type = restoreData.type || 'chat';
     const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
