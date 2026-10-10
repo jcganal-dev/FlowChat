@@ -1047,8 +1047,9 @@ div[contentEditable='true'] {
 }
 
 .reference-node .file-icon {
-    margin-bottom: -2px;
+    margin-bottom: -3px;
     margin-right: -3px;
+    margin-left: 0px;
 }
 
 /* WebKit (Chrome, Safari, Edge) */
@@ -1080,4 +1081,11 @@ div[contentEditable='true'] {
 
 .node.collapsed-node .node-summary-display {
     display: block !important;
+}
+
+.chevron {
+    margin-top: 2px;
+    /* margin-bottom: -2px; */
+    margin-left: -5px;
+    margin-right: 5px;
 }
