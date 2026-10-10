@@ -183,11 +183,33 @@ window.addEventListener('contextmenu', (e) => {
             }
         }
 
-        if (nodeData && (nodeData.type === 'document' || nodeData.type === 'image')) {
-            summarizeMenu.style.display = 'none';
+        const parseMenu = document.getElementById('menu-parse-scrape');
+        if (nodeData && nodeData.type === 'scrape') {
+            if (nodeData.isParsed) {
+                parseMenu.style.display = 'none';
+                summarizeMenu.style.display = 'block';
+                summarizeMenu.style.opacity = '1';
+                summarizeMenu.style.pointerEvents = 'auto';
+            } else {
+                parseMenu.style.display = 'block';
+                parseMenu.innerHTML = `<img src="/static/icons/magnifying-glass.svg" class="file-icon"> Parse Scrape Data`;
+                summarizeMenu.style.display = 'block';
+                summarizeMenu.style.opacity = '0.4';
+                summarizeMenu.style.pointerEvents = 'none';
+            }
         } else {
-            summarizeMenu.style.display = 'block';
-            const hasSummary = nodeData && nodeData.nodeSummary && nodeData.nodeSummary.trim() !== "";
+            parseMenu.style.display = 'none';
+            if (nodeData && (nodeData.type === 'document' || nodeData.type === 'image')) {
+                summarizeMenu.style.display = 'none';
+            } else {
+                summarizeMenu.style.display = 'block';
+                summarizeMenu.style.opacity = '1';
+                summarizeMenu.style.pointerEvents = 'auto';
+            }
+        }
+
+        if (summarizeMenu.style.display === 'block') {
+            const hasSummary = nodeData && nodeData.summaryText && nodeData.summaryText.trim() !== "";
             const icon = `<img src="/static/icons/bulb.svg" class="file-icon"></img>`
             summarizeMenu.innerHTML = hasSummary ? icon + ' Re-Summarize Node' : icon + ' Summarize Node';
         }
@@ -208,6 +230,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-group').style.display = 'none';
         document.getElementById('menu-ungroup').style.display = 'none';
         document.getElementById('menu-summarize').style.display = 'none';
+        document.getElementById('menu-parse-scrape').style.display = 'none';
         document.getElementById('menu-summarize-selected').style.display = 'none';
         document.getElementById('menu-delete-selected').style.display = 'none';
         document.getElementById('menu-expand-selected').style.display = 'none';
@@ -299,6 +322,15 @@ $('menu-summarize').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (targetNodeIdForMenu) {
         triggerSingleSummarize(targetNodeIdForMenu);
+    }
+});
+
+$('menu-parse-scrape').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (targetNodeIdForMenu) {
+        if (typeof triggerParseScrape === 'function') {
+            triggerParseScrape(targetNodeIdForMenu);
+        }
     }
 });
 

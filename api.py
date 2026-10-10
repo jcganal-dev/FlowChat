@@ -240,10 +240,10 @@ async def scrape_with_jina(req: ScrapeRequest):
 
     return JSONResponse(content={"content": combined_markdown})
 
-# OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
-# MODEL = "apodex/apodex-1.1-mini:free"
-OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
-MODEL = "minicpm"
+OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL = "apodex/apodex-1.1-mini:free"
+# OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
+# MODEL = "minicpm"
 
 OPENROUTER_API_KEY = APIKeys().get_key()
 

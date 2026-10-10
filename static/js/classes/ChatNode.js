@@ -242,7 +242,6 @@ class ChatNode extends BaseNode {
                 this.nodeData.aiText += content;
                 if (typeof renderMarkdown === 'function') {
                     aiContentEl.innerHTML = renderMarkdown(this.nodeData.aiText);
-                    if (window.Prism) Prism.highlightAllUnder(aiContentEl);
                 } else aiContentEl.innerHTML += content;
                 if (typeof drawEdges === 'function') drawEdges();
                 updateThermometer(this.id);
@@ -252,7 +251,6 @@ class ChatNode extends BaseNode {
                 this.nodeData.aiThinking += reasoning;
                 if (typeof renderMarkdown === 'function') {
                     aiThinkEl.innerHTML = renderMarkdown(this.nodeData.aiThinking);
-                    if (window.Prism) Prism.highlightAllUnder(aiThinkEl);
                 } else aiThinkEl.innerHTML += reasoning;
                 aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
                 if (typeof drawEdges === 'function') drawEdges();
@@ -270,6 +268,10 @@ class ChatNode extends BaseNode {
                 } else aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
             },
             onComplete: () => {
+                if (window.Prism) {
+                    Prism.highlightAllUnder(aiContentEl);
+                    if (this.nodeData.aiThinking) Prism.highlightAllUnder(aiThinkEl);
+                }
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 this.el.querySelector('.add-child-btn').click();
             }

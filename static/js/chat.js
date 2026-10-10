@@ -161,6 +161,71 @@ async function triggerSummarize(groupId) {
 }
 
 /**
+ * Parses and extracts detailed information from a ScrapeNode's scraped content.
+ * Overwrites the aiText permanently and enables the summarize feature afterwards.
+ * @param {string} nodeId - The ID of the scrape node to parse.
+ */
+async function triggerParseScrape(nodeId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node || node.type !== 'scrape') return;
+
+    const uText = node.userText || "";
+    const aText = node.aiText || "";
+    if (aText.trim() === "") return;
+
+    let rawText = `Source URL/Query: ${uText}\n\nScraped Content:\n${aText}`;
+
+    const el = document.getElementById(node.id);
+    let contentEl = null;
+    let oldHeight = 0;
+    if (el) {
+        oldHeight = el.offsetHeight;
+        contentEl = el.querySelector('.ai-content');
+        if (contentEl) {
+            contentEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Parsing and extracting details...";
+        }
+    }
+
+    const payload = {
+        messages: [
+            { role: "system", content: "You are an expert data analyst and parser. Your task is to extract, interpret, and format the most important and highly-detailed information from the provided scraped content. Focus on preserving depth and critical details rather than making it short. Discard navigation junk, boilerplate text, and irrelevant ads. Use clear markdown formatting (headers, bullet points, code blocks) to organize the information. [System Reminder] Do not overthink, just parse the data effectively. [End System Reminder]" },
+            { role: "user", content: rawText }
+        ]
+    };
+
+    let parsedResult = "";
+    await streamChatApi(payload, null, {
+        onContent: (content) => {
+            parsedResult += content;
+            if (contentEl) contentEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(parsedResult) : parsedResult;
+        },
+        onReasoning: (reasoning) => {
+            if (contentEl && parsedResult === "") contentEl.innerHTML = "<img src='/static/icons/clock.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+        },
+        onError: (error) => {
+            console.error("Parse Scrape failed:", error);
+            if (contentEl) contentEl.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error parsing content";
+        },
+        onComplete: () => {
+            if (parsedResult.trim()) {
+                node.aiText = parsedResult.trim();
+                node.isParsed = true;
+                if (typeof saveState === 'function') saveState();
+            }
+
+            if (el) {
+                const newHeight = el.offsetHeight;
+                const deltaY = newHeight - oldHeight;
+                if (deltaY !== 0 && typeof shiftChildrenXY === 'function') {
+                    shiftChildrenXY(node.id, 0, deltaY);
+                }
+            }
+            if (typeof updateCanvas === 'function') updateCanvas();
+        }
+    });
+}
+
+/**
  * Requests the LLM to generate a concise summary for a single individual node.
  * @param {string} nodeId - The ID of the node to summarize.
  */

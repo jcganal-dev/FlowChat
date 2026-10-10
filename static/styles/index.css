@@ -1031,6 +1031,11 @@ button {
     user-select: none;
 }
 
+img {
+    -webkit-user-drag: none;
+    -moz-window-dragging: none;
+}
+
 div[contentEditable='true'] {
     -webkit-user-select: text;
     user-select: text;

@@ -10,6 +10,7 @@ class ScrapeNode extends BaseNode {
             <div class="node-header">
                 <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 <div>
+                    <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${this.nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${this.id}')">${this.nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
                     <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>
             </div>
@@ -22,6 +23,7 @@ class ScrapeNode extends BaseNode {
             <div class="ai-section" style="${this.nodeData.aiText ? 'display: block;' : 'display: none;'}">
                 <div class="ai-content"></div>
             </div>
+            <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
             <div class="handle handle-out"></div>
             <button class="add-child-btn ${this.nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
             <div class="resize-handle"></div>
@@ -60,6 +62,12 @@ class ScrapeNode extends BaseNode {
 
         const userSection = this.el.querySelector('.user-section');
         if (userSection) userSection.style.display = 'none';
+
+        if (this.nodeData.isParsed) {
+            aiContentEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.aiText) : this.nodeData.aiText;
+            if (window.Prism) Prism.highlightAllUnder(aiContentEl);
+            return;
+        }
 
         let cleanText = this.nodeData.aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
         let preview = cleanText.substring(0, 300);
