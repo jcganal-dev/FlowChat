@@ -12,6 +12,38 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
 from keys.apikeys import APIKeys
+from crawl4ai import AsyncWebCrawler
+from ddgs import DDGS
+import sys
+import asyncio
+# from concurrent.futures import ThreadPoolExecutor
+
+# Helper to run Crawl4AI in an isolated thread with correct event loop policy on Windows
+def run_crawl_sync(url: str):
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    async def _crawl():
+        from crawl4ai import AsyncWebCrawler
+        async with AsyncWebCrawler(verbose=False) as crawler:
+            result = await crawler.arun(url=url)
+            return result.markdown if result else None
+    return asyncio.run(_crawl())
+
+def run_crawl_multi_sync(links: list):
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    async def _crawl():
+        from crawl4ai import AsyncWebCrawler
+        res = []
+        async with AsyncWebCrawler(verbose=False) as crawler:
+            for link in links:
+                try:
+                    result = await crawler.arun(url=link)
+                    res.append((link, result.markdown if result else None, None))
+                except Exception as e:
+                    res.append((link, None, str(e)))
+        return res
+    return asyncio.run(_crawl())
 
 # Initialize SQLite database
 DB_PATH = "flowchat.db"
@@ -162,30 +194,51 @@ async def scrape_with_jina(req: ScrapeRequest):
     Args:
         req.url (str): The URL of the webpage to scrape.
     """
-    target_url = req.url
-    jina_url = f"https://r.jina.ai/{target_url}"
+    target = req.url
     
-    headers = {
-        "User-Agent": "FlowChat Scraper Bot"
-    }
+    # Check if it looks like a URL
+    is_url = target.startswith("http://") or target.startswith("https://") or ("." in target and " " not in target)
+    target_url = target
+    if is_url and not target.startswith("http"):
+        target_url = "https://" + target
+    
+    markdown_content = None
+    loop = asyncio.get_running_loop()
+    if is_url:
+        try:
+            markdown_content = await loop.run_in_executor(None, run_crawl_sync, target_url)
+        except Exception as e:
+            print(f"Direct crawl failed: {e}")
 
+    if markdown_content:
+        return JSONResponse(content={"content": markdown_content})
+
+    # If we are here, it failed or wasn't a URL. Send to ddgs
+    links = []
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(jina_url, headers=headers, timeout=30.0)
-            
-            response.raise_for_status()
-            
-            markdown_content = response.text
-            
-            return JSONResponse(content={"content": markdown_content})
+        with DDGS(timeout=20) as ddgs:
+            results = ddgs.text(target, max_results=2, backend="lite")
+            for r in results:
+                links.append(r.get("href"))
+    except Exception as e:
+        return JSONResponse(content={"error": f"DDGS failed: {e}", "content": None}, status_code=500)
 
-    except httpx.HTTPError as e:
-        print(f"❌ Scraping failed: {str(e)}")
-        error_content = None
-        if hasattr(e, 'response') and e.response:
-            error_content = e.response.text
-        status = e.response.status_code if hasattr(e, 'response') and e.response else 500
-        return JSONResponse(content={"error": str(e), "content": error_content}, status_code=status)
+    if not links:
+        return JSONResponse(content={"error": "No results found on DDGS", "content": None}, status_code=404)
+
+    # Crawl the links
+    combined_markdown = f"# Search Results for: {target}\n\n"
+    try:
+        results = await loop.run_in_executor(None, run_crawl_multi_sync, links)
+        for i, (link, md, err) in enumerate(results):
+            if md:
+                combined_markdown += f"## Source {i+1}: {link}\n\n{md}\n\n---\n\n"
+            else:
+                combined_markdown += f"## Source {i+1}: {link}\n\nFailed to scrape: {err}\n\n---\n\n"
+    except Exception as e:
+        return JSONResponse(content={"error": f"Crawler failed on links: {e}", "content": None}, status_code=500)
+
+    return JSONResponse(content={"content": combined_markdown})
 
 # OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
 # MODEL = "apodex/apodex-1.1-mini:free"
