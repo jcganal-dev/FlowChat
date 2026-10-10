@@ -440,6 +440,7 @@ function toggleGroupState(groupId) {
     if (typeof drawGroups === 'function') drawGroups();
     updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
+    if (typeof updateCanvas === 'function') updateCanvas();
 }
 
 /**
@@ -471,4 +472,5 @@ function toggleNodeState(nodeId) {
     if (typeof drawGroups === 'function') drawGroups();
     updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
+    if (typeof updateCanvas === 'function') updateCanvas();
 }

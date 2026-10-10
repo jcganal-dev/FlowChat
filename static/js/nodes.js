@@ -224,6 +224,7 @@ function attachBaseListeners(id, el, restoreData) {
 
                     if (typeof drawEdges === 'function') drawEdges();
                     if (typeof drawGroups === 'function') drawGroups();
+                    if (typeof updateCanvas === 'function') updateCanvas();
                 }
 
                 function onMouseUp() {

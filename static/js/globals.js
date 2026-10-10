@@ -62,6 +62,7 @@ const nodeResizeObserver = new ResizeObserver(() => {
     layoutDebounceTimeout = setTimeout(() => {
         if (typeof drawEdges === 'function') drawEdges();
         if (typeof drawGroups === 'function') drawGroups();
+        if (typeof updateCanvas === 'function') updateCanvas();
     }, 30);
 });
 
