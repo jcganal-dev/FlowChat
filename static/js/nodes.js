@@ -619,7 +619,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
                 if (Array.isArray(parsed)) {
                     e.preventDefault();
                     e.stopPropagation();
-                    
+
                     const selection = window.getSelection();
                     let range = null;
                     if (document.caretRangeFromPoint) {
@@ -633,7 +633,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
                         selection.removeAllRanges();
                         selection.addRange(range);
                     }
-                    
+
                     lastFocusedInput = textarea;
 
                     const filteredPaths = parsed.filter(p => {
@@ -731,7 +731,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
 
             const childWidth = 336; // default chat node width
             const parentWidth = el.offsetWidth;
-            const forkX = data.x + (parentWidth / 2) - (childWidth / 2);
+            const forkX = data.x + (parentWidth / 2) - (childWidth / 2) - ((data.x + (parentWidth / 2) - (childWidth / 2)) % 24);
             const forkY = snappedBottomY + (GRID_SIZE * 3);
 
             const existingChildren = nodes.filter(n => n.parentId === data.id);
