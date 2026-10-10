@@ -264,3 +264,21 @@ window.customPrompt = function (message, defaultValue = '', title = 'Prompt') {
 window.customGroupPrompt = function (message, defaultValue = '', defaultColor = '#a0a0a0', title = 'Group Settings') {
     return showModal(title, message, true, true, defaultValue, true, defaultColor);
 };
+
+/**
+ * Recursively shifts child nodes when a parent's dimensions change.
+ * @param {string} nodeId - The ID of the parent node.
+ * @param {number} deltaX - The amount to shift in pixels on the x-axis.
+ * @param {number} deltaY - The amount to shift in pixels on the y-axis.
+ */
+function shiftChildrenXY(nodeId, deltaX, deltaY) {
+    if (deltaX === 0 && deltaY === 0) return;
+    const children = nodes.filter(n => n.parentId === nodeId);
+    children.forEach(c => {
+        c.x += deltaX;
+        c.y += deltaY;
+        const el = document.getElementById(c.id);
+        if (el) el.style.transform = `translate(${c.x}px, ${c.y}px)`;
+        shiftChildrenXY(c.id, deltaX, deltaY);
+    });
+}

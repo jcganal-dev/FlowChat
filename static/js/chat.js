@@ -237,20 +237,7 @@ async function runUserNode(nodeId) {
     updateThermometer(nodeId);
 }
 
-/**
- * Recursively shifts child nodes up or down when a parent's height changes.
- * @param {string} nodeId - The ID of the parent node.
- * @param {number} deltaY - The amount to shift in pixels.
- */
-function shiftChildren(nodeId, deltaY) {
-    const children = nodes.filter(n => n.parentId === nodeId);
-    children.forEach(c => {
-        c.y += deltaY;
-        const el = document.getElementById(c.id);
-        if (el) el.style.transform = `translate(${c.x}px, ${c.y}px)`;
-        shiftChildren(c.id, deltaY);
-    });
-}
+
 
 /**
  * Compiles all conversation text within a specified group and requests the LLM to generate individual summaries for each node.
@@ -334,7 +321,7 @@ async function triggerSummarize(groupId) {
                     const newHeight = el.offsetHeight;
                     const deltaY = newHeight - oldHeight;
                     if (deltaY !== 0) {
-                        shiftChildren(n.id, deltaY);
+                        if (typeof shiftChildrenXY === 'function') shiftChildrenXY(n.id, 0, deltaY);
                     }
                 }
             });
@@ -412,7 +399,7 @@ async function triggerSingleSummarize(nodeId) {
                 const newHeight = el.offsetHeight;
                 const deltaY = newHeight - oldHeight;
                 if (deltaY !== 0) {
-                    shiftChildren(node.id, deltaY);
+                    if (typeof shiftChildrenXY === 'function') shiftChildrenXY(node.id, 0, deltaY);
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();
@@ -444,7 +431,7 @@ function toggleGroupState(groupId) {
                 const newHeight = el.offsetHeight;
                 const deltaY = newHeight - oldHeight;
                 if (deltaY !== 0) {
-                    shiftChildren(n.id, deltaY);
+                    if (typeof shiftChildrenXY === 'function') shiftChildrenXY(n.id, 0, deltaY);
                 }
             }
         }
@@ -477,7 +464,7 @@ function toggleNodeState(nodeId) {
         const newHeight = el.offsetHeight;
         const deltaY = newHeight - oldHeight;
         if (deltaY !== 0) {
-            shiftChildren(nodeId, deltaY);
+            if (typeof shiftChildrenXY === 'function') shiftChildrenXY(nodeId, 0, deltaY);
         }
     }
 

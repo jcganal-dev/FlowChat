@@ -271,7 +271,8 @@ function attachBaseListeners(id, el, restoreData) {
                             data: selData,
                             el: selEl,
                             startWidth: selEl.offsetWidth,
-                            startNodeX: selData.x
+                            startNodeX: selData.x,
+                            accumulatedShiftX: 0
                         });
                     }
                 });
@@ -280,7 +281,8 @@ function attachBaseListeners(id, el, restoreData) {
                     data: nodeData,
                     el: el,
                     startWidth: targetStartWidth,
-                    startNodeX: nodeData.x
+                    startNodeX: nodeData.x,
+                    accumulatedShiftX: 0
                 });
             }
 
@@ -298,6 +300,8 @@ function attachBaseListeners(id, el, restoreData) {
                 }
 
                 nodesToResize.forEach(item => {
+                    const oldHeight = item.el.offsetHeight;
+                    
                     item.el.style.width = `${snappedWidth}px`;
 
                     const widthDiff = snappedWidth - item.startWidth;
@@ -310,6 +314,23 @@ function attachBaseListeners(id, el, restoreData) {
 
                     item.data.nodeWidth = snappedWidth;
                     item.el.style.transform = `translate(${item.data.x}px, ${item.data.y}px)`;
+
+                    const newHeight = item.el.offsetHeight;
+                    const deltaY = newHeight - oldHeight;
+                    
+                    const startCenterX = item.startNodeX + item.startWidth / 2;
+                    const currentCenterX = item.data.x + snappedWidth / 2;
+                    const totalDeltaCenter = currentCenterX - startCenterX;
+                    
+                    const targetTotalShiftX = Math.round(totalDeltaCenter / GRID_SIZE) * GRID_SIZE;
+                    const deltaX = targetTotalShiftX - item.accumulatedShiftX;
+                    item.accumulatedShiftX = targetTotalShiftX;
+
+                    if (deltaX !== 0 || deltaY !== 0) {
+                        if (typeof shiftChildrenXY === 'function') {
+                            shiftChildrenXY(item.data.id, deltaX, deltaY);
+                        }
+                    }
                 });
 
                 clearTimeout(layoutDebounceTimeout);
