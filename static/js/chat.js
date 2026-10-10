@@ -252,7 +252,10 @@ async function triggerSummarize(groupId) {
 
     groupNodes.forEach((n, idx) => {
         if (n.type === 'document' || n.type === 'image') return;
-        rawText += `[NODE_${idx}]\nUser: ${n.userText}\nAI: ${n.aiText}\n\n`;
+        const uText = n.userText || "";
+        const aText = n.aiText || "";
+        if (uText.trim() === "" && aText.trim() === "") return;
+        rawText += `[NODE_${idx}]\nUser: ${uText}\nAI: ${aText}\n\n`;
         summarizableNodes.push(n);
     });
 
@@ -289,19 +292,10 @@ async function triggerSummarize(groupId) {
         },
         onComplete: () => {
             groupNodes.forEach((n, idx) => {
-                if (n.type === 'document' || n.type === 'image') {
-                    n.isCollapsed = true;
-                    const el = document.getElementById(n.id);
-                    if (el) {
-                        el.classList.add('collapsed-node');
-                        const toggleBtn = el.querySelector('.toggle-btn');
-                        if (toggleBtn) {
-                            toggleBtn.style.display = 'inline-block';
-                            toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">';
-                        }
-                    }
-                    return;
-                }
+                if (n.type === 'document' || n.type === 'image') return;
+                const uText = n.userText || "";
+                const aText = n.aiText || "";
+                if (uText.trim() === "" && aText.trim() === "") return;
 
                 const regex = new RegExp(`<SUMMARY_${idx}>([\\s\\S]*?)</SUMMARY_${idx}>`);
                 const match = summary.match(regex);
@@ -338,7 +332,12 @@ async function triggerSingleSummarize(nodeId) {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
 
-    let rawText = `User: ${node.userText}\nAI: ${node.aiText}`;
+    const uText = node.userText || "";
+    const aText = node.aiText || "";
+    if (uText.trim() === "" && aText.trim() === "") return;
+    if (node.type === 'document' || node.type === 'image') return;
+
+    let rawText = `User: ${uText}\nAI: ${aText}`;
 
     const el = document.getElementById(node.id);
     let sumEl = null;
