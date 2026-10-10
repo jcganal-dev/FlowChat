@@ -601,13 +601,8 @@ function autoLayout(preserveRoots = true) {
                 }
 
                 let q = Math.round(el.offsetWidth / GRID_SIZE);
-                if (q % 2 === 0) q += 1;
-
                 let minQ = Math.ceil(minW / GRID_SIZE);
-                if (minQ % 2 === 0) minQ += 1;
-
                 let maxQ = Math.floor(maxW / GRID_SIZE);
-                if (maxQ % 2 === 0) maxQ -= 1;
 
                 q = Math.max(minQ, Math.min(q, maxQ));
                 let finalW = q * GRID_SIZE;
@@ -702,7 +697,6 @@ function autoLayout(preserveRoots = true) {
     nodes.filter(n => !n.isVirtual).forEach(nodeData => {
         const el = document.getElementById(nodeData.id);
         if (el) {
-            nodeData.x = Math.round(nodeData.x / GRID_SIZE) * GRID_SIZE;
             nodeData.y = Math.round(nodeData.y / GRID_SIZE) * GRID_SIZE;
 
             el.style.zIndex = '10';

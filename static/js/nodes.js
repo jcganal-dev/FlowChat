@@ -291,18 +291,23 @@ function attachBaseListeners(id, el, restoreData) {
                 const deltaX = (moveEvent.clientX - startMouseX) / camera.zoom;
                 const isSymmetrical = moveEvent.ctrlKey || moveEvent.metaKey;
 
-                let snappedWidth;
+                let diff;
                 if (isSymmetrical) {
-                    const diff = Math.round((deltaX * 2) / (GRID_SIZE * 2)) * (GRID_SIZE * 2);
-                    snappedWidth = Math.max(300, targetStartWidth + diff);
+                    diff = deltaX * 2;
+                    if (moveEvent.altKey) {
+                        diff = Math.round(diff / (GRID_SIZE * 2)) * (GRID_SIZE * 2);
+                    }
                 } else {
-                    const diff = Math.round(deltaX / GRID_SIZE) * GRID_SIZE;
-                    snappedWidth = Math.max(300, targetStartWidth + diff);
+                    diff = deltaX;
+                    if (moveEvent.altKey) {
+                        diff = Math.round(diff / GRID_SIZE) * GRID_SIZE;
+                    }
                 }
+                const snappedWidth = Math.max(300, targetStartWidth + diff);
 
                 nodesToResize.forEach(item => {
                     const oldHeight = item.el.offsetHeight;
-                    
+
                     item.el.style.width = `${snappedWidth}px`;
 
                     const widthDiff = snappedWidth - item.startWidth;
@@ -318,18 +323,18 @@ function attachBaseListeners(id, el, restoreData) {
 
                     const newHeight = item.el.offsetHeight;
                     const deltaY = newHeight - oldHeight;
-                    
+
                     const startCenterX = item.startNodeX + item.startWidth / 2;
                     const currentCenterX = item.data.x + snappedWidth / 2;
                     const totalDeltaCenter = currentCenterX - startCenterX;
-                    
-                    const targetTotalShiftX = Math.round(totalDeltaCenter / GRID_SIZE) * GRID_SIZE;
-                    const deltaX = targetTotalShiftX - item.accumulatedShiftX;
+
+                    const targetTotalShiftX = totalDeltaCenter;
+                    const deltaXShift = targetTotalShiftX - item.accumulatedShiftX;
                     item.accumulatedShiftX = targetTotalShiftX;
 
-                    if (deltaX !== 0 || deltaY !== 0) {
+                    if (deltaXShift !== 0 || deltaY !== 0) {
                         if (typeof shiftChildrenXY === 'function') {
-                            shiftChildrenXY(item.data.id, deltaX, deltaY);
+                            shiftChildrenXY(item.data.id, deltaXShift, deltaY);
                         }
                     }
                 });
@@ -498,11 +503,11 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
                 if (data.type === 'image') {
                     item.innerHTML = `
                         <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px; border-radius: 8px;" />
-                        <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('close')}" class="file-icon"></a>
+                        <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('trash')}" class="file-icon"></a>
                     `;
                 } else {
                     const src = getIconpath(f.name.split('.').pop().toLowerCase());
-                    item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('close')}" class="file-icon"></a>`;
+                    item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('trash')}" class="file-icon"></a>`;
                 }
 
                 container.appendChild(item);

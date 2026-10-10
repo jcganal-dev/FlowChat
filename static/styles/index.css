@@ -864,13 +864,26 @@ body.shift-pressed.input-focused .node-id {
     flex-direction: row;
 }
 
-.file-item .remove-file-btn {
+.remove-file-btn {
     position: absolute;
     top: 5px;
     right: 10px;
     cursor: pointer;
     color: var(--accent-danger);
     font-size: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2px;
+    margin-top: -2px;
+
+    img {
+        margin: 0px !important;
+    }
+}
+
+.remove-file-btn:hover {
+    background-color: var(--accent-danger);
 }
 
 .file-dropzone.dragover {
