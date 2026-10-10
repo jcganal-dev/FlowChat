@@ -52,6 +52,7 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-collapse-selected"><img src="${getIconpath('collapse')}" class="file-icon"> Collapse Selected Nodes</div>
     <div class="context-item" id="menu-group"><img src="${getIconpath('group')}" class="file-icon"> Group Selected Nodes</div>
     <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon"> Ungroup Node</div>
+    <div class="context-item" id="menu-delete-node"><img src="${getIconpath('trash')}" class="file-icon"> Delete Node</div>
     <div class="context-item" id="menu-delete-selected"><img src="${getIconpath('trash')}" class="file-icon"> Delete Selected Nodes</div>
 `;
 document.body.appendChild(contextMenu);

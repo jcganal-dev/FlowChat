@@ -168,10 +168,13 @@ window.addEventListener('contextmenu', (e) => {
         }
 
         const toggleNodeMenu = document.getElementById('menu-toggle-node');
+        const deleteNodeMenu = document.getElementById('menu-delete-node');
         if (selectedNodes.size > 1 || !nodeData) {
             toggleNodeMenu.style.display = 'none';
+            if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
         } else {
             toggleNodeMenu.style.display = 'block';
+            if(deleteNodeMenu) deleteNodeMenu.style.display = 'block';
             if (nodeData.isCollapsed) {
                 toggleNodeMenu.innerHTML = `<img src="${getIconpath('expand')}" class="file-icon"> Expand Node`;
             } else {
@@ -208,6 +211,8 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-expand-selected').style.display = 'none';
         document.getElementById('menu-collapse-selected').style.display = 'none';
         document.getElementById('menu-toggle-node').style.display = 'none';
+        const deleteNodeMenu = document.getElementById('menu-delete-node');
+        if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
 
         const rect = viewport.getBoundingClientRect();
         contextMenu.dataset.clickX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -296,6 +301,13 @@ $('menu-delete-selected').addEventListener('click', () => {
             if (typeof deleteNode === 'function') deleteNode(id, false);
         });
         selectedNodes.clear();
+    }
+});
+
+$('menu-delete-node').addEventListener('click', (e) => {
+    contextMenu.style.display = 'none';
+    if (targetNodeIdForMenu) {
+        if (typeof deleteNode === 'function') deleteNode(targetNodeIdForMenu, e.shiftKey);
     }
 });
 
