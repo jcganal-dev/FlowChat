@@ -561,7 +561,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
         <div class="node-header">
             <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
             <div>
-                <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: inline-block;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${id}')">${nodeData.isCollapsed ? '🔍' : '📂'}</a>
+                <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: inline-block;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${id}')">${nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">' : '<img src="/static/icons/collapse.svg" style="width:16px;height:16px;vertical-align:middle;">'}</a>
                 <a class="duplicate-btn" title="Duplicate Branch">📄</a>
                 <a class="delete-btn" title="Delete">✖</a>
             </div>

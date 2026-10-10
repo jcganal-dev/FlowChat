@@ -167,13 +167,25 @@ window.addEventListener('contextmenu', (e) => {
             collapseSelectedMenu.style.display = 'none';
         }
 
+        const toggleNodeMenu = document.getElementById('menu-toggle-node');
+        if (selectedNodes.size > 1 || !nodeData) {
+            toggleNodeMenu.style.display = 'none';
+        } else {
+            toggleNodeMenu.style.display = 'block';
+            if (nodeData.isCollapsed) {
+                toggleNodeMenu.innerHTML = `<img src="${getIconpath('expand')}" class="file-icon"> Expand Node`;
+            } else {
+                toggleNodeMenu.innerHTML = `<img src="${getIconpath('collapse')}" class="file-icon"> Collapse Node`;
+            }
+        }
+
         if (nodeData && (nodeData.type === 'document' || nodeData.type === 'image')) {
             summarizeMenu.style.display = 'none';
         } else {
             summarizeMenu.style.display = 'block';
             const hasSummary = nodeData && nodeData.nodeSummary && nodeData.nodeSummary.trim() !== "";
             const icon = `<img src="${getIconpath('bulb')}" class="file-icon"></img>`
-            summarizeMenu.innerHTML = hasSummary ? icon + 'Re-Summarize Node' : icon + 'Summarize Node';
+            summarizeMenu.innerHTML = hasSummary ? icon + ' Re-Summarize Node' : icon + ' Summarize Node';
         }
 
         contextMenu.style.display = 'block';
@@ -195,6 +207,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-delete-selected').style.display = 'none';
         document.getElementById('menu-expand-selected').style.display = 'none';
         document.getElementById('menu-collapse-selected').style.display = 'none';
+        document.getElementById('menu-toggle-node').style.display = 'none';
 
         const rect = viewport.getBoundingClientRect();
         contextMenu.dataset.clickX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -283,6 +296,13 @@ $('menu-delete-selected').addEventListener('click', () => {
             if (typeof deleteNode === 'function') deleteNode(id, false);
         });
         selectedNodes.clear();
+    }
+});
+
+$('menu-toggle-node').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (targetNodeIdForMenu && typeof toggleNodeState === 'function') {
+        toggleNodeState(targetNodeIdForMenu);
     }
 });
 

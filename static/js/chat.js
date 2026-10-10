@@ -297,7 +297,7 @@ async function triggerSummarize(groupId) {
                         const toggleBtn = el.querySelector('.toggle-btn');
                         if (toggleBtn) {
                             toggleBtn.style.display = 'inline-block';
-                            toggleBtn.textContent = '🔍';
+                            toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">';
                         }
                     }
                     return;
@@ -317,7 +317,7 @@ async function triggerSummarize(groupId) {
                     const toggleBtn = el.querySelector('.toggle-btn');
                     if (toggleBtn) {
                         toggleBtn.style.display = 'inline-block';
-                        toggleBtn.textContent = '🔍';
+                        toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">';
                     }
                 }
             });
@@ -383,7 +383,7 @@ async function triggerSingleSummarize(nodeId) {
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
                     toggleBtn.style.display = 'inline-block';
-                    toggleBtn.textContent = '🔍';
+                    toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">';
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();
@@ -408,7 +408,7 @@ function toggleGroupState(groupId) {
             if (el) {
                 el.classList.toggle('collapsed-node', n.isCollapsed);
                 const btn = el.querySelector('.toggle-btn');
-                if (btn) btn.textContent = n.isCollapsed ? '🔍' : '📂';
+                if (btn) btn.innerHTML = n.isCollapsed ? '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">' : '<img src="/static/icons/collapse.svg" style="width:16px;height:16px;vertical-align:middle;">';
             }
         }
     });
@@ -432,7 +432,7 @@ function toggleNodeState(nodeId) {
     if (el) {
         el.classList.toggle('collapsed-node', node.isCollapsed);
         const btn = el.querySelector('.toggle-btn');
-        if (btn) btn.textContent = node.isCollapsed ? '🔍' : '📂';
+        if (btn) btn.innerHTML = node.isCollapsed ? '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">' : '<img src="/static/icons/collapse.svg" style="width:16px;height:16px;vertical-align:middle;">';
     }
 
     if (typeof drawGroups === 'function') drawGroups();

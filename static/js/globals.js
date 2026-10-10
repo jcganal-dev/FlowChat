@@ -45,12 +45,13 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-open-palette"><img src="${getIconpath('sandbox')}" class="file-icon"> Open Sandbox Files</div>
     <div class="context-item" id="menu-rename-node"><img src="${getIconpath('pencil')}" class="file-icon"> Rename Node</div>
     <div class="context-item" id="menu-rename"><img src="${getIconpath('brush')}" class="file-icon"> Rename Branch</div>
+    <div class="context-item" id="menu-toggle-node"></div>
     <div class="context-item" id="menu-summarize"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Node</div>
     <div class="context-item" id="menu-summarize-selected"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Selected Nodes</div>
-    <div class="context-item" id="menu-expand-selected"><span style="display:inline-block; margin-right:6px;">📂</span> Expand Selected Nodes</div>
-    <div class="context-item" id="menu-collapse-selected"><span style="display:inline-block; margin-right:6px;">🔍</span> Collapse Selected Nodes</div>
+    <div class="context-item" id="menu-expand-selected"><img src="${getIconpath('expand')}" class="file-icon"> Expand Selected Nodes</div>
+    <div class="context-item" id="menu-collapse-selected"><img src="${getIconpath('collapse')}" class="file-icon"> Collapse Selected Nodes</div>
     <div class="context-item" id="menu-group"><img src="${getIconpath('group')}" class="file-icon"> Group Selected Nodes</div>
-    <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon">Ungroup Node</div>
+    <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon"> Ungroup Node</div>
     <div class="context-item" id="menu-delete-selected"><span style="display:inline-block; margin-right:6px;">🗑️</span> Delete Selected Nodes</div>
 `;
 document.body.appendChild(contextMenu);
@@ -104,6 +105,12 @@ function getIconpath(filepath) {
             return '/static/icons/group.svg';
         case 'ungroup':
             return '/static/icons/ungroup.svg';
+        case 'expand':
+            return '/static/icons/expand.svg';
+        case 'collapse':
+            return '/static/icons/collapse.svg';
+        case 'folder':
+            return '/static/icons/folder.svg';
         default:
             return '/static/icons/default.svg';
     }

@@ -355,10 +355,10 @@ function drawGroups() {
 
         let btnHtml = '';
         if (group.isCollapsed) {
-            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')">🔍 Expand</button>`;
+            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('expand')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Expand</button>`;
         } else if (hasSummary) {
             btnHtml = `
-                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')">📂 Collapse</button>
+                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('collapse')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
                 <button class="summarize-btn" onclick="triggerSummarize('${group.id}')">🔄 Re-Summarize</button>
             `;
         } else {
