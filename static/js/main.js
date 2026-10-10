@@ -117,6 +117,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-node').style.display = 'none';
         document.getElementById('menu-add-image').style.display = 'none';
         document.getElementById('menu-add-file').style.display = 'none';
+        document.getElementById('menu-add-scrape').style.display = 'none';
         document.getElementById('menu-open-palette').style.display = 'none';
         document.getElementById('menu-rename').style.display = 'block';
         document.getElementById('menu-rename-node').style.display = 'block';
@@ -200,6 +201,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-node').style.display = 'block';
         document.getElementById('menu-add-image').style.display = 'block';
         document.getElementById('menu-add-file').style.display = 'block';
+        document.getElementById('menu-add-scrape').style.display = 'block';
         document.getElementById('menu-open-palette').style.display = 'block';
         document.getElementById('menu-rename').style.display = 'none';
         document.getElementById('menu-rename-node').style.display = 'none';
@@ -251,6 +253,13 @@ $('menu-add-file').addEventListener('click', () => {
     const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
     const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
     createNode(null, x, y, '', 1, 0, 'Document_Node', null, 'document');
+});
+
+$('menu-add-scrape').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
+    const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
+    createNode(null, x, y, '', 1, 0, 'Scrape_Node', null, 'scrape');
 });
 
 window.addEventListener('click', (e) => {

@@ -29,8 +29,6 @@ def init_db():
 
 init_db()
 
-
-
 app = FastAPI()
 
 app.add_middleware(
@@ -41,9 +39,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# (Place this under your app initialization and CORS middleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 os.makedirs("sandbox", exist_ok=True)
 app.mount("/sandbox", StaticFiles(directory="sandbox"), name="sandbox")
 templates = Jinja2Templates(directory="templates")
@@ -137,10 +133,61 @@ async def serve_canvas(request: Request):
         context={"request": request},
     )
 
+class SaveSandboxFileRequest(BaseModel):
+    filename: str
+    content: str
 
+@app.post("/api/sandbox/save")
+async def save_sandbox_file(req: SaveSandboxFileRequest):
+    try:
+        os.makedirs("sandbox", exist_ok=True)
+        filename = os.path.basename(req.filename)
+        if not filename.endswith(".md"):
+            filename += ".md"
+        file_path = os.path.join("sandbox", filename)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(req.content)
+        return JSONResponse(content={"message": "Saved successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ScrapeRequest(BaseModel):
+    url: str
+
+@app.post("/api/scrape")
+async def scrape_with_jina(req: ScrapeRequest):
+    """
+    Scrapes a webpage using Jina Reader.
+    
+    Args:
+        req.url (str): The URL of the webpage to scrape.
+    """
+    target_url = req.url
+    jina_url = f"https://r.jina.ai/{target_url}"
+    
+    headers = {
+        "User-Agent": "FlowChat Scraper Bot"
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(jina_url, headers=headers, timeout=30.0)
+            
+            response.raise_for_status()
+            
+            markdown_content = response.text
+            
+            return JSONResponse(content={"content": markdown_content})
+
+    except httpx.HTTPError as e:
+        print(f"❌ Scraping failed: {str(e)}")
+        return JSONResponse(content={"content": None})
 
 OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENROUTER_API_KEY = APIKeys().get_key()
+MODEL = "apodex/apodex-1.1-mini:free"
+# OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
+# MODEL = "minicpm"
 
 # Define your base rules
 SYSTEM_INSTRUCTIONS = []
@@ -163,7 +210,7 @@ async def chat_endpoint(user_data: ChatPayload):
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
 
     payload = {
-        "model": "apodex/apodex-1.1-mini:free",
+        "model": MODEL,
         "messages": user_data.messages,
         "include_reasoning": True,
         "stream": True

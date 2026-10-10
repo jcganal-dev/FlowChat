@@ -177,7 +177,9 @@ async function triggerSingleSummarize(nodeId) {
 
     const el = document.getElementById(node.id);
     let sumEl = null;
+    let oldHeight = 0;
     if (el) {
+        oldHeight = el.offsetHeight;
         sumEl = el.querySelector('.node-summary-display');
         if (sumEl) {
             sumEl.style.display = 'block';
@@ -207,7 +209,6 @@ async function triggerSingleSummarize(nodeId) {
             if (sumEl) sumEl.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
-            const oldHeight = el ? el.offsetHeight : 0;
             node.summaryText = summary.trim() || "Summary unavailable.";
             node.isCollapsed = true;
 

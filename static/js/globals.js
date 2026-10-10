@@ -42,6 +42,7 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-add-node"><img src="/static/icons/chatnode.svg" class="file-icon"> Add Chat Node</div>
     <div class="context-item" id="menu-add-image"><img src="/static/icons/image.svg" class="file-icon"> Add Image Node</div>
     <div class="context-item" id="menu-add-file"><img src="/static/icons/file.svg" class="file-icon"> Add Document Node</div>
+    <div class="context-item" id="menu-add-scrape"><img src="/static/icons/sandbox.svg" class="file-icon"> Add Scrape Node</div>
     <div class="context-item" id="menu-open-palette"><img src="/static/icons/sandbox.svg" class="file-icon"> Open Sandbox Files</div>
     <div class="context-item" id="menu-rename-node"><img src="/static/icons/pencil.svg" class="file-icon"> Rename Node</div>
     <div class="context-item" id="menu-rename"><img src="/static/icons/brush.svg" class="file-icon"> Rename Branch</div>

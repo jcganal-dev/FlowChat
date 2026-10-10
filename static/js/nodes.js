@@ -65,6 +65,7 @@ function createNode(parentId = null, x = 408, y = 216, initialUserText = "", tur
     let nodeInstance;
     if (type === 'image' || type === 'document') nodeInstance = new FileNode(config);
     else if (type === 'tool') nodeInstance = new ToolNode(config);
+    else if (type === 'scrape') nodeInstance = new ScrapeNode(config);
     else nodeInstance = new ChatNode(config);
     return nodeInstance.id;
 }

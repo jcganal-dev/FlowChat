@@ -16,14 +16,14 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="user-section">
-                <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
+                <div contenteditable="${isEditable}" class="node-input scrape-node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
                     <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Send</button>
                     <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="/static/icons/stop.svg" class="file-icon" style="margin:0px"> Stop</button>
                 </div>
             </div>
             <div class="ai-section">
-                <div class="think-content" style="${this.nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${this.nodeData.aiThinking.trim() == '' ? 'Thinking...' : this.nodeData.aiThinking}</div>
+                <div class="think-content" style="${this.nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${this.nodeData.aiThinking.trim() == '' ? `<img src="/static/icons/clock.svg" class='file-icon'> Thinking...` : this.nodeData.aiThinking}</div>
                 <div class="ai-content">${this.nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.aiText) : this.nodeData.aiText) : ''}</div>
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
@@ -76,7 +76,7 @@ class ChatNode extends BaseNode {
                             if (typeof handleSandboxFileShiftClick === 'function') await handleSandboxFileShiftClick(filepath);
                         }
                     }
-                } catch (err) {}
+                } catch (err) { }
             });
             this.textarea.addEventListener('paste', (e) => {
                 e.preventDefault();
@@ -173,8 +173,8 @@ class ChatNode extends BaseNode {
         const aiContentEl = this.el.querySelector('.ai-content');
         const aiThinkEl = this.el.querySelector('.think-content');
         aiContentEl.innerHTML = '';
-        aiThinkEl.innerHTML = "";
-        aiThinkEl.style.display = "none";
+        aiThinkEl.innerHTML = `<div style="display:flex;flex-direction:row;"><img src="/static/icons/clock.svg" class='file-icon'> Thinking...</div>`;
+        aiThinkEl.style.display = "flex";
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
         if (this.stopBtn) this.stopBtn.style.display = 'flex';
@@ -236,6 +236,10 @@ class ChatNode extends BaseNode {
                     if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
                         aiThinkEl.innerHTML = '';
                         this.nodeData.aiThinking = '';
+                        aiThinkEl.style.display = "none";
+                    } else if (this.nodeData.aiThinking.trim() === '') {
+                        aiThinkEl.innerHTML = '';
+                        aiThinkEl.style.display = "none";
                     }
                     erased_thoughts = true;
                 }
