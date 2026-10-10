@@ -27,17 +27,18 @@
         <div class="palette-header" id="sandbox-palette-header">
             <h3>Project Files</h3>
             <div class="header-actions">
-                <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder">📁+</a>
+                <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
+                        src="/static/icons/create-folder.svg" class="file-icon"></a>
                 <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
-                    title="Upload Folder">📁↑</a>
+                    title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
                 <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
-                    title="Upload File">📄↑</a>
+                    title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
                 <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory multiple
                     onchange="uploadSandboxFiles(event)">
                 <input type="file" id="sidebar-file-input" style="display: none;" multiple
                     onchange="uploadSandboxFiles(event)">
-                <a id="close-palette-btn"
-                    onclick="document.getElementById('sandbox-palette').style.display='none'">✖</a>
+                <a id="close-palette-btn" onclick="document.getElementById('sandbox-palette').style.display='none'"><img
+                        src="/static/icons/close.svg" class="file-icon"></a>
             </div>
         </div>
         <div id="file-tree" class="file-tree"></div>

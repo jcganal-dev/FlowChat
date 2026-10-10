@@ -13,7 +13,7 @@ sandboxContextMenu.style.cssText = `
     display: none;
     color: #eee;
 `;
-sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file">🗑️ Delete File</div>`;
+sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file"><img src="${getIconpath('trash')}" class="file-icon"> Delete File</div>`;
 document.body.appendChild(sandboxContextMenu);
 
 let targetSandboxFile = null;
@@ -145,8 +145,8 @@ async function fetchSandboxFiles() {
 
             if (child.type === 'directory') {
                 const isCollapsed = collapsedSandboxFolders.has(child.path);
-                const chevronChar = isCollapsed ? '▶' : '▼';
-                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span> 📁 ${child.name}`;
+                const chevronChar = isCollapsed ? `<img src="${getIconpath('chevron-right')}" class="file-icon">` : `<img src="${getIconpath('chevron-down')}" class="file-icon">`;
+                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="${getIconpath('folder')}" class="file-icon"> ${child.name}`;
 
                 const childrenContainer = document.createElement('div');
                 childrenContainer.className = 'folder-children';
@@ -203,7 +203,7 @@ async function fetchSandboxFiles() {
 
                 const delMenu = document.getElementById('menu-delete-sandbox-file');
                 if (delMenu) {
-                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `🗑️ Delete ${selectedSandboxFiles.size} Items` : `🗑️ Delete`;
+                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="${getIconpath('trash')}" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="${getIconpath('trash')}" class="file-icon"> Delete`;
                 }
 
                 sandboxContextMenu.style.display = 'block';
@@ -225,11 +225,11 @@ async function fetchSandboxFiles() {
                         const chevron = item.querySelector('.chevron');
                         if (childrenContainer.style.display === 'none') {
                             childrenContainer.style.display = 'block';
-                            chevron.textContent = '▼';
+                            chevron.innerHTML = `<img src="${getIconpath('chevron-down')}" class="file-icon">`;
                             collapsedSandboxFolders.delete(filepath);
                         } else {
                             childrenContainer.style.display = 'none';
-                            chevron.textContent = '▶';
+                            chevron.innerHTML = `<img src="${getIconpath('chevron-right')}" class="file-icon">`;
                             collapsedSandboxFolders.add(filepath);
                         }
                         localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
@@ -247,7 +247,7 @@ async function fetchSandboxFiles() {
                         const lastPath = currentSandboxFiles[lastSelectedSandboxFileIndex];
                         const startIndex = visibleItems.indexOf(lastPath);
                         const endIndex = visibleItems.indexOf(filepath);
-                        
+
                         if (startIndex !== -1 && endIndex !== -1) {
                             const start = Math.min(startIndex, endIndex);
                             const end = Math.max(startIndex, endIndex);
@@ -288,7 +288,7 @@ async function promptCreateFolder() {
         const selectedPath = Array.from(selectedSandboxFiles)[0];
         const el = document.querySelector(`.file-item[data-path="${CSS.escape(selectedPath)}"]`);
         if (el) {
-            const isFolder = el.innerHTML.includes('📁');
+            const isFolder = el.innerHTML.includes('folder.svg');
             if (isFolder) {
                 targetDir = selectedPath;
             } else {
@@ -298,7 +298,7 @@ async function promptCreateFolder() {
             }
         }
     }
-    
+
     const finalFolderName = targetDir ? `${targetDir}/${folderName}` : folderName;
 
     const success = await apiCreateSandboxFolder(finalFolderName);
@@ -322,7 +322,7 @@ async function uploadSandboxFiles(event) {
         const selectedPath = Array.from(selectedSandboxFiles)[0];
         const el = document.querySelector(`.file-item[data-path="${CSS.escape(selectedPath)}"]`);
         if (el) {
-            const isFolder = el.innerHTML.includes('📁');
+            const isFolder = el.innerHTML.includes('folder.svg');
             if (isFolder) {
                 targetDir = selectedPath;
             } else {
@@ -395,7 +395,7 @@ async function handleSandboxFileShiftClick(filepath) {
                     let folderFiles = [];
                     for (const fp of expanded) {
                         const isImg = fp.match(/\.(png|jpg|jpeg|gif|webp)$/i);
-                        if (isImg) continue; 
+                        if (isImg) continue;
                         const r = await apiFetchSandboxFile(fp);
                         if (r) folderFiles.push({ name: fp, payload: await r.text() });
                     }

@@ -52,7 +52,7 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-collapse-selected"><img src="${getIconpath('collapse')}" class="file-icon"> Collapse Selected Nodes</div>
     <div class="context-item" id="menu-group"><img src="${getIconpath('group')}" class="file-icon"> Group Selected Nodes</div>
     <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon"> Ungroup Node</div>
-    <div class="context-item" id="menu-delete-selected"><span style="display:inline-block; margin-right:6px;">🗑️</span> Delete Selected Nodes</div>
+    <div class="context-item" id="menu-delete-selected"><img src="${getIconpath('trash')}" class="file-icon"> Delete Selected Nodes</div>
 `;
 document.body.appendChild(contextMenu);
 
@@ -111,6 +111,26 @@ function getIconpath(filepath) {
             return '/static/icons/collapse.svg';
         case 'folder':
             return '/static/icons/folder.svg';
+        case 'trash':
+            return '/static/icons/trash.svg';
+        case 'close':
+            return '/static/icons/close.svg';
+        case 'clock':
+            return '/static/icons/clock.svg';
+        case 'magnifying-glass':
+            return '/static/icons/magnifying-glass.svg';
+        case 'error':
+            return '/static/icons/error.svg';
+        case 'upload':
+            return '/static/icons/upload.svg';
+        case 'chevron-right':
+            return '/static/icons/chevron-right.svg';
+        case 'chevron-down':
+            return '/static/icons/chevron-down.svg';
+        case 'send':
+            return '/static/icons/send.svg';
+        case 'stop':
+            return '/static/icons/stop.svg';
         default:
             return '/static/icons/default.svg';
     }

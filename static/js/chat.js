@@ -99,7 +99,7 @@ async function runUserNode(nodeId) {
     textarea.contentEditable = false;
 
     runBtn.style.display = 'none';
-    if (stopBtn) stopBtn.style.display = 'inline-block';
+    if (stopBtn) stopBtn.style.display = 'flex';
 
     forkOffsetCounter = 0;
 
@@ -214,7 +214,7 @@ async function runUserNode(nodeId) {
                 textarea.contentEditable = true;
                 textarea.style.border = "";
                 textarea.style.background = "";
-                runBtn.style.display = 'inline-block';
+                runBtn.style.display = 'flex';
                 stopBtn.style.display = 'none';
             } else {
                 aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
@@ -268,7 +268,7 @@ async function triggerSummarize(groupId) {
         return;
     }
 
-    if (btn) btn.textContent = "⏳ Summarizing...";
+    if (btn) btn.innerHTML = "<img src='" + getIconpath('magnifying-glass') + "' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
 
     const payload = {
         messages: [
@@ -284,11 +284,11 @@ async function triggerSummarize(groupId) {
             summary += content;
         },
         onReasoning: (reasoning) => {
-            if (btn && summary === "") btn.textContent = "⏳ Thinking...";
+            if (btn && summary === "") btn.innerHTML = "<img src='" + getIconpath('clock') + "' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Summarize failed:", error);
-            if (btn) btn.textContent = "❌ Error";
+            if (btn) btn.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
             groupNodes.forEach((n, idx) => {
@@ -311,7 +311,7 @@ async function triggerSummarize(groupId) {
                     const toggleBtn = el.querySelector('.toggle-btn');
                     if (toggleBtn) {
                         toggleBtn.style.display = 'inline-block';
-                        toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">';
+                        toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
                     }
                 }
             });
@@ -345,7 +345,7 @@ async function triggerSingleSummarize(nodeId) {
         sumEl = el.querySelector('.node-summary-display');
         if (sumEl) {
             sumEl.style.display = 'block';
-            sumEl.textContent = "⏳ Summarizing...";
+            sumEl.innerHTML = "<img src='" + getIconpath('magnifying-glass') + "' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
         }
     }
 
@@ -364,11 +364,11 @@ async function triggerSingleSummarize(nodeId) {
             if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(summary) : summary;
         },
         onReasoning: (reasoning) => {
-            if (sumEl && summary === "") sumEl.textContent = "⏳ Thinking...";
+            if (sumEl && summary === "") sumEl.innerHTML = "<img src='" + getIconpath('clock') + "' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Single Summarize failed:", error);
-            if (sumEl) sumEl.textContent = "❌ Error";
+            if (sumEl) sumEl.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
             node.summaryText = summary.trim() || "Summary unavailable.";
@@ -382,7 +382,7 @@ async function triggerSingleSummarize(nodeId) {
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
                     toggleBtn.style.display = 'inline-block';
-                    toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">';
+                    toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();
@@ -407,7 +407,7 @@ function toggleGroupState(groupId) {
             if (el) {
                 el.classList.toggle('collapsed-node', n.isCollapsed);
                 const btn = el.querySelector('.toggle-btn');
-                if (btn) btn.innerHTML = n.isCollapsed ? '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">' : '<img src="/static/icons/collapse.svg" style="width:16px;height:16px;vertical-align:middle;">';
+                if (btn) btn.innerHTML = n.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">';
             }
         }
     });
@@ -431,7 +431,7 @@ function toggleNodeState(nodeId) {
     if (el) {
         el.classList.toggle('collapsed-node', node.isCollapsed);
         const btn = el.querySelector('.toggle-btn');
-        if (btn) btn.innerHTML = node.isCollapsed ? '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">' : '<img src="/static/icons/collapse.svg" style="width:16px;height:16px;vertical-align:middle;">';
+        if (btn) btn.innerHTML = node.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">';
     }
 
     if (typeof drawGroups === 'function') drawGroups();

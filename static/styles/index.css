@@ -41,7 +41,8 @@
     --transparent-active: rgba(255, 255, 255, 0.3);
     --transparent-focus: rgba(255, 255, 255, 0.4);
     --transparent-strong: rgba(255, 255, 255, 0.5);
-    
+    --transparent-red: rgba(255, 0, 0, 0.6);
+
     /* Specific Component Values */
     --selection-glow: rgba(20, 55, 255, 0.7);
     --dropzone-drag-bg: rgba(52, 211, 153, 0.1);
@@ -112,12 +113,18 @@ html {
 
 .header-actions {
     display: flex;
-    gap: 8px;
+    gap: 3px;
     align-items: center;
 
     a {
         background-color: transparent;
         cursor: pointer;
+        padding: 2px 4px 3px 0px;
+
+        img {
+            margin-bottom: -3px;
+            transform: scale(1.25);
+        }
     }
 
     a:hover {
@@ -131,11 +138,12 @@ html {
     color: var(--text-muted);
     cursor: pointer;
     font-size: 16px;
-    padding: 0 4px;
+    padding-right: 5px;
 }
 
 #close-palette-btn:hover {
     color: var(--text-primary);
+    background-color: var(--transparent-red);
 }
 
 .palette-header h3 {
@@ -273,6 +281,10 @@ html {
     font-size: 14px;
     word-break: break-all;
     border: 1px solid transparent;
+
+    .file-icon {
+        margin-right: 4px;
+    }
 }
 
 .file-item:hover {
@@ -372,6 +384,36 @@ body.is-panning * {
     .node-id {
         cursor: grab;
         width: 80%;
+    }
+
+    div {
+        display: flex;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        gap: 5px;
+
+        a {
+            transition: background 0.2s;
+            margin: 0px;
+            padding: 3px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+
+            img {
+                margin: 0px;
+            }
+        }
+
+        a:hover {
+            background-color: var(--transparent-light);
+        }
+
+        a.delete-btn:hover {
+            background-color: var(--transparent-red);
+        }
     }
 }
 
@@ -541,20 +583,24 @@ body.shift-pressed .node-id {
     background: var(--accent-info);
     color: var(--text-inverse);
     border: none;
-    padding: 4px 12px;
+    padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
+    display: flex;
+    gap: 4px;
 }
 
 .stop-btn {
     border: none;
-    padding: 4px 12px;
+    padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
     background: var(--accent-danger);
     color: var(--text-primary);
+    display: flex;
+    gap: 4px;
 }
 
 .run-btn:disabled {
@@ -592,11 +638,6 @@ body.shift-pressed .node-id {
     background: none;
     border: none;
     cursor: pointer;
-    filter: grayscale(1);
-}
-
-.duplicate-btn:hover {
-    filter: grayscale(0);
 }
 
 .think-content {
@@ -1001,7 +1042,7 @@ div[contentEditable='true'] {
 
 .file-icon {
     width: 14px;
-    margin-right: 5px;
+    margin-left: 5px;
     aspect-ratio: 1/1;
 }
 
@@ -1028,6 +1069,7 @@ div[contentEditable='true'] {
 ::-webkit-scrollbar-thumb:hover {
     background: var(--border-highlight);
 }
+
 /* Collapsed Node State */
 .node.collapsed-node .user-section,
 .node.collapsed-node .ai-section,

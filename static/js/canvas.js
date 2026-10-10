@@ -79,7 +79,7 @@ window.addEventListener('mouseup', (e) => {
         isPanning = false;
         document.body.classList.remove('is-panning');
     }
-    
+
     if (e.button === 0 && viewport.dataset.mightDeselect === "true") {
         viewport.dataset.mightDeselect = "false";
         if (!e.target.closest('.node') && !e.target.closest('#controls')) {
@@ -359,7 +359,7 @@ function drawGroups() {
         } else if (hasSummary) {
             btnHtml = `
                 <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('collapse')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
-                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')">🔄 Re-Summarize</button>
+                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src="${getIconpath('bulb')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Re-Summarize</button>
             `;
         } else {
             btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
@@ -605,7 +605,7 @@ function autoLayout(preserveRoots = true) {
 
                 let minQ = Math.ceil(minW / GRID_SIZE);
                 if (minQ % 2 === 0) minQ += 1;
-                
+
                 let maxQ = Math.floor(maxW / GRID_SIZE);
                 if (maxQ % 2 === 0) maxQ -= 1;
 
@@ -653,9 +653,9 @@ function autoLayout(preserveRoots = true) {
         if (preserveRoots) {
             const originalX = root.x;
             const originalY = root.y;
-            
+
             placeSubtree(root, 0, 0);
-            
+
             let deltaX = originalX - root.x;
             let deltaY = originalY - root.y;
             shiftSubtree(root, deltaX, deltaY);

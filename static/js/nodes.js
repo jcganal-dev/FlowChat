@@ -373,7 +373,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
         <div class="node-header">
             <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
             <div>
-                <a class="delete-btn" title="Delete">✖</a>
+                <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
             </div>
         </div>
         
@@ -463,11 +463,11 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
                 if (data.type === 'image') {
                     item.innerHTML = `
                         <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px; border-radius: 8px;" />
-                        <a class="remove-file-btn" data-idx="${idx}">✖</a>
+                        <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('close')}" class="file-icon"></a>
                     `;
                 } else {
                     const src = getIconpath(f.name.split('.').pop().toLowerCase());
-                    item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}">✖</a>`;
+                    item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('close')}" class="file-icon"></a>`;
                 }
 
                 container.appendChild(item);
@@ -477,7 +477,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
                 if (data.files.length > 0) {
                     dropzone.classList.add('minimized');
                     const dt = dropzone.querySelector('.drop-text');
-                    if (dt) dt.innerHTML = '↑';
+                    if (dt) dt.innerHTML = `<img src="${getIconpath('upload')}" class="file-icon" style="margin: 4px 0px 0px 0px;">`;
                 } else {
                     dropzone.classList.remove('minimized');
                     const dt = dropzone.querySelector('.drop-text');
@@ -561,16 +561,16 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
         <div class="node-header">
             <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
             <div>
-                <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: inline-block;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${id}')">${nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" style="width:16px;height:16px;vertical-align:middle;">' : '<img src="/static/icons/collapse.svg" style="width:16px;height:16px;vertical-align:middle;">'}</a>
-                <a class="duplicate-btn" title="Duplicate Branch">📄</a>
-                <a class="delete-btn" title="Delete">✖</a>
+                <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${id}')">${nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
+                <a class="duplicate-btn" title="Duplicate Branch"><img src="${getIconpath('file')}" class="file-icon"></a>
+                <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
             </div>
         </div>
         <div class="user-section">
             <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
             <div class="button-row" style="${runStyle}">
-                <button class="run-btn">Run ➔</button>
-                <button class="stop-btn" style="display: none; background: #ff5555; color: white;">Stop ⏹</button>
+                <button class="run-btn"><img src="${getIconpath('send')}" class="file-icon" style="margin:0px"> Send</button>
+                <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="${getIconpath('stop')}" class="file-icon" style="margin:0px"> Stop</button>
             </div>
         </div>
         <div class="ai-section">
@@ -949,7 +949,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
-                chipLabel = `📁 ${folderName}/*`;
+                chipLabel = `<img src="${getIconpath('folder')}" class="file-icon"> ${folderName}/*`;
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
                     refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
