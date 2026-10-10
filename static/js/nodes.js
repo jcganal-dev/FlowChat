@@ -834,10 +834,6 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
     if (el) el.style.zIndex = highestZIndex++;
 
     if (isCtrlClick) {
-        if (selectedNodes.size === 1 && selectedNodes.has(activeNodeId) && id !== activeNodeId) {
-            selectedNodes.delete(activeNodeId);
-        }
-
         if (selectedNodes.has(id)) {
             selectedNodes.delete(id);
             if (activeNodeId === id) {
