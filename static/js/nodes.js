@@ -618,10 +618,12 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
 
         textarea.addEventListener('focus', () => {
             lastFocusedInput = textarea;
+            document.body.classList.add('input-focused');
         });
 
         textarea.addEventListener('blur', () => {
             lastFocusedInput = null;
+            document.body.classList.remove('input-focused');
         });
 
         textarea.addEventListener('drop', async (e) => {
@@ -648,6 +650,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
                     }
 
                     lastFocusedInput = textarea;
+                    document.body.classList.add('input-focused');
 
                     const filteredPaths = parsed.filter(p => {
                         return !parsed.some(other => other !== p && p.startsWith(other + '/'));
