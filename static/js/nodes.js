@@ -843,27 +843,30 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
             selectedNodes.add(id);
             if (!activeNodeId) activeNodeId = id;
         }
-        shiftSelectionStartId = null;
+        shiftSelectionStartId = id;
     } else if (isShiftClick) {
-        if (!shiftSelectionStartId) {
-            shiftSelectionStartId = id;
-            selectedNodes.clear();
-            selectedNodes.add(id);
-        } else if (shiftSelectionStartId !== id) {
-            const path = getLineagePath(shiftSelectionStartId, id);
+        let anchor = shiftSelectionStartId || activeNodeId || id;
+        if (anchor !== id) {
+            const path = getLineagePath(anchor, id);
             if (path) {
+                selectedNodes.clear();
                 path.forEach(nodeId => selectedNodes.add(nodeId));
-                shiftSelectionStartId = null;
             } else {
                 console.warn("Cannot group: Nodes must be in the same direct lineage.");
-                return;
+                selectedNodes.clear();
+                selectedNodes.add(id);
+                shiftSelectionStartId = id;
             }
+        } else {
+            selectedNodes.clear();
+            selectedNodes.add(id);
+            shiftSelectionStartId = id;
         }
     } else {
         selectedNodes.clear();
         selectedNodes.add(id);
         activeNodeId = id;
-        shiftSelectionStartId = null;
+        shiftSelectionStartId = id;
     }
 
     const lineage = new Set();
