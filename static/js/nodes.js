@@ -238,12 +238,12 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (!refData) return false;
 
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="${getIconpath('image')}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
+            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
-                chipLabel = `<img src="${getIconpath('folder')}" class="file-icon"> ${folderName}/*`;
+                chipLabel = `<img src="/static/icons/folder.svg" class="file-icon"> ${folderName}/*`;
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
                     refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
@@ -255,11 +255,11 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
                 refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             }
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
-            chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> Summary of ${refId}`;
+            chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> ${refId}`;
+            chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         }
     }

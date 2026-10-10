@@ -90,13 +90,13 @@ async function triggerSummarize(groupId) {
     const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
 
     if (summarizableNodes.length === 0) {
-        if (btn) btn.innerHTML = `<img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px;'> Summarize`
+        if (btn) btn.innerHTML = `<img src='/static/icons/bulb.svg' class="file-icon" style='margin-bottom: -2px;'> Summarize`
         group.isSummarized = true;
         if (typeof renderGroups === 'function') renderGroups();
         return;
     }
 
-    if (btn) btn.innerHTML = "<img src='" + getIconpath('magnifying-glass') + "' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
+    if (btn) btn.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
 
     const payload = {
         messages: [
@@ -112,11 +112,11 @@ async function triggerSummarize(groupId) {
             summary += content;
         },
         onReasoning: (reasoning) => {
-            if (btn && summary === "") btn.innerHTML = "<img src='" + getIconpath('clock') + "' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+            if (btn && summary === "") btn.innerHTML = "<img src='/static/icons/clock.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Summarize failed:", error);
-            if (btn) btn.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
+            if (btn) btn.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
             groupNodes.forEach((n, idx) => {
@@ -181,7 +181,7 @@ async function triggerSingleSummarize(nodeId) {
         sumEl = el.querySelector('.node-summary-display');
         if (sumEl) {
             sumEl.style.display = 'block';
-            sumEl.innerHTML = "<img src='" + getIconpath('magnifying-glass') + "' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
+            sumEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
         }
     }
 
@@ -200,11 +200,11 @@ async function triggerSingleSummarize(nodeId) {
             if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(summary) : summary;
         },
         onReasoning: (reasoning) => {
-            if (sumEl && summary === "") sumEl.innerHTML = "<img src='" + getIconpath('clock') + "' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+            if (sumEl && summary === "") sumEl.innerHTML = "<img src='/static/icons/clock.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Single Summarize failed:", error);
-            if (sumEl) sumEl.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
+            if (sumEl) sumEl.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
             const oldHeight = el ? el.offsetHeight : 0;

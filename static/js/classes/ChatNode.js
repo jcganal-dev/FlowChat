@@ -11,15 +11,15 @@ class ChatNode extends BaseNode {
                 <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 <div>
                     <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${this.nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${this.id}')">${this.nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
-                    <a class="duplicate-btn" title="Duplicate Branch"><img src="${getIconpath('file')}" class="file-icon"></a>
-                    <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
+                    <a class="duplicate-btn" title="Duplicate Branch"><img src="/static/icons/file.svg" class="file-icon"></a>
+                    <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>
             </div>
             <div class="user-section">
                 <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
-                    <button class="run-btn"><img src="${getIconpath('send')}" class="file-icon" style="margin:0px"> Send</button>
-                    <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="${getIconpath('stop')}" class="file-icon" style="margin:0px"> Stop</button>
+                    <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Send</button>
+                    <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="/static/icons/stop.svg" class="file-icon" style="margin:0px"> Stop</button>
                 </div>
             </div>
             <div class="ai-section">

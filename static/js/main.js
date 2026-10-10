@@ -176,9 +176,9 @@ window.addEventListener('contextmenu', (e) => {
             toggleNodeMenu.style.display = 'block';
             if(deleteNodeMenu) deleteNodeMenu.style.display = 'block';
             if (nodeData.isCollapsed) {
-                toggleNodeMenu.innerHTML = `<img src="${getIconpath('expand')}" class="file-icon"> Expand Node`;
+                toggleNodeMenu.innerHTML = `<img src="/static/icons/expand.svg" class="file-icon"> Expand Node`;
             } else {
-                toggleNodeMenu.innerHTML = `<img src="${getIconpath('collapse')}" class="file-icon"> Collapse Node`;
+                toggleNodeMenu.innerHTML = `<img src="/static/icons/collapse.svg" class="file-icon"> Collapse Node`;
             }
         }
 
@@ -187,7 +187,7 @@ window.addEventListener('contextmenu', (e) => {
         } else {
             summarizeMenu.style.display = 'block';
             const hasSummary = nodeData && nodeData.nodeSummary && nodeData.nodeSummary.trim() !== "";
-            const icon = `<img src="${getIconpath('bulb')}" class="file-icon"></img>`
+            const icon = `<img src="/static/icons/bulb.svg" class="file-icon"></img>`
             summarizeMenu.innerHTML = hasSummary ? icon + ' Re-Summarize Node' : icon + ' Summarize Node';
         }
 

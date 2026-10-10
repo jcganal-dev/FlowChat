@@ -7,7 +7,7 @@ class FileNode extends BaseNode {
             <div class="node-header">
                 <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 <div>
-                    <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
+                    <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>
             </div>
             <div class="files-container" id="files_${this.id}"></div>
@@ -61,11 +61,11 @@ class FileNode extends BaseNode {
             if (this.nodeData.type === 'image') {
                 item.innerHTML = `
                     <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px; border-radius: 8px;" />
-                    <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('trash')}" class="file-icon"></a>
+                    <a class="remove-file-btn" data-idx="${idx}"><img src="/static/icons/trash.svg" class="file-icon"></a>
                 `;
             } else {
                 const src = getIconpath(f.name.split('.').pop().toLowerCase());
-                item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('trash')}" class="file-icon"></a>`;
+                item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="/static/icons/trash.svg" class="file-icon"></a>`;
             }
             container.appendChild(item);
         });
@@ -73,7 +73,7 @@ class FileNode extends BaseNode {
             if (this.nodeData.files.length > 0) {
                 this.dropzone.classList.add('minimized');
                 const dt = this.dropzone.querySelector('.drop-text');
-                if (dt) dt.innerHTML = `<img src="${getIconpath('upload')}" class="file-icon" style="margin: 4px 0px 0px 0px;">`;
+                if (dt) dt.innerHTML = `<img src="/static/icons/upload.svg" class="file-icon" style="margin: 4px 0px 0px 0px;">`;
             } else {
                 this.dropzone.classList.remove('minimized');
                 const dt = this.dropzone.querySelector('.drop-text');

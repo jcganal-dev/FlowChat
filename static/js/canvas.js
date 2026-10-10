@@ -355,14 +355,14 @@ function drawGroups() {
 
         let btnHtml = '';
         if (group.isCollapsed) {
-            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('expand')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Expand</button>`;
+            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="/static/icons/expand.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Expand</button>`;
         } else if (hasSummary) {
             btnHtml = `
-                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('collapse')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
-                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src="${getIconpath('bulb')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Re-Summarize</button>
+                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="/static/icons/collapse.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
+                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src="/static/icons/bulb.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Re-Summarize</button>
             `;
         } else {
-            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
+            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='/static/icons/bulb.svg' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
         }
 
         box.innerHTML = `

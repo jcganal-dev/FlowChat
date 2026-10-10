@@ -13,7 +13,7 @@ sandboxContextMenu.style.cssText = `
     display: none;
     color: #eee;
 `;
-sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file"><img src="${getIconpath('trash')}" class="file-icon"> Delete File</div>`;
+sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file"><img src="/static/icons/trash.svg" class="file-icon"> Delete File</div>`;
 document.body.appendChild(sandboxContextMenu);
 
 let targetSandboxFile = null;
@@ -146,8 +146,8 @@ async function fetchSandboxFiles() {
 
             if (child.type === 'directory') {
                 const isCollapsed = collapsedSandboxFolders.has(child.path);
-                const chevronChar = isCollapsed ? `<img src="${getIconpath('chevron-right')}" class="file-icon">` : `<img src="${getIconpath('chevron-down')}" class="file-icon">`;
-                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="${getIconpath('folder')}" class="file-icon"> ${child.name}`;
+                const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
+                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
 
                 const childrenContainer = document.createElement('div');
                 childrenContainer.className = 'folder-children';
@@ -245,7 +245,7 @@ async function fetchSandboxFiles() {
 
                 const delMenu = document.getElementById('menu-delete-sandbox-file');
                 if (delMenu) {
-                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="${getIconpath('trash')}" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="${getIconpath('trash')}" class="file-icon"> Delete`;
+                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
                 }
 
                 sandboxContextMenu.style.display = 'block';
@@ -267,11 +267,11 @@ async function fetchSandboxFiles() {
                         const chevron = item.querySelector('.chevron');
                         if (childrenContainer.style.display === 'none') {
                             childrenContainer.style.display = 'block';
-                            chevron.innerHTML = `<img src="${getIconpath('chevron-down')}" class="file-icon">`;
+                            chevron.innerHTML = `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
                             collapsedSandboxFolders.delete(filepath);
                         } else {
                             childrenContainer.style.display = 'none';
-                            chevron.innerHTML = `<img src="${getIconpath('chevron-right')}" class="file-icon">`;
+                            chevron.innerHTML = `<img src="/static/icons/chevron-right.svg" class="file-icon">`;
                             collapsedSandboxFolders.add(filepath);
                         }
                         localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));

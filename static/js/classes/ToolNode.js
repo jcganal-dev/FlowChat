@@ -10,7 +10,7 @@ class ToolNode extends BaseNode {
             <div class="node-header">
                 <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 <div>
-                    <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
+                    <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>
             </div>
             <div class="tool-selection" style="padding: 5px 10px;">
@@ -22,7 +22,7 @@ class ToolNode extends BaseNode {
             <div class="user-section">
                 <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Enter tool payload/script...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
-                    <button class="run-btn"><img src="${getIconpath('send')}" class="file-icon" style="margin:0px"> Execute</button>
+                    <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Execute</button>
                 </div>
             </div>
             <div class="ai-section">
