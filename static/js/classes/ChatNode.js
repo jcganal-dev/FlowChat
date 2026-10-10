@@ -274,6 +274,7 @@ class ChatNode extends BaseNode {
                 }
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 this.el.querySelector('.add-child-btn').click();
+                if (typeof saveState === 'function') saveState();
             }
         });
         if (!aborted) {

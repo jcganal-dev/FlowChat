@@ -214,6 +214,7 @@ class BaseNode {
             newData.nodeWidth = childWidth;
             newEl.style.width = childWidth + 'px';
         }
+        if (typeof saveState === 'function') saveState();
     }
 
     onDelete(e) {
