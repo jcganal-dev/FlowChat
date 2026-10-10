@@ -292,7 +292,14 @@ async function triggerSummarize(groupId) {
                 if (n.type === 'document' || n.type === 'image') {
                     n.isCollapsed = true;
                     const el = document.getElementById(n.id);
-                    if (el) el.classList.add('collapsed-node');
+                    if (el) {
+                        el.classList.add('collapsed-node');
+                        const toggleBtn = el.querySelector('.toggle-btn');
+                        if (toggleBtn) {
+                            toggleBtn.style.display = 'inline-block';
+                            toggleBtn.textContent = '🔍';
+                        }
+                    }
                     return;
                 }
 
@@ -376,7 +383,7 @@ async function triggerSingleSummarize(nodeId) {
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
                     toggleBtn.style.display = 'inline-block';
-                    toggleBtn.textContent = '📂';
+                    toggleBtn.textContent = '🔍';
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();

@@ -126,13 +126,45 @@ window.addEventListener('contextmenu', (e) => {
         const summarizeMenu = document.getElementById('menu-summarize');
         const summarizeSelectedMenu = document.getElementById('menu-summarize-selected');
         const deleteSelectedMenu = document.getElementById('menu-delete-selected');
+        const expandSelectedMenu = document.getElementById('menu-expand-selected');
+        const collapseSelectedMenu = document.getElementById('menu-collapse-selected');
 
         if (selectedNodes.size > 1) {
             summarizeSelectedMenu.style.display = 'block';
             deleteSelectedMenu.style.display = 'block';
+            expandSelectedMenu.style.display = 'block';
+            collapseSelectedMenu.style.display = 'block';
+
+            let anyCollapsed = false;
+            let anyExpanded = false;
+            selectedNodes.forEach(id => {
+                const n = nodes.find(x => x.id === id);
+                if (n) {
+                    if (n.isCollapsed) anyCollapsed = true;
+                    else anyExpanded = true;
+                }
+            });
+
+            if (!anyCollapsed) {
+                expandSelectedMenu.style.opacity = '0.4';
+                expandSelectedMenu.style.pointerEvents = 'none';
+            } else {
+                expandSelectedMenu.style.opacity = '1';
+                expandSelectedMenu.style.pointerEvents = 'auto';
+            }
+
+            if (!anyExpanded) {
+                collapseSelectedMenu.style.opacity = '0.4';
+                collapseSelectedMenu.style.pointerEvents = 'none';
+            } else {
+                collapseSelectedMenu.style.opacity = '1';
+                collapseSelectedMenu.style.pointerEvents = 'auto';
+            }
         } else {
             summarizeSelectedMenu.style.display = 'none';
             deleteSelectedMenu.style.display = 'none';
+            expandSelectedMenu.style.display = 'none';
+            collapseSelectedMenu.style.display = 'none';
         }
 
         if (nodeData && (nodeData.type === 'document' || nodeData.type === 'image')) {
@@ -161,6 +193,8 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-summarize').style.display = 'none';
         document.getElementById('menu-summarize-selected').style.display = 'none';
         document.getElementById('menu-delete-selected').style.display = 'none';
+        document.getElementById('menu-expand-selected').style.display = 'none';
+        document.getElementById('menu-collapse-selected').style.display = 'none';
 
         const rect = viewport.getBoundingClientRect();
         contextMenu.dataset.clickX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -249,6 +283,30 @@ $('menu-delete-selected').addEventListener('click', () => {
             if (typeof deleteNode === 'function') deleteNode(id, false);
         });
         selectedNodes.clear();
+    }
+});
+
+$('menu-expand-selected').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (selectedNodes.size > 1) {
+        selectedNodes.forEach(id => {
+            const node = nodes.find(n => n.id === id);
+            if (node && node.isCollapsed) {
+                if (typeof toggleNodeState === 'function') toggleNodeState(id);
+            }
+        });
+    }
+});
+
+$('menu-collapse-selected').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (selectedNodes.size > 1) {
+        selectedNodes.forEach(id => {
+            const node = nodes.find(n => n.id === id);
+            if (node && !node.isCollapsed) {
+                if (typeof toggleNodeState === 'function') toggleNodeState(id);
+            }
+        });
     }
 });
 

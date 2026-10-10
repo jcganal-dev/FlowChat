@@ -47,6 +47,8 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-rename"><img src="${getIconpath('brush')}" class="file-icon"> Rename Branch</div>
     <div class="context-item" id="menu-summarize"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Node</div>
     <div class="context-item" id="menu-summarize-selected"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Selected Nodes</div>
+    <div class="context-item" id="menu-expand-selected"><span style="display:inline-block; margin-right:6px;">📂</span> Expand Selected Nodes</div>
+    <div class="context-item" id="menu-collapse-selected"><span style="display:inline-block; margin-right:6px;">🔍</span> Collapse Selected Nodes</div>
     <div class="context-item" id="menu-group"><img src="${getIconpath('group')}" class="file-icon"> Group Selected Nodes</div>
     <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon">Ungroup Node</div>
     <div class="context-item" id="menu-delete-selected"><span style="display:inline-block; margin-right:6px;">🗑️</span> Delete Selected Nodes</div>
