@@ -238,6 +238,21 @@ async function runUserNode(nodeId) {
 }
 
 /**
+ * Recursively shifts child nodes up or down when a parent's height changes.
+ * @param {string} nodeId - The ID of the parent node.
+ * @param {number} deltaY - The amount to shift in pixels.
+ */
+function shiftChildren(nodeId, deltaY) {
+    const children = nodes.filter(n => n.parentId === nodeId);
+    children.forEach(c => {
+        c.y += deltaY;
+        const el = document.getElementById(c.id);
+        if (el) el.style.transform = `translate(${c.x}px, ${c.y}px)`;
+        shiftChildren(c.id, deltaY);
+    });
+}
+
+/**
  * Compiles all conversation text within a specified group and requests the LLM to generate individual summaries for each node.
  * @param {string} groupId - The ID of the group to summarize.
  */
@@ -297,12 +312,14 @@ async function triggerSummarize(groupId) {
                 const aText = n.aiText || "";
                 if (uText.trim() === "" && aText.trim() === "") return;
 
+                const el = document.getElementById(n.id);
+                const oldHeight = el ? el.offsetHeight : 0;
+
                 const regex = new RegExp(`<SUMMARY_${idx}>([\\s\\S]*?)</SUMMARY_${idx}>`);
                 const match = summary.match(regex);
 
                 n.summaryText = match && match[1].trim() ? match[1].trim() : "Summary unavailable.";
                 n.isCollapsed = true;
-                const el = document.getElementById(n.id);
                 if (el) {
                     el.classList.add('collapsed-node');
                     const sumEl = el.querySelector('.node-summary-display');
@@ -312,6 +329,12 @@ async function triggerSummarize(groupId) {
                     if (toggleBtn) {
                         toggleBtn.style.display = 'inline-block';
                         toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
+                    }
+
+                    const newHeight = el.offsetHeight;
+                    const deltaY = newHeight - oldHeight;
+                    if (deltaY !== 0) {
+                        shiftChildren(n.id, deltaY);
                     }
                 }
             });
@@ -371,6 +394,7 @@ async function triggerSingleSummarize(nodeId) {
             if (sumEl) sumEl.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
+            const oldHeight = el ? el.offsetHeight : 0;
             node.summaryText = summary.trim() || "Summary unavailable.";
             node.isCollapsed = true;
 
@@ -383,6 +407,12 @@ async function triggerSingleSummarize(nodeId) {
                 if (toggleBtn) {
                     toggleBtn.style.display = 'inline-block';
                     toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
+                }
+
+                const newHeight = el.offsetHeight;
+                const deltaY = newHeight - oldHeight;
+                if (deltaY !== 0) {
+                    shiftChildren(node.id, deltaY);
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();
@@ -402,12 +432,20 @@ function toggleGroupState(groupId) {
 
     nodes.forEach(n => {
         if (n.groupId === groupId) {
-            n.isCollapsed = group.isCollapsed;
             const el = document.getElementById(n.id);
+            const oldHeight = el ? el.offsetHeight : 0;
+
+            n.isCollapsed = group.isCollapsed;
             if (el) {
                 el.classList.toggle('collapsed-node', n.isCollapsed);
                 const btn = el.querySelector('.toggle-btn');
                 if (btn) btn.innerHTML = n.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">';
+
+                const newHeight = el.offsetHeight;
+                const deltaY = newHeight - oldHeight;
+                if (deltaY !== 0) {
+                    shiftChildren(n.id, deltaY);
+                }
             }
         }
     });
@@ -425,13 +463,22 @@ function toggleNodeState(nodeId) {
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
 
+    const el = document.getElementById(nodeId);
+    let oldHeight = 0;
+    if (el) oldHeight = el.offsetHeight;
+
     node.isCollapsed = !node.isCollapsed;
 
-    const el = document.getElementById(nodeId);
     if (el) {
         el.classList.toggle('collapsed-node', node.isCollapsed);
         const btn = el.querySelector('.toggle-btn');
         if (btn) btn.innerHTML = node.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">';
+
+        const newHeight = el.offsetHeight;
+        const deltaY = newHeight - oldHeight;
+        if (deltaY !== 0) {
+            shiftChildren(nodeId, deltaY);
+        }
     }
 
     if (typeof drawGroups === 'function') drawGroups();

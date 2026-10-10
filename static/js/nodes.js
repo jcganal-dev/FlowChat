@@ -403,9 +403,15 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             const bottomY = data.y + el.offsetHeight;
             const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
 
-            const childWidth = 336; // default chat node width
+            let childWidth = 336; // default chat node width
             const parentWidth = el.offsetWidth;
-            const forkX = data.x + (parentWidth / 2) - (childWidth / 2);
+            const q_p = Math.round(parentWidth / GRID_SIZE);
+            const q_c_default = Math.round(childWidth / GRID_SIZE);
+            if (q_p % 2 !== q_c_default % 2) {
+                childWidth += GRID_SIZE;
+            }
+
+            const forkX = data.x + (parentWidth - childWidth) / 2;
             const forkY = snappedBottomY + (GRID_SIZE * 3);
 
             const existingChildren = nodes.filter(n => n.parentId === data.id);
@@ -413,7 +419,14 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             const newBranch = data.branch + existingChildren.length;
             const newName = data.name;
 
-            createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
+            const newId = createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
+            
+            const newEl = document.getElementById(newId);
+            const newData = nodes.find(n => n.id === newId);
+            if (newEl && newData) {
+                newData.nodeWidth = childWidth;
+                newEl.style.width = childWidth + 'px';
+            }
         });
 
         deleteBtn.addEventListener('click', (e) => {
@@ -729,9 +742,15 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             const bottomY = data.y + el.offsetHeight;
             const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
 
-            const childWidth = 336; // default chat node width
+            let childWidth = 336; // default chat node width
             const parentWidth = el.offsetWidth;
-            const forkX = data.x + (parentWidth / 2) - (childWidth / 2) - ((data.x + (parentWidth / 2) - (childWidth / 2)) % 24);
+            const q_p = Math.round(parentWidth / GRID_SIZE);
+            const q_c_default = Math.round(childWidth / GRID_SIZE);
+            if (q_p % 2 !== q_c_default % 2) {
+                childWidth += GRID_SIZE;
+            }
+
+            const forkX = data.x + (parentWidth - childWidth) / 2;
             const forkY = snappedBottomY + (GRID_SIZE * 3);
 
             const existingChildren = nodes.filter(n => n.parentId === data.id);
@@ -739,7 +758,14 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             const newBranch = data.branch + existingChildren.length;
             const newName = data.name;
 
-            createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
+            const newId = createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
+            
+            const newEl = document.getElementById(newId);
+            const newData = nodes.find(n => n.id === newId);
+            if (newEl && newData) {
+                newData.nodeWidth = childWidth;
+                newEl.style.width = childWidth + 'px';
+            }
         });
 
         dupBtn.addEventListener('click', (e) => {
@@ -749,7 +775,14 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             const data = nodes.find(n => n.id === el.id);
             const forkX = data.x + 360;
 
-            createNode(data.parentId, forkX, data.y, textarea.innerHTML, data.turn, data.branch, data.name);
+            const newId = createNode(data.parentId, forkX, data.y, textarea.innerHTML, data.turn, data.branch, data.name);
+            
+            const newEl = document.getElementById(newId);
+            const newData = nodes.find(n => n.id === newId);
+            if (newEl && newData && data.nodeWidth) {
+                newData.nodeWidth = data.nodeWidth;
+                newEl.style.width = data.nodeWidth + 'px';
+            }
         });
 
         deleteBtn.addEventListener('click', (e) => {
