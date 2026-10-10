@@ -94,12 +94,13 @@ async function fetchSandboxFiles() {
     selectedSandboxFiles.clear();
     lastSelectedSandboxFileIndex = -1;
 
-    const treeRoot = { name: '', path: '', type: 'directory', children: {} };
+    const sRoot = { name: 'Sandbox (S:)', path: '', type: 'directory', children: {}, isSandboxRoot: true };
+    const treeRoot = { name: '', path: '', type: 'directory', children: { 'S:/': sRoot } };
     const items = data.items || data.files.map(f => ({ path: f, type: 'file' }));
 
     items.forEach(item => {
         const parts = item.path.split('/');
-        let current = treeRoot;
+        let current = sRoot;
         for (let i = 0; i < parts.length - 1; i++) {
             if (!current.children[parts[i]]) {
                 current.children[parts[i]] = { name: parts[i], path: parts.slice(0, i + 1).join('/'), type: 'directory', children: {} };
@@ -158,6 +159,7 @@ async function fetchSandboxFiles() {
                 itemWrapper.appendChild(childrenContainer);
                 container.appendChild(itemWrapper);
 
+
                 renderTree(child, childrenContainer, depth + 1);
             } else {
 
@@ -172,15 +174,54 @@ async function fetchSandboxFiles() {
                 container.appendChild(itemWrapper);
             }
 
-            // Shared events for selection and context menu
+            // Shared events for selection, drag/drop, and context menu
             item.addEventListener('mousedown', (e) => {
+                if (child.isSandboxRoot) return;
                 if (e.shiftKey || e.ctrlKey || e.metaKey) {
                     e.preventDefault();
                 }
             });
 
-            item.draggable = true;
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                item.style.backgroundColor = 'var(--bg-hover)';
+            });
+            item.addEventListener('dragleave', (e) => {
+                item.style.backgroundColor = '';
+            });
+            item.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                item.style.backgroundColor = '';
+                const data = e.dataTransfer.getData('text/plain');
+                try {
+                    const paths = JSON.parse(data);
+                    let targetDir = child.type === 'directory' ? filepath : (filepath.includes('/') ? filepath.substring(0, filepath.lastIndexOf('/')) : "");
+
+                    // Prevent moving into itself or its own subdirectories
+                    if (paths.some(p => targetDir === p || targetDir.startsWith(p + '/'))) {
+                        return;
+                    }
+                    const success = await apiMoveSandboxFiles(paths, targetDir);
+                    if (success) {
+                        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
+                            let parts = targetDir.split('/');
+                            let currentPath = '';
+                            for (let part of parts) {
+                                currentPath += (currentPath ? '/' : '') + part;
+                                collapsedSandboxFolders.delete(currentPath);
+                            }
+                            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
+                        }
+                        selectedSandboxFiles.clear();
+                        fetchSandboxFiles();
+                    }
+                } catch (err) { }
+            });
+
+            item.draggable = !child.isSandboxRoot;
             item.addEventListener('dragstart', (e) => {
+                if (child.isSandboxRoot) { e.preventDefault(); return; }
                 if (!selectedSandboxFiles.has(filepath)) {
                     selectedSandboxFiles.clear();
                     selectedSandboxFiles.add(filepath);
@@ -193,6 +234,7 @@ async function fetchSandboxFiles() {
 
             item.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
+                if (child.isSandboxRoot) return;
                 if (!selectedSandboxFiles.has(filepath)) {
                     selectedSandboxFiles.clear();
                     selectedSandboxFiles.add(filepath);
@@ -236,6 +278,8 @@ async function fetchSandboxFiles() {
                     }
                 }
 
+                if (child.isSandboxRoot) return;
+
                 if (e.shiftKey) {
                     if (lastSelectedSandboxFileIndex === -1) {
                         selectedSandboxFiles.add(filepath);
@@ -277,6 +321,32 @@ async function fetchSandboxFiles() {
     }
 
     renderTree(treeRoot, tree);
+
+    // Allow dropping on the root container itself to move to root directory
+    tree.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    tree.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        // If the drop was already handled by a subdirectory, don't do it again
+        if (e.defaultPrevented) return;
+
+        const data = e.dataTransfer.getData('text/plain');
+        try {
+            const paths = JSON.parse(data);
+            if (!Array.isArray(paths)) return;
+
+            // Avoid moving root-level items to root
+            const itemsToMove = paths.filter(p => p.includes('/'));
+            if (itemsToMove.length === 0) return;
+
+            const success = await apiMoveSandboxFiles(itemsToMove, "");
+            if (success) {
+                selectedSandboxFiles.clear();
+                fetchSandboxFiles();
+            }
+        } catch (err) { }
+    });
 }
 
 async function promptCreateFolder() {
@@ -303,6 +373,15 @@ async function promptCreateFolder() {
 
     const success = await apiCreateSandboxFolder(finalFolderName);
     if (success) {
+        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
+            let parts = targetDir.split('/');
+            let currentPath = '';
+            for (let part of parts) {
+                currentPath += (currentPath ? '/' : '') + part;
+                collapsedSandboxFolders.delete(currentPath);
+            }
+            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
+        }
         fetchSandboxFiles();
     } else {
         window.customAlert('Failed to create folder.');
@@ -345,6 +424,15 @@ async function uploadSandboxFiles(event) {
 
     const success = await apiUploadSandboxFiles(formData);
     if (success) {
+        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
+            let parts = targetDir.split('/');
+            let currentPath = '';
+            for (let part of parts) {
+                currentPath += (currentPath ? '/' : '') + part;
+                collapsedSandboxFolders.delete(currentPath);
+            }
+            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
+        }
         fetchSandboxFiles();
     } else {
         window.customAlert('Upload failed!');

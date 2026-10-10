@@ -105,6 +105,30 @@ async def delete_sandbox_file(filename: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+class MoveSandboxFilesRequest(BaseModel):
+    paths: List[str]
+    target: str
+
+@app.post("/api/sandbox/move")
+async def move_sandbox_files(req: MoveSandboxFilesRequest):
+    target_dir = os.path.join("sandbox", req.target)
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+    elif not os.path.isdir(target_dir):
+        raise HTTPException(status_code=400, detail="Target is not a directory")
+
+    try:
+        for path in req.paths:
+            src_path = os.path.join("sandbox", path)
+            if not os.path.exists(src_path):
+                continue
+            filename = os.path.basename(src_path)
+            dst_path = os.path.join(target_dir, filename)
+            shutil.move(src_path, dst_path)
+        return JSONResponse(content={"message": "Moved successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_canvas(request: Request):
     return templates.TemplateResponse(

@@ -130,6 +130,21 @@ async function apiDeleteSandboxFile(filename) {
 }
 
 /**
+ * Moves files to a new directory.
+ * @param {string[]} paths - The relative paths of the files/folders to move.
+ * @param {string} target - The target directory path (relative to sandbox).
+ * @returns {boolean} True if the move was successful, false otherwise.
+ */
+async function apiMoveSandboxFiles(paths, target) {
+    const res = await fetch('/api/sandbox/move', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paths, target })
+    });
+    return res.ok;
+}
+
+/**
  * Fetches the raw content of a specific file from the sandbox.
  * @param {string} filepath - The relative path of the file to fetch.
  * @returns {Response|null} The raw fetch response, or null if it fails.
