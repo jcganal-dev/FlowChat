@@ -124,6 +124,17 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-ungroup').style.display = 'block';
 
         const summarizeMenu = document.getElementById('menu-summarize');
+        const summarizeSelectedMenu = document.getElementById('menu-summarize-selected');
+        const deleteSelectedMenu = document.getElementById('menu-delete-selected');
+
+        if (selectedNodes.size > 1) {
+            summarizeSelectedMenu.style.display = 'block';
+            deleteSelectedMenu.style.display = 'block';
+        } else {
+            summarizeSelectedMenu.style.display = 'none';
+            deleteSelectedMenu.style.display = 'none';
+        }
+
         if (nodeData && (nodeData.type === 'document' || nodeData.type === 'image')) {
             summarizeMenu.style.display = 'none';
         } else {
@@ -148,6 +159,8 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-group').style.display = 'none';
         document.getElementById('menu-ungroup').style.display = 'none';
         document.getElementById('menu-summarize').style.display = 'none';
+        document.getElementById('menu-summarize-selected').style.display = 'none';
+        document.getElementById('menu-delete-selected').style.display = 'none';
 
         const rect = viewport.getBoundingClientRect();
         contextMenu.dataset.clickX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -217,6 +230,25 @@ $('menu-summarize').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (targetNodeIdForMenu) {
         triggerSingleSummarize(targetNodeIdForMenu);
+    }
+});
+
+$('menu-summarize-selected').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (selectedNodes.size > 1) {
+        selectedNodes.forEach(id => {
+            if (typeof triggerSingleSummarize === 'function') triggerSingleSummarize(id);
+        });
+    }
+});
+
+$('menu-delete-selected').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    if (selectedNodes.size > 1) {
+        Array.from(selectedNodes).forEach(id => {
+            if (typeof deleteNode === 'function') deleteNode(id, false);
+        });
+        selectedNodes.clear();
     }
 });
 
