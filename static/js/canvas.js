@@ -67,6 +67,8 @@ window.addEventListener('mousemove', (e) => {
     if (isPanning) {
         if (Math.abs(e.clientX - panStartX) > 3 || Math.abs(e.clientY - panStartY) > 3) {
             hasMovedDuringPan = true;
+            if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
+            if (typeof sandboxContextMenu !== 'undefined' && sandboxContextMenu) sandboxContextMenu.style.display = 'none';
         }
         camera.x = e.clientX - startPanX;
         camera.y = e.clientY - startPanY;
@@ -237,6 +239,8 @@ viewport.addEventListener('drop', async (e) => {
 
 viewport.addEventListener('wheel', (e) => {
     e.preventDefault();
+    if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
+    if (typeof sandboxContextMenu !== 'undefined' && sandboxContextMenu) sandboxContextMenu.style.display = 'none';
     const zoomSensitivity = 0.001;
     const delta = e.deltaY * -zoomSensitivity;
     let newZoom = camera.zoom * Math.exp(delta);
