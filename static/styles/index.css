@@ -378,6 +378,10 @@ body.is-panning * {
         width: 80%;
     }
 
+    .node-id::after {
+        content: attr(data-text);
+    }
+
     div {
         display: flex;
         flex-direction: row;

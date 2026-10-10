@@ -371,7 +371,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
     el.innerHTML = `
         <div class="handle handle-in"></div>
         <div class="node-header">
-            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
+            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')" data-text="${id.replaceAll('_', ' ')}"></span>
             <div>
                 <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
             </div>
@@ -420,7 +420,7 @@ function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, re
             const newName = data.name;
 
             const newId = createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
-            
+
             const newEl = document.getElementById(newId);
             const newData = nodes.find(n => n.id === newId);
             if (newEl && newData) {
@@ -572,7 +572,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
     el.innerHTML = `
         <div class="handle handle-in"></div>
         <div class="node-header">
-            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')">${id}</span>
+            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')" data-text="${id.replaceAll('_', ' ')}"></span>
             <div>
                 <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${id}')">${nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
                 <a class="duplicate-btn" title="Duplicate Branch"><img src="${getIconpath('file')}" class="file-icon"></a>
@@ -762,7 +762,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             const newName = data.name;
 
             const newId = createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
-            
+
             const newEl = document.getElementById(newId);
             const newData = nodes.find(n => n.id === newId);
             if (newEl && newData) {
@@ -779,7 +779,7 @@ function createChatNode(parentId, x, y, initialUserText, turn, branch, name, res
             const forkX = data.x + 360;
 
             const newId = createNode(data.parentId, forkX, data.y, textarea.innerHTML, data.turn, data.branch, data.name);
-            
+
             const newEl = document.getElementById(newId);
             const newData = nodes.find(n => n.id === newId);
             if (newEl && newData && data.nodeWidth) {
@@ -1014,7 +1014,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
 
     const labelSpan = document.createElement('span');
     labelSpan.className = 'ref-label';
-    labelSpan.innerHTML = chipLabel;
+    labelSpan.innerHTML = chipLabel.replaceAll('_', ' ');
     chip.appendChild(labelSpan);
 
     const hiddenText = document.createElement('span');
