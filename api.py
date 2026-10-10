@@ -181,13 +181,18 @@ async def scrape_with_jina(req: ScrapeRequest):
 
     except httpx.HTTPError as e:
         print(f"❌ Scraping failed: {str(e)}")
-        return JSONResponse(content={"content": None})
+        error_content = None
+        if hasattr(e, 'response') and e.response:
+            error_content = e.response.text
+        status = e.response.status_code if hasattr(e, 'response') and e.response else 500
+        return JSONResponse(content={"error": str(e), "content": error_content}, status_code=status)
 
-OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
+# OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
+# MODEL = "apodex/apodex-1.1-mini:free"
+OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
+MODEL = "minicpm"
+
 OPENROUTER_API_KEY = APIKeys().get_key()
-MODEL = "apodex/apodex-1.1-mini:free"
-# OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
-# MODEL = "minicpm"
 
 # Define your base rules
 SYSTEM_INSTRUCTIONS = []

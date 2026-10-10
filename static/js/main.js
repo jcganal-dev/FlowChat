@@ -268,6 +268,14 @@ window.addEventListener('click', (e) => {
     }
 });
 
+document.addEventListener('paste', (e) => {
+    if (e.target.isContentEditable) {
+        e.preventDefault();
+        const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+        document.execCommand('insertText', false, text);
+    }
+});
+
 window.addEventListener('keydown', (e) => {
     if (e.altKey && e.key.toLowerCase() === 'w') {
         e.preventDefault();

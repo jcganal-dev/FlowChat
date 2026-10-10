@@ -16,7 +16,7 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="user-section">
-                <div contenteditable="${isEditable}" class="node-input scrape-node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
+                <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
                     <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Send</button>
                     <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="/static/icons/stop.svg" class="file-icon" style="margin:0px"> Stop</button>
@@ -78,11 +78,7 @@ class ChatNode extends BaseNode {
                     }
                 } catch (err) { }
             });
-            this.textarea.addEventListener('paste', (e) => {
-                e.preventDefault();
-                const text = (e.originalEvent || e).clipboardData.getData('text/plain');
-                document.execCommand('insertText', false, text);
-            });
+
             this.textarea.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();

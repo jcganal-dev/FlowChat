@@ -43,25 +43,45 @@ class ScrapeNode extends BaseNode {
             });
 
             if (this.nodeData.aiText) {
-                this.renderSuccessUI();
+                this.renderSuccessUI(true);
             }
         }, 0);
         this.attachBaseListeners(this.config.restoreData);
     }
 
-    renderSuccessUI() {
+    renderSuccessUI(isRestoring = false) {
         const aiContentEl = this.el.querySelector('.ai-content');
         if (!this.nodeData.aiText) return;
 
-        if (this.nodeData.aiText.startsWith("Error:") || this.nodeData.aiText === "Failed to scrape URL." || this.nodeData.aiText === "No content returned.") {
-            aiContentEl.innerHTML = this.nodeData.aiText;
+        if (this.nodeData.aiText.startsWith("Error:") || this.nodeData.aiText.startsWith("Failed") || this.nodeData.aiText === "No content returned.") {
+            aiContentEl.innerHTML = `<div style="color: #ff5555; margin-bottom: 8px;"><img src="/static/icons/error.svg" class="file-icon" style="margin-bottom: -1px;"> ${this.nodeData.aiText}</div>`;
             return;
         }
 
+        const userSection = this.el.querySelector('.user-section');
+        if (userSection) userSection.style.display = 'none';
+
+        let cleanText = this.nodeData.aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
+        let preview = cleanText.substring(0, 300);
+        if (cleanText.length > 300) preview += '...';
+
+        const escapeHtml = (unsafe) => {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        };
+
+        preview = escapeHtml(preview).replace(/\n/g, '<br>');
+
         aiContentEl.innerHTML = `
-            <div style="color: #4CAF50; margin-bottom: 8px;">✅ Successfully scraped page. Content is stored in context.</div>
-            <div style="display: flex; gap: 8px; margin-top: 8px;">
-                <input type="text" class="scrape-filename-input" placeholder="filename.md" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2b2b36; color: white;">
+            <div style="margin-bottom: 8px; font-family: monospace; font-size: 0.9em; color: #ccc; background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px; text-overflow: ellipsis; overflow: clip;">
+                ${preview}
+            </div>
+            <div class="save-controls-container" style="display: ${isRestoring ? 'none' : 'flex'}; gap: 8px; margin-top: 8px; justify-content: center; align-items: center;">
+                <input type="text" class="scrape-filename-input" placeholder="(optional)" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2b2b36; color: white;">
                 <button class="scrape-save-btn" style="padding: 4px 8px; border-radius: 4px; background: #4CAF50; border: none; color: white; cursor: pointer;">Save to Sandbox</button>
             </div>
         `;
@@ -87,12 +107,12 @@ class ScrapeNode extends BaseNode {
                 });
 
                 if (res.ok) {
-                    saveBtn.textContent = 'Saved!';
+                    const saveContainer = aiContentEl.querySelector('.save-controls-container');
+                    saveContainer.textContent = 'Saved!';
                     saveBtn.style.background = '#2E7D32';
                     setTimeout(() => {
-                        saveBtn.textContent = 'Save to Sandbox';
-                        saveBtn.style.background = '#4CAF50';
-                    }, 2000);
+                        if (saveContainer) saveContainer.style.display = 'none';
+                    }, 1500);
                     if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
                 } else {
                     saveBtn.textContent = 'Error';
@@ -125,25 +145,52 @@ class ScrapeNode extends BaseNode {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: usertext })
             });
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (e) { }
+
             if (res.ok) {
-                const data = await res.json();
-                this.nodeData.aiText = data.content || "No content returned.";
+                let content = data.content || "";
+
+                const markdownIdx = content.indexOf('Markdown Content:');
+                let actualMarkdown = "";
+                if (markdownIdx !== -1) {
+                    actualMarkdown = content.substring(markdownIdx + 'Markdown Content:'.length).trim();
+                }
+
+                if (content.includes("requiring CAPTCHA") || 
+                    content.includes("unusual traffic from your computer network") || 
+                    (markdownIdx !== -1 && actualMarkdown === "")) {
+                    this.nodeData.aiText = "Failed to scrape URL (CAPTCHA or empty content).";
+                } else {
+                    this.nodeData.aiText = content || "No content returned.";
+                }
             } else {
-                this.nodeData.aiText = "Failed to scrape URL.";
+                this.nodeData.aiText = `Failed to scrape URL. ${data.error || ''}`;
+                if (data.content) {
+                    this.nodeData.aiText += `\n${data.content}`;
+                }
             }
         } catch (err) {
             this.nodeData.aiText = `Error: ${err.message}`;
         }
 
-        this.renderSuccessUI();
+        this.renderSuccessUI(false);
 
-        this.el.querySelector('.add-child-btn').classList.remove('hidden');
+        const isSuccess = !this.nodeData.aiText.startsWith("Error:") && !this.nodeData.aiText.startsWith("Failed") && this.nodeData.aiText !== "No content returned.";
 
-        // Spawn a child ChatNode automatically
-        const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');
-        if (typeof drawEdges === 'function') drawEdges();
-        if (typeof saveState === 'function') saveState();
-        if (typeof selectNode === 'function') selectNode(newNodeId);
-        if (typeof centerCanvas === 'function') centerCanvas();
+        if (isSuccess) {
+            this.el.querySelector('.add-child-btn').classList.remove('hidden');
+            // Spawn a child ChatNode automatically
+            const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');
+            if (typeof drawEdges === 'function') drawEdges();
+            if (typeof saveState === 'function') saveState();
+            if (typeof selectNode === 'function') selectNode(newNodeId);
+            if (typeof centerCanvas === 'function') centerCanvas();
+        } else {
+            this.textarea.contentEditable = true;
+            this.runBtn.style.display = 'inline-flex';
+        }
     }
 }
