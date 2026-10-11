@@ -167,8 +167,8 @@ class ScrapeNode extends BaseNode {
                     actualMarkdown = content.substring(markdownIdx + 'Markdown Content:'.length).trim();
                 }
 
-                if (content.includes("requiring CAPTCHA") || 
-                    content.includes("unusual traffic from your computer network") || 
+                if (content.includes("requiring CAPTCHA") ||
+                    content.includes("unusual traffic from your computer network") ||
                     (markdownIdx !== -1 && actualMarkdown === "")) {
                     this.nodeData.aiText = "Failed to scrape URL (CAPTCHA or empty content).";
                 } else {
@@ -189,6 +189,8 @@ class ScrapeNode extends BaseNode {
         const isSuccess = !this.nodeData.aiText.startsWith("Error:") && !this.nodeData.aiText.startsWith("Failed") && this.nodeData.aiText !== "No content returned.";
 
         if (isSuccess) {
+            // let nodeData = nodes.find(n => n.id === virtualId);
+            // if ()
             this.el.querySelector('.add-child-btn').classList.remove('hidden');
             // Spawn a child ChatNode automatically
             const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');

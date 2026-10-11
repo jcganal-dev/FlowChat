@@ -578,6 +578,7 @@ body.shift-pressed.input-focused .node-id {
     resize: vertical;
     font-family: inherit;
     box-sizing: border-box;
+    overflow-wrap: break-word;
 }
 
 .button-row {
@@ -621,6 +622,7 @@ body.shift-pressed.input-focused .node-id {
     min-height: 40px;
     max-height: 1500px;
     overflow: auto;
+    overflow-wrap: break-word;
 }
 
 .add-child-btn {
@@ -1072,6 +1074,7 @@ div[contentEditable='true'].scrape-node-input,
 .node-input[contenteditable="false"] {
     background-color: transparent;
     border: none;
+    overflow-wrap: break-word;
 }
 
 

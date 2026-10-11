@@ -827,15 +827,11 @@ function renderFocusLineage() {
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
-            let aiHtml = '';
-            if (nodeData.type === 'scrape') {
-                aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText;
-            }
             fileNodeEl.innerHTML = `
                 <div class="focus-user" style="align-self: ${nodeData.type === 'scrape' ? 'start' : 'center'}; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
                     <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text}
                 </div>
-                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content">${aiHtml}</div>` : ''}
+                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content">${marked.parse(nodeData.aiText)}</div>` : ''}
             `;
             fileNodeEl.style = "gap:0px;"
             focusNodesLayer.appendChild(fileNodeEl);
