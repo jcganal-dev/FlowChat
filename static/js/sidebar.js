@@ -62,7 +62,12 @@ document.getElementById('menu-delete-sandbox-file').addEventListener('click', as
         if (allSuccess) {
             selectedSandboxFiles.clear();
             lastSelectedSandboxFileIndex = -1;
-            fetchSandboxFiles();
+            const focusBg = document.getElementById('focus-bg');
+            if (focusBg && focusBg.style.display !== 'none' && typeof renderFocusProjectFiles === 'function') {
+                renderFocusProjectFiles();
+            } else {
+                fetchSandboxFiles();
+            }
         } else {
             window.customAlert('Failed to delete one or more files.');
         }
@@ -72,10 +77,14 @@ document.getElementById('menu-delete-sandbox-file').addEventListener('click', as
 document.addEventListener('click', (e) => {
     sandboxContextMenu.style.display = 'none';
     const palette = document.getElementById('sandbox-palette');
-    if (palette && !palette.contains(e.target) && selectedSandboxFiles.size > 0) {
+    const focusTree = document.getElementById('focus-file-tree');
+    const inPalette = palette && palette.contains(e.target);
+    const inFocusTree = focusTree && focusTree.contains(e.target);
+    if (!inPalette && !inFocusTree && selectedSandboxFiles.size > 0) {
         selectedSandboxFiles.clear();
         lastSelectedSandboxFileIndex = -1;
         updateSidebarSelection();
+        if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
     }
 });
 
@@ -187,7 +196,7 @@ async function fetchSandboxFiles() {
                 item.style.backgroundColor = 'var(--bg-hover)';
             });
             item.addEventListener('dragleave', (e) => {
-                item.style.backgroundColor = '';
+                item.style.backgroundColor = selectedSandboxFiles.has(filepath) ? 'rgba(255, 255, 255, 0.15)' : '';
             });
             item.addEventListener('drop', async (e) => {
                 e.preventDefault();
@@ -230,6 +239,12 @@ async function fetchSandboxFiles() {
                 }
                 e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
                 e.dataTransfer.effectAllowed = 'copy';
+            });
+            item.addEventListener('dragend', () => {
+                selectedSandboxFiles.clear();
+                lastSelectedSandboxFileIndex = -1;
+                updateSidebarSelection();
+                if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
             });
 
             item.addEventListener('contextmenu', (e) => {

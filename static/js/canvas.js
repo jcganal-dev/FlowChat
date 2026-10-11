@@ -235,6 +235,10 @@ viewport.addEventListener('drop', async (e) => {
 
         if (typeof saveState === 'function') saveState();
     }
+    selectedSandboxFiles.clear();
+    lastSelectedSandboxFileIndex = -1;
+    if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
+    if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
 });
 
 viewport.addEventListener('wheel', (e) => {

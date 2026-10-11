@@ -75,6 +75,10 @@ class ChatNode extends BaseNode {
                         for (const filepath of filteredPaths) {
                             if (typeof handleSandboxFileShiftClick === 'function') await handleSandboxFileShiftClick(filepath);
                         }
+                        selectedSandboxFiles.clear();
+                        lastSelectedSandboxFileIndex = -1;
+                        if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
+                        if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
                     }
                 } catch (err) { }
             });
