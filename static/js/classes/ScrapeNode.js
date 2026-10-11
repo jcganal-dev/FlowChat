@@ -69,24 +69,24 @@ class ScrapeNode extends BaseNode {
             return;
         }
 
-        let cleanText = this.nodeData.aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
-        let preview = cleanText.substring(0, 300);
-        if (cleanText.length > 300) preview += '...';
+        // let cleanText = this.nodeData.aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
+        // let preview = cleanText.substring(0, 300);
+        // if (cleanText.length > 300) preview += '...';
 
-        const escapeHtml = (unsafe) => {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        };
+        // const escapeHtml = (unsafe) => {
+        //     return unsafe
+        //         .replace(/&/g, "&amp;")
+        //         .replace(/</g, "&lt;")
+        //         .replace(/>/g, "&gt;")
+        //         .replace(/"/g, "&quot;")
+        //         .replace(/'/g, "&#039;");
+        // };
 
-        preview = escapeHtml(preview).replace(/\n/g, '<br>');
+        // preview = escapeHtml(preview).replace(/\n/g, '<br>');
 
         aiContentEl.innerHTML = `
-            <div style="margin-bottom: 8px; font-family: monospace; font-size: 0.9em; color: #ccc; background: rgba(0,0,0,0.15); padding: 8px; border-radius: 4px; text-overflow: ellipsis; overflow: clip;">
-                ${preview}
+            <div class="scraped-md">
+                ${marked.parse(this.nodeData.aiText)}
             </div>
             <div class="save-controls-container" style="display: ${isRestoring ? 'none' : 'flex'}; gap: 8px; margin-top: 8px; justify-content: center; align-items: center;">
                 <input type="text" class="scrape-filename-input" placeholder="(optional)" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2b2b36; color: white;">

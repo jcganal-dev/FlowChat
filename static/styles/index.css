@@ -620,7 +620,7 @@ body.shift-pressed.input-focused .node-id {
     padding: 12px;
     cursor: default;
     min-height: 40px;
-    max-height: 1500px;
+    max-height: 1000px;
     overflow: auto;
     overflow-wrap: break-word;
 }
@@ -987,6 +987,8 @@ body.shift-pressed.input-focused .node-id {
 }
 
 .ai-content {
+
+    overflow: auto;
 
     th,
     tr:not(:last-child) {
@@ -1355,4 +1357,12 @@ h6 {
     align-items: end;
     padding: 8px 10px 8px 18px;
     border-radius: 10px;
+}
+
+.scraped-md {
+    font-family: monospace;
+
+    img {
+        max-width: 1165px;
+    }
 }
