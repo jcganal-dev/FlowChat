@@ -39,6 +39,7 @@ const edgesLayer = $('edges-layer');
 const contextMenu = $make('div');
 
 contextMenu.id = 'context-menu';
+contextMenu.classList.add('context-menu')
 contextMenu.innerHTML = `
     <div class="context-item" id="menu-add-node"><img src="/static/icons/chatnode.svg" class="file-icon"> Add Chat Node</div>
     <div class="context-item" id="menu-add-image"><img src="/static/icons/image.svg" class="file-icon"> Add Image Node</div>
@@ -47,7 +48,7 @@ contextMenu.innerHTML = `
     <div class="context-item" id="menu-open-palette"><img src="/static/icons/sandbox.svg" class="file-icon"> Open Sandbox Files</div>
     <div class="context-item" id="menu-rename-node"><img src="/static/icons/pencil.svg" class="file-icon"> Rename Node</div>
     <div class="context-item" id="menu-rename"><img src="/static/icons/brush.svg" class="file-icon"> Rename Branch</div>
-    <div class="context-item" id="menu-focus-mode"><img src="/static/icons/focus.svg" class="file-icon"> Toggle Focus Mode</div>
+    <div class="context-item" id="menu-focus-mode"><img src="/static/icons/focus.svg" class="file-icon"> Enter Focus Mode</div>
     <div class="context-item" id="menu-toggle-node"></div>
     <div class="context-item" id="menu-parse-scrape"><img src="/static/icons/magnifying-glass.svg" class="file-icon"> Parse Scrape Data</div>
     <div class="context-item" id="menu-summarize"><img src="/static/icons/bulb.svg" class="file-icon"> Summarize Node</div>

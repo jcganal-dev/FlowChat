@@ -464,6 +464,8 @@ function exitFocusMode() {
     if (focusBg) focusBg.style.display = 'none';
     isFocusModeActive = false;
     document.body.classList.remove('focus-mode-active');
+    const sandboxMenu = document.getElementById('sandbox-context-menu');
+    if (sandboxMenu) sandboxMenu.style.display = 'none';
 
     if (lastFocusedInput && lastFocusedInput.id === 'focus-chat-input') {
         lastFocusedInput = null;
@@ -525,6 +527,7 @@ async function renderFocusProjectFiles() {
     treeContainer.innerHTML = '';
     const items = data.items || data.files.map(f => ({ path: f, type: 'file' }));
     const sRoot = { name: 'Sandbox (S:)', path: '', type: 'directory', children: {}, isSandboxRoot: true };
+    const treeRoot = { name: '', path: '', type: 'directory', children: { 'S:/': sRoot } };
 
     items.forEach(item => {
         const parts = item.path.split('/');
@@ -681,7 +684,7 @@ async function renderFocusProjectFiles() {
                     delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
                 }
 
-                const ctxMenu = document.getElementById('sandboxContextMenu');
+                const ctxMenu = document.getElementById('sandbox-context-menu') || (typeof sandboxContextMenu !== 'undefined' ? sandboxContextMenu : null);
                 if (ctxMenu) {
                     ctxMenu.style.display = 'block';
                     ctxMenu.style.left = `${e.clientX}px`;
@@ -762,7 +765,7 @@ async function renderFocusProjectFiles() {
         });
     }
 
-    renderNode(sRoot, treeContainer);
+    renderNode(treeRoot, treeContainer);
 
     // Root-level drop to move files to root
     treeContainer.addEventListener('dragover', (e) => {
@@ -1025,6 +1028,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
             inputEl.focus();
             lastFocusedInput = inputEl;
         }
+        thinkEl.remove()
     }
 
     if (nodesLayer) {

@@ -608,6 +608,8 @@ body.shift-pressed.input-focused .node-id {
     padding: 12px;
     cursor: default;
     min-height: 40px;
+    max-height: 1500px;
+    overflow: auto;
 }
 
 .add-child-btn {
@@ -719,7 +721,8 @@ body.shift-pressed.input-focused .node-id {
     }
 }
 
-#context-menu {
+#context-menu,
+#sandbox-context-menu {
     position: absolute;
     background: var(--bg-base);
     border: 1px solid var(--border-strong);
@@ -727,7 +730,7 @@ body.shift-pressed.input-focused .node-id {
     padding: 5px 0;
     /* min-width: 160px; */
     box-shadow: 0 4px 12px var(--shadow-md);
-    z-index: 10000;
+    z-index: 20000;
     display: none;
     color: var(--text-secondary);
     font-family: sans-serif;
@@ -1158,6 +1161,7 @@ div[contentEditable='true'].scrape-node-input,
     display: flex;
     flex-direction: column;
     background-color: var(--bg-surface);
+    user-select: text;
 }
 
 .focus-header {

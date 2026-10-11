@@ -4,14 +4,14 @@ sandboxContextMenu.id = 'sandbox-context-menu';
 sandboxContextMenu.className = 'context-menu'; // Use same styling but unique ID
 sandboxContextMenu.style.cssText = `
     position: absolute;
-    background: #1e1e2e;
-    border: 1px solid #444;
+    background: var(--bg-base, #1e1e2e);
+    border: 1px solid var(--border-strong, #444);
     border-radius: 6px;
     padding: 5px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    z-index: 10000;
+    box-shadow: 0 4px 12px var(--shadow-md, rgba(0, 0, 0, 0.5));
+    z-index: 20000;
     display: none;
-    color: #eee;
+    color: var(--text-secondary, #eee);
 `;
 sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file"><img src="/static/icons/trash.svg" class="file-icon"> Delete File</div>`;
 document.body.appendChild(sandboxContextMenu);

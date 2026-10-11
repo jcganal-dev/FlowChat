@@ -242,6 +242,11 @@ viewport.addEventListener('drop', async (e) => {
 });
 
 viewport.addEventListener('wheel', (e) => {
+
+    if (e.target.closest('.node.multi-selected') && !e.ctrlKey) {
+        return;
+    }
+
     e.preventDefault();
     if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
     if (typeof sandboxContextMenu !== 'undefined' && sandboxContextMenu) sandboxContextMenu.style.display = 'none';
@@ -888,3 +893,22 @@ function centerCanvas() {
         nodesLayer.style.transition = 'none';
     }, 300);
 }
+
+/**
+ * Prevent default zooming when mouse as rightclick ontext menu or project files
+ */
+
+const preventZoomElements = [
+    'context-menu',
+    'sandbox-palette'
+]
+
+document.addEventListener('wheel', (e) => {
+    preventZoomElements.forEach(className => {
+        if (e.target.closest('.' + className) && e.ctrlKey) {
+            e.preventDefault();
+            viewport.dispatchEvent(new WheelEvent('wheel', e));
+            return;
+        }
+    });
+}, { passive: false });
