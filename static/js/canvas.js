@@ -23,8 +23,8 @@ function updateCanvas() {
             node.cachedHeight = el.offsetHeight;
         }
 
-        const w = (node.cachedWidth || 336) * camera.zoom;
-        const h = (node.cachedHeight || 200) * camera.zoom;
+        const w = (node.cachedWidth || node.nodeWidth || 336) * camera.zoom;
+        const h = (node.cachedHeight || node.nodeHeight || 200) * camera.zoom;
         const screenX = node.x * camera.zoom + camera.x;
         const screenY = node.y * camera.zoom + camera.y;
 
@@ -40,6 +40,33 @@ function updateCanvas() {
             if (edgeEl && edgeEl.style.display === 'none') edgeEl.style.display = '';
         }
     });
+}
+
+/**
+ * Unhides all nodes temporarily to measure their true rendered dimensions and recalculates culling.
+ * Prevents large nodes positioned above the viewport from being erroneously culled on reload.
+ */
+function refreshNodeCulling() {
+    nodes.filter(n => !n.isVirtual).forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el && el.style.display === 'none') {
+            el.style.display = '';
+        }
+    });
+
+    // Force layout reflow so the browser computes actual offsetWidth and offsetHeight
+    document.body.offsetHeight;
+
+    nodes.filter(n => !n.isVirtual).forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el) {
+            n.cachedWidth = el.offsetWidth;
+            n.cachedHeight = el.offsetHeight;
+            n.nodeHeight = el.offsetHeight;
+        }
+    });
+
+    updateCanvas();
 }
 
 let hasMovedDuringPan = false;

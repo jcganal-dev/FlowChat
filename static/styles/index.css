@@ -1366,3 +1366,10 @@ h6 {
         max-width: 1165px;
     }
 }
+
+.focus-scraped-md {
+
+    img {
+        max-width: 720px;
+    }
+}

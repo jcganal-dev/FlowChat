@@ -63,27 +63,6 @@ class ScrapeNode extends BaseNode {
         const userSection = this.el.querySelector('.user-section');
         if (userSection) userSection.style.display = 'none';
 
-        if (this.nodeData.isParsed) {
-            aiContentEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.aiText) : this.nodeData.aiText;
-            if (window.Prism) Prism.highlightAllUnder(aiContentEl);
-            return;
-        }
-
-        // let cleanText = this.nodeData.aiText.split('\n').map(l => l.trim()).filter(l => l.length > 0).join('\n');
-        // let preview = cleanText.substring(0, 300);
-        // if (cleanText.length > 300) preview += '...';
-
-        // const escapeHtml = (unsafe) => {
-        //     return unsafe
-        //         .replace(/&/g, "&amp;")
-        //         .replace(/</g, "&lt;")
-        //         .replace(/>/g, "&gt;")
-        //         .replace(/"/g, "&quot;")
-        //         .replace(/'/g, "&#039;");
-        // };
-
-        // preview = escapeHtml(preview).replace(/\n/g, '<br>');
-
         aiContentEl.innerHTML = `
             <div class="scraped-md">
                 ${marked.parse(this.nodeData.aiText)}

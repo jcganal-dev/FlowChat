@@ -83,7 +83,11 @@ async function triggerSummarize(groupId) {
         const uText = n.userText || "";
         const aText = n.aiText || "";
         if (uText.trim() === "" && aText.trim() === "") return;
-        rawText += `[NODE_${idx}]\nUser: ${uText}\nAI: ${aText}\n\n`;
+        if (n.type === 'scrape') {
+            rawText += `[NODE_${idx}]\nSource URL: ${uText}\nScraped Content:\n${aText}\n\n`;
+        } else {
+            rawText += `[NODE_${idx}]\nUser: ${uText}\nAI: ${aText}\n\n`;
+        }
         summarizableNodes.push(n);
     });
 
@@ -140,7 +144,7 @@ async function triggerSummarize(groupId) {
 
                     const toggleBtn = el.querySelector('.toggle-btn');
                     if (toggleBtn) {
-                        toggleBtn.style.display = 'inline-block';
+                        toggleBtn.style.display = 'flex';
                         toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
                     }
 
@@ -161,71 +165,6 @@ async function triggerSummarize(groupId) {
 }
 
 /**
- * Parses and extracts detailed information from a ScrapeNode's scraped content.
- * Overwrites the aiText permanently and enables the summarize feature afterwards.
- * @param {string} nodeId - The ID of the scrape node to parse.
- */
-async function triggerParseScrape(nodeId) {
-    const node = nodes.find(n => n.id === nodeId);
-    if (!node || node.type !== 'scrape') return;
-
-    const uText = node.userText || "";
-    const aText = node.aiText || "";
-    if (aText.trim() === "") return;
-
-    let rawText = `Source URL/Query: ${uText}\n\nScraped Content:\n${aText}`;
-
-    const el = document.getElementById(node.id);
-    let contentEl = null;
-    let oldHeight = 0;
-    if (el) {
-        oldHeight = el.offsetHeight;
-        contentEl = el.querySelector('.ai-content');
-        if (contentEl) {
-            contentEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Parsing and extracting details...";
-        }
-    }
-
-    const payload = {
-        messages: [
-            { role: "system", content: "You are an expert data analyst and parser. Your task is to extract, interpret, and format the most important and highly-detailed information from the provided scraped content. Focus on preserving depth and critical details rather than making it short. Discard navigation junk, boilerplate text, and irrelevant ads. Use clear markdown formatting (headers, bullet points, code blocks) to organize the information. [System Reminder] Do not overthink, just parse the data effectively. [End System Reminder]" },
-            { role: "user", content: rawText }
-        ]
-    };
-
-    let parsedResult = "";
-    await streamChatApi(payload, null, {
-        onContent: (content) => {
-            parsedResult += content;
-            if (contentEl) contentEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(parsedResult) : parsedResult;
-        },
-        onReasoning: (reasoning) => {
-            if (contentEl && parsedResult === "") contentEl.innerHTML = "<img src='/static/icons/clock.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
-        },
-        onError: (error) => {
-            console.error("Parse Scrape failed:", error);
-            if (contentEl) contentEl.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error parsing content";
-        },
-        onComplete: () => {
-            if (parsedResult.trim()) {
-                node.aiText = parsedResult.trim();
-                node.isParsed = true;
-                if (typeof saveState === 'function') saveState();
-            }
-
-            if (el) {
-                const newHeight = el.offsetHeight;
-                const deltaY = newHeight - oldHeight;
-                if (deltaY !== 0 && typeof shiftChildrenXY === 'function') {
-                    shiftChildrenXY(node.id, 0, deltaY);
-                }
-            }
-            if (typeof updateCanvas === 'function') updateCanvas();
-        }
-    });
-}
-
-/**
  * Requests the LLM to generate a concise summary for a single individual node.
  * @param {string} nodeId - The ID of the node to summarize.
  */
@@ -237,8 +176,11 @@ async function triggerSingleSummarize(nodeId) {
     const aText = node.aiText || "";
     if (uText.trim() === "" && aText.trim() === "") return;
     if (node.type === 'document' || node.type === 'image') return;
+    if (node.type === 'scrape' && (aText.trim() === "" || aText.startsWith("Error:") || aText.startsWith("Failed"))) return;
 
-    let rawText = `User: ${uText}\nAI: ${aText}`;
+    let rawText = node.type === 'scrape'
+        ? `Source URL: ${uText}\n\nScraped Content:\n${aText}`
+        : `User: ${uText}\nAI: ${aText}`;
 
     const el = document.getElementById(node.id);
     let sumEl = null;
@@ -254,7 +196,7 @@ async function triggerSingleSummarize(nodeId) {
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. Write a summary as concise as possible without it lossing the meaning of the conversation segment. Do NOT include formatting, tags, or labels. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: "You are a quick and precise summarizer. Write a summary as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
             { role: "user", content: rawText }
         ],
         max_tokens: 150
@@ -284,7 +226,7 @@ async function triggerSingleSummarize(nodeId) {
                 }
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
-                    toggleBtn.style.display = 'inline-block';
+                    toggleBtn.style.display = 'flex';
                     toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
                 }
 
