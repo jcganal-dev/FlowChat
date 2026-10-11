@@ -74,50 +74,30 @@
     <div id="focus-bg" class="focus-bg" style="display: none;">
         <div id="focus-project-files" class="focus-project-files">
             <div class="focus-sidebar-header">
-                <span class="focus-sidebar-title">
-                    <img src="/static/icons/sandbox.svg" class="file-icon"> Project Files
-                </span>
-                <button id="focus-refresh-files-btn" class="focus-icon-btn" title="Refresh files">
+                <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
+                <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
                     <img src="/static/icons/undo.svg" class="file-icon">
-                </button>
-            </div>
-            <div class="focus-sidebar-hint">
-                <img src="/static/icons/bulb.svg" class="file-icon" style="width: 12px; height: 12px;"> Shift+Click to reference
+                </a>
             </div>
             <div id="focus-file-tree" class="focus-file-tree"></div>
         </div>
         <div id="focus-main-container" class="focus-main-container">
             <div id="focus-header" class="focus-header">
-                <div class="focus-header-info">
-                    <span id="focus-lineage-title" class="focus-lineage-title">Branch Chat</span>
-                    <span id="focus-node-count-badge" class="focus-badge">0 turns</span>
-                </div>
-                <div class="focus-header-actions">
-                    <button id="exit-focus-btn" class="exit-focus-btn" title="Exit Focus Mode (Esc)">
-                        <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
-                        <span class="focus-kbd">Esc</span>
-                    </button>
-                </div>
+                <span id="focus-lineage-title" class="focus-lineage-title">Branch Chat</span>
+                <button id="exit-focus-btn" class="exit-focus-btn" title="Exit Focus Mode">
+                    <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
+                </button>
             </div>
             <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
             <div id="focus-input-area" class="focus-input-area">
-                <div class="focus-input-wrapper">
-                    <div id="focus-chat-input" class="focus-chat-input" contenteditable="true" spellcheck="true" placeholder="Type a message or @reference... (Shift+Click files on the left to attach)"></div>
-                    <div class="focus-input-actions">
-                        <div class="focus-input-hints">
-                            <span class="focus-hint-badge"><kbd>Shift+Click</kbd> file to attach</span>
-                            <span class="focus-hint-badge"><kbd>Enter</kbd> send</span>
-                            <span class="focus-hint-badge"><kbd>Shift+Enter</kbd> newline</span>
-                        </div>
-                        <div class="focus-action-buttons">
-                            <button id="focus-stop-btn" class="focus-action-btn stop-btn-focus" style="display: none;" title="Stop generation">
-                                <img src="/static/icons/stop.svg" class="file-icon"> Stop
-                            </button>
-                            <button id="focus-send-btn" class="focus-action-btn send-btn-focus" title="Send message">
-                                <img src="/static/icons/send.svg" class="file-icon"> Send
-                            </button>
-                        </div>
-                    </div>
+                <div id="focus-chat-input" class="focus-chat-input" contenteditable="true" spellcheck="true" placeholder="Type prompt here..."></div>
+                <div class="focus-button-row">
+                    <button id="focus-stop-btn" class="focus-stop-btn" style="display: none;">
+                        <img src="/static/icons/stop.svg" class="file-icon"> Stop
+                    </button>
+                    <button id="focus-send-btn" class="focus-send-btn">
+                        <img src="/static/icons/send.svg" class="file-icon"> Send
+                    </button>
                 </div>
             </div>
         </div>

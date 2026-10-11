@@ -512,21 +512,24 @@ async function renderFocusProjectFiles() {
 
         children.forEach(child => {
             const itemWrapper = document.createElement('div');
-            itemWrapper.className = 'focus-tree-wrapper';
+            itemWrapper.className = 'tree-item-wrapper';
 
             const item = document.createElement('div');
-            item.className = 'focus-file-item' + (child.type === 'directory' ? ' is-folder' : ' is-file');
-            item.style.paddingLeft = `${depth * 14 + 8}px`;
+            item.className = 'file-item';
+            item.style.paddingLeft = `${depth * 16 + 8}px`;
+            item.style.paddingTop = '4px';
+            item.style.paddingBottom = '4px';
+            item.style.paddingRight = '8px';
+            item.style.borderRadius = '4px';
             item.dataset.path = child.path;
-            item.dataset.type = child.type;
 
             if (child.type === 'directory') {
                 const isCollapsed = typeof collapsedSandboxFolders !== 'undefined' && collapsedSandboxFolders.has(child.path);
                 const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
-                item.innerHTML = `<span class="chevron">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"><span class="item-name">${child.name}</span>`;
+                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
 
                 const childrenContainer = document.createElement('div');
-                childrenContainer.className = 'focus-folder-children';
+                childrenContainer.className = 'folder-children';
                 if (isCollapsed) childrenContainer.style.display = 'none';
 
                 item.addEventListener('click', (e) => {
@@ -547,7 +550,8 @@ async function renderFocusProjectFiles() {
                 renderNode(child, childrenContainer, depth + 1);
             } else {
                 const iconSrc = typeof getIconpath === 'function' ? getIconpath(child.name) : '/static/icons/file.svg';
-                item.innerHTML = `<span class="chevron-spacer"></span><img class="file-icon" src="${iconSrc}"><span class="item-name" title="${child.path}">${child.name}</span><button class="focus-chip-add-btn" title="Reference file in prompt">+</button>`;
+                item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${iconSrc}">${child.name}`;
+                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
                 item.draggable = true;
 
                 // Dragging file
@@ -560,23 +564,6 @@ async function renderFocusProjectFiles() {
                 item.addEventListener('dblclick', () => {
                     window.open('/sandbox/' + child.path, '_blank');
                 });
-
-                // Quick "+" reference button
-                const addBtn = item.querySelector('.focus-chip-add-btn');
-                if (addBtn) {
-                    addBtn.addEventListener('click', async (e) => {
-                        e.stopPropagation();
-                        e.preventDefault();
-                        const focusInput = document.getElementById('focus-chat-input');
-                        if (focusInput) {
-                            lastFocusedInput = focusInput;
-                            if (typeof handleSandboxFileShiftClick === 'function') {
-                                await handleSandboxFileShiftClick(child.path);
-                            }
-                            focusInput.focus();
-                        }
-                    });
-                }
 
                 // Shift-click to reference
                 item.addEventListener('mousedown', (e) => {
@@ -626,13 +613,11 @@ function renderFocusLineage() {
             const fileList = files.map(f => f.name).join(', ') || nodeData.id;
             const icon = nodeData.type === 'image' ? '/static/icons/image.svg' : '/static/icons/file.svg';
             const fileNodeEl = document.createElement('div');
-            fileNodeEl.className = 'focus-node focus-file-card';
+            fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-attachment-badge">
-                    <img src="${icon}" class="file-icon">
-                    <span class="focus-file-type">${nodeData.type === 'image' ? 'Image' : 'Document'} Attached:</span>
-                    <span class="focus-file-names">${fileList}</span>
+                <div class="focus-user" style="align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
+                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-right: 4px;"> ${nodeData.type === 'image' ? 'Image' : 'Document'} attached: ${fileList}
                 </div>
             `;
             focusNodesLayer.appendChild(fileNodeEl);
