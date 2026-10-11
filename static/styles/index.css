@@ -1251,15 +1251,15 @@ div[contentEditable='true'].scrape-node-input,
     border: 1px solid var(--border-strong);
     border-radius: 4px;
     padding: 8px;
-    resize: vertical;
     font-family: inherit;
     font-size: 14px;
     box-sizing: border-box;
-    outline: none;
+    resize: none;
 }
 
-.focus-chat-input:focus {
-    border-color: var(--accent-primary);
+.focus-chat-input:empty::before {
+    content: attr(placeholder);
+    color: var(--text-muted);
 }
 
 .focus-button-row {
