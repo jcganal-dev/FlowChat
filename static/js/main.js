@@ -125,6 +125,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
+        document.getElementById('menu-focus-mode').style.display = 'block';
 
         const summarizeMenu = document.getElementById('menu-summarize');
         const summarizeSelectedMenu = document.getElementById('menu-summarize-selected');
@@ -174,9 +175,9 @@ window.addEventListener('contextmenu', (e) => {
         const deleteNodeMenu = document.getElementById('menu-delete-node');
         if (selectedNodes.size > 1 || !nodeData) {
             toggleNodeMenu.style.display = 'none';
-            if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
+            if (deleteNodeMenu) deleteNodeMenu.style.display = 'none';
         } else {
-            if(deleteNodeMenu) deleteNodeMenu.style.display = 'block';
+            if (deleteNodeMenu) deleteNodeMenu.style.display = 'block';
             if (!nodeData.summaryText || nodeData.summaryText.trim() === "") {
                 toggleNodeMenu.style.display = 'none';
             } else {
@@ -242,8 +243,9 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-expand-selected').style.display = 'none';
         document.getElementById('menu-collapse-selected').style.display = 'none';
         document.getElementById('menu-toggle-node').style.display = 'none';
+        document.getElementById('menu-focus-mode').style.display = 'none';
         const deleteNodeMenu = document.getElementById('menu-delete-node');
-        if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
+        if (deleteNodeMenu) deleteNodeMenu.style.display = 'none';
 
         const rect = viewport.getBoundingClientRect();
         contextMenu.dataset.clickX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -291,6 +293,11 @@ $('menu-add-scrape').addEventListener('click', () => {
     createNode(null, x, y, '', 1, 0, 'Scrape_Node', null, 'scrape');
 });
 
+$('menu-focus-mode').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    toggleFocusMode();
+});
+
 window.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) {
         contextMenu.style.display = 'none';
@@ -321,6 +328,9 @@ window.addEventListener('keydown', (e) => {
     } else if (e.altKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         if (typeof centerCanvas === 'function') centerCanvas();
+    } else if (e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (typeof toggleFocusMode === 'function') toggleFocusMode();
     }
 });
 

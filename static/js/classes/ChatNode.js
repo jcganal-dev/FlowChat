@@ -245,6 +245,7 @@ class ChatNode extends BaseNode {
                 } else aiContentEl.innerHTML += content;
                 if (typeof drawEdges === 'function') drawEdges();
                 updateThermometer(this.id);
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'content', this.nodeData.aiText);
             },
             onReasoning: (reasoning) => {
                 aiThinkEl.style.display = "flex";
@@ -255,6 +256,7 @@ class ChatNode extends BaseNode {
                 aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
                 if (typeof drawEdges === 'function') drawEdges();
                 updateThermometer(this.id);
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'reasoning', this.nodeData.aiThinking);
             },
             onError: (error) => {
                 if (error.name === 'AbortError' || (error.message && error.message.includes('AbortError'))) {
@@ -266,6 +268,7 @@ class ChatNode extends BaseNode {
                     this.runBtn.style.display = 'flex';
                     this.stopBtn.style.display = 'none';
                 } else aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'error', error, aborted);
             },
             onComplete: () => {
                 if (window.Prism) {
@@ -275,6 +278,7 @@ class ChatNode extends BaseNode {
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 this.el.querySelector('.add-child-btn').click();
                 if (typeof saveState === 'function') saveState();
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
             }
         });
         if (!aborted) {

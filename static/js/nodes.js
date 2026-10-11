@@ -66,13 +66,13 @@ function getLineagePath(idA, idB) {
  */
 function areNodesInSameLineage(nodeIds) {
     if (nodeIds.size <= 1) return true;
-    
+
     let deepestNode = null;
     let maxDepth = -1;
-    
+
     const nodesArray = Array.from(nodeIds).map(id => nodes.find(n => n.id === id)).filter(Boolean);
     if (nodesArray.length !== nodeIds.size) return false;
-    
+
     nodesArray.forEach(n => {
         let depth = 0;
         let curr = n.parentId;
@@ -86,7 +86,7 @@ function areNodesInSameLineage(nodeIds) {
             deepestNode = n;
         }
     });
-    
+
     let hitCount = 0;
     let curr = deepestNode ? deepestNode.id : null;
     while (curr) {
@@ -94,7 +94,7 @@ function areNodesInSameLineage(nodeIds) {
         const n = nodes.find(x => x.id === curr);
         curr = n ? n.parentId : null;
     }
-    
+
     return hitCount === nodeIds.size;
 }
 
@@ -210,6 +210,8 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
         const n = nodes.find(item => item.id === curr);
         curr = n ? n.parentId : null;
     }
+
+    current_active_lineage = Array.from(lineage).reverse()
 
     document.querySelectorAll('.node').forEach(el => {
         el.classList.toggle('active-branch', lineage.has(el.id));
@@ -372,3 +374,615 @@ document.addEventListener('selectionchange', () => {
         lastSelectionRange = sel.getRangeAt(0).cloneRange();
     }
 });
+
+
+/* =========================================================================
+   FOCUS MODE IMPLEMENTATION
+   ========================================================================= */
+
+let isFocusModeActive = false;
+
+/**
+ * Toggles the linear chat Focus Mode on or off for the current active branch lineage.
+ */
+function toggleFocusMode() {
+    const focusBg = document.getElementById('focus-bg');
+    if (!focusBg) return;
+
+    if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
+        exitFocusMode();
+        return;
+    }
+
+    if (!activeNodeId) {
+        if (nodes.length > 0) {
+            selectNode(nodes[nodes.length - 1].id);
+        } else {
+            createNode();
+        }
+    }
+
+    console.log(`Focusing on ${activeNodeId} (${current_active_lineage})`);
+
+    isFocusModeActive = true;
+    focusBg.style.display = 'flex';
+    document.body.classList.add('focus-mode-active');
+
+    // Update header info
+    const titleEl = document.getElementById('focus-lineage-title');
+    const badgeEl = document.getElementById('focus-node-count-badge');
+    const activeData = nodes.find(n => n.id === activeNodeId);
+
+    if (titleEl) {
+        titleEl.textContent = activeData ? `${activeData.name || 'Branch'}` : 'Branch Chat';
+    }
+    if (badgeEl) {
+        badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
+    }
+
+    // Render project files & lineage
+    renderFocusProjectFiles();
+    renderFocusLineage();
+
+    // Setup input listeners
+    setupFocusInputListeners();
+
+    // Focus input
+    const chatInput = document.getElementById('focus-chat-input');
+    if (chatInput) {
+        chatInput.focus();
+        lastFocusedInput = chatInput;
+    }
+}
+
+/**
+ * Exits Focus Mode and synchronizes the canvas camera and state.
+ */
+function exitFocusMode() {
+    const focusBg = document.getElementById('focus-bg');
+    if (focusBg) focusBg.style.display = 'none';
+    isFocusModeActive = false;
+    document.body.classList.remove('focus-mode-active');
+
+    if (lastFocusedInput && lastFocusedInput.id === 'focus-chat-input') {
+        lastFocusedInput = null;
+    }
+
+    if (activeNodeId) {
+        selectNode(activeNodeId);
+        const activeEl = document.getElementById(activeNodeId);
+        const activeData = nodes.find(n => n.id === activeNodeId);
+        if (activeEl && activeData) {
+            camera.x = (window.innerWidth / 2) - activeData.x - (activeEl.offsetWidth / 2);
+            camera.y = (window.innerHeight / 2) - activeData.y - (activeEl.offsetHeight / 2);
+            if (typeof updateCanvas === 'function') updateCanvas();
+        }
+    }
+
+    if (typeof drawEdges === 'function') drawEdges();
+    if (typeof drawGroups === 'function') drawGroups();
+    if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
+    if (typeof saveState === 'function') saveState();
+}
+
+/**
+ * Renders the project files tree inside #focus-file-tree.
+ * Allows Shift+Clicking, dragging, and clicking '+' to insert reference chips into the Focus Mode input.
+ */
+async function renderFocusProjectFiles() {
+    const treeContainer = document.getElementById('focus-file-tree');
+    if (!treeContainer) return;
+
+    treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/clock.svg" class="file-icon"> Loading files...</div>';
+
+    const data = await apiFetchSandboxFiles();
+    if (!data) {
+        treeContainer.innerHTML = '<div class="focus-loading-files" style="color:#ef4444;">Failed to load project files</div>';
+        return;
+    }
+
+    treeContainer.innerHTML = '';
+    const items = data.items || data.files.map(f => ({ path: f, type: 'file' }));
+    const sRoot = { name: 'Sandbox (S:)', path: '', type: 'directory', children: {}, isSandboxRoot: true };
+
+    items.forEach(item => {
+        const parts = item.path.split('/');
+        let current = sRoot;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!current.children[parts[i]]) {
+                current.children[parts[i]] = { name: parts[i], path: parts.slice(0, i + 1).join('/'), type: 'directory', children: {} };
+            }
+            current = current.children[parts[i]];
+        }
+        const name = parts[parts.length - 1];
+        if (item.type === 'directory') {
+            if (!current.children[name]) {
+                current.children[name] = { name, path: item.path, type: 'directory', children: {} };
+            }
+        } else {
+            current.children[name] = { name, path: item.path, type: 'file' };
+        }
+    });
+
+    function renderNode(node, container, depth = 0) {
+        const children = Object.values(node.children).sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+
+        children.forEach(child => {
+            const itemWrapper = document.createElement('div');
+            itemWrapper.className = 'focus-tree-wrapper';
+
+            const item = document.createElement('div');
+            item.className = 'focus-file-item' + (child.type === 'directory' ? ' is-folder' : ' is-file');
+            item.style.paddingLeft = `${depth * 14 + 8}px`;
+            item.dataset.path = child.path;
+            item.dataset.type = child.type;
+
+            if (child.type === 'directory') {
+                const isCollapsed = typeof collapsedSandboxFolders !== 'undefined' && collapsedSandboxFolders.has(child.path);
+                const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
+                item.innerHTML = `<span class="chevron">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"><span class="item-name">${child.name}</span>`;
+
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'focus-folder-children';
+                if (isCollapsed) childrenContainer.style.display = 'none';
+
+                item.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const isHidden = childrenContainer.style.display === 'none';
+                    childrenContainer.style.display = isHidden ? 'block' : 'none';
+                    const ch = item.querySelector('.chevron');
+                    if (ch) ch.innerHTML = isHidden ? `<img src="/static/icons/chevron-down.svg" class="file-icon">` : `<img src="/static/icons/chevron-right.svg" class="file-icon">`;
+                    if (typeof collapsedSandboxFolders !== 'undefined') {
+                        if (isHidden) collapsedSandboxFolders.delete(child.path);
+                        else collapsedSandboxFolders.add(child.path);
+                    }
+                });
+
+                itemWrapper.appendChild(item);
+                itemWrapper.appendChild(childrenContainer);
+                container.appendChild(itemWrapper);
+                renderNode(child, childrenContainer, depth + 1);
+            } else {
+                const iconSrc = typeof getIconpath === 'function' ? getIconpath(child.name) : '/static/icons/file.svg';
+                item.innerHTML = `<span class="chevron-spacer"></span><img class="file-icon" src="${iconSrc}"><span class="item-name" title="${child.path}">${child.name}</span><button class="focus-chip-add-btn" title="Reference file in prompt">+</button>`;
+                item.draggable = true;
+
+                // Dragging file
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify([child.path]));
+                    e.dataTransfer.effectAllowed = 'copy';
+                });
+
+                // Double-click to preview file in browser
+                item.addEventListener('dblclick', () => {
+                    window.open('/sandbox/' + child.path, '_blank');
+                });
+
+                // Quick "+" reference button
+                const addBtn = item.querySelector('.focus-chip-add-btn');
+                if (addBtn) {
+                    addBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        const focusInput = document.getElementById('focus-chat-input');
+                        if (focusInput) {
+                            lastFocusedInput = focusInput;
+                            if (typeof handleSandboxFileShiftClick === 'function') {
+                                await handleSandboxFileShiftClick(child.path);
+                            }
+                            focusInput.focus();
+                        }
+                    });
+                }
+
+                // Shift-click to reference
+                item.addEventListener('mousedown', (e) => {
+                    if (e.shiftKey) e.preventDefault();
+                });
+                item.addEventListener('click', async (e) => {
+                    if (e.shiftKey) {
+                        e.preventDefault();
+                        const focusInput = document.getElementById('focus-chat-input');
+                        if (focusInput) {
+                            lastFocusedInput = focusInput;
+                            if (typeof handleSandboxFileShiftClick === 'function') {
+                                await handleSandboxFileShiftClick(child.path);
+                            }
+                            focusInput.focus();
+                        }
+                    }
+                });
+
+                itemWrapper.appendChild(item);
+                container.appendChild(itemWrapper);
+            }
+        });
+    }
+
+    renderNode(sRoot, treeContainer);
+}
+
+/**
+ * Renders the linear message lineage history in the main chat layer.
+ */
+function renderFocusLineage() {
+    const focusNodesLayer = document.getElementById('focus-nodes-layer');
+    if (!focusNodesLayer) return;
+
+    focusNodesLayer.innerHTML = '';
+
+    current_active_lineage.forEach(nodeId => {
+        const nodeData = nodes.find(n => n.id === nodeId);
+        if (!nodeData) return;
+
+        const nodeEl = document.getElementById(nodeId);
+
+        // Document or Image node attached in lineage
+        if (nodeData.type === 'document' || nodeData.type === 'image') {
+            const files = nodeData.files || [];
+            const fileList = files.map(f => f.name).join(', ') || nodeData.id;
+            const icon = nodeData.type === 'image' ? '/static/icons/image.svg' : '/static/icons/file.svg';
+            const fileNodeEl = document.createElement('div');
+            fileNodeEl.className = 'focus-node focus-file-card';
+            fileNodeEl.id = `focus-turn-${nodeId}`;
+            fileNodeEl.innerHTML = `
+                <div class="focus-attachment-badge">
+                    <img src="${icon}" class="file-icon">
+                    <span class="focus-file-type">${nodeData.type === 'image' ? 'Image' : 'Document'} Attached:</span>
+                    <span class="focus-file-names">${fileList}</span>
+                </div>
+            `;
+            focusNodesLayer.appendChild(fileNodeEl);
+            return;
+        }
+
+        // Chat node
+        let userHtml = '';
+        if (nodeEl) {
+            const inputEl = nodeEl.querySelector('.node-input');
+            if (inputEl) userHtml = inputEl.innerHTML.trim();
+        }
+        if (!userHtml && nodeData.userText) {
+            userHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.userText) : nodeData.userText;
+        }
+
+        let aiHtml = '';
+        if (nodeEl) {
+            const contentEl = nodeEl.querySelector('.ai-content');
+            if (contentEl) aiHtml = contentEl.innerHTML.trim();
+        }
+        if (!aiHtml && nodeData.aiText) {
+            aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText;
+        }
+
+        const thinking = nodeData.aiThinking ? nodeData.aiThinking.trim() : '';
+
+        // Skip completely unexecuted trailing node in lineage display
+        if (!userHtml && !aiHtml && !thinking) {
+            return;
+        }
+
+        const turnDiv = document.createElement('div');
+        turnDiv.className = 'focus-node';
+        turnDiv.id = `focus-turn-${nodeId}`;
+
+        let turnHtml = '';
+        if (userHtml) {
+            turnHtml += `<div class="focus-user">${userHtml}</div>`;
+        }
+        if (thinking) {
+            turnHtml += `
+                <div class="focus-think" style="display: block;">
+                    <div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div>
+                    <div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(thinking) : thinking}</div>
+                </div>
+            `;
+        } else {
+            turnHtml += `<div class="focus-think" style="display: none;"></div>`;
+        }
+        if (aiHtml) {
+            turnHtml += `<div class="focus-ai">${aiHtml}</div>`;
+        } else {
+            turnHtml += `<div class="focus-ai"></div>`;
+        }
+
+        turnDiv.innerHTML = turnHtml;
+        focusNodesLayer.appendChild(turnDiv);
+    });
+
+    focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
+}
+
+/**
+ * Handles sending messages directly from Focus Mode.
+ * Automatically spawns or uses a child ChatNode on the canvas, sets user content, and streams response.
+ */
+async function sendFocusMessage() {
+    const chatInput = document.getElementById('focus-chat-input');
+    if (!chatInput) return;
+
+    const userHtml = chatInput.innerHTML.trim();
+    const userText = chatInput.textContent.trim();
+    if (!userText) return;
+
+    const sendBtn = document.getElementById('focus-send-btn');
+    const stopBtn = document.getElementById('focus-stop-btn');
+    if (sendBtn) sendBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'flex';
+
+    chatInput.innerHTML = '';
+
+    // Check if current activeNodeId is an unexecuted leaf chat node
+    let targetNodeId = null;
+    let targetNode = nodes.find(n => n.id === activeNodeId);
+
+    const isLeafEmpty = targetNode &&
+        targetNode.type === 'chat' &&
+        (!targetNode.userText || targetNode.userText.trim() === '') &&
+        (!targetNode.aiText || targetNode.aiText.trim() === '');
+
+    if (isLeafEmpty) {
+        targetNodeId = targetNode.id;
+    } else {
+        // Automatically create a new child ChatNode attached to current activeNode
+        const parentId = activeNodeId;
+        const parentNode = nodes.find(n => n.id === parentId);
+        let forkX = 408, forkY = 216, turn = 1, branch = 0, name = "Chat_Node", childWidth = 336;
+        if (parentNode) {
+            const parentEl = document.getElementById(parentNode.id);
+            const parentHeight = parentEl ? parentEl.offsetHeight : 150;
+            const parentWidth = parentEl ? parentEl.offsetWidth : 336;
+            const bottomY = parentNode.y + parentHeight;
+            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
+            if (Math.round(parentWidth / GRID_SIZE) % 2 !== Math.round(childWidth / GRID_SIZE) % 2) childWidth += GRID_SIZE;
+            forkX = parentNode.x + (parentWidth - childWidth) / 2;
+            forkY = snappedBottomY + (GRID_SIZE * 3);
+            const existingChildren = nodes.filter(n => n.parentId === parentNode.id);
+            turn = parentNode.turn + 1;
+            branch = parentNode.branch + existingChildren.length;
+            name = parentNode.name;
+        }
+
+        targetNodeId = createNode(parentId, forkX, forkY, "", turn, branch, name);
+        const newEl = document.getElementById(targetNodeId);
+        const newData = nodes.find(n => n.id === targetNodeId);
+        if (newEl && newData) {
+            newData.nodeWidth = childWidth;
+            newEl.style.width = childWidth + 'px';
+        }
+        selectNode(targetNodeId);
+    }
+
+    // Set input content in canvas node instance
+    const targetEl = document.getElementById(targetNodeId);
+    if (!targetEl || !targetEl.__nodeInstance) {
+        if (sendBtn) sendBtn.style.display = 'flex';
+        if (stopBtn) stopBtn.style.display = 'none';
+        return;
+    }
+
+    const nodeInstance = targetEl.__nodeInstance;
+    nodeInstance.textarea.innerHTML = userHtml;
+    nodeInstance.textarea.dispatchEvent(new Event('input'));
+
+    // Append to Focus Mode conversation layer
+    const focusNodesLayer = document.getElementById('focus-nodes-layer');
+    if (focusNodesLayer) {
+        const turnDiv = document.createElement('div');
+        turnDiv.className = 'focus-node';
+        turnDiv.id = `focus-turn-${targetNodeId}`;
+        turnDiv.innerHTML = `
+            <div class="focus-user">${userHtml}</div>
+            <div class="focus-think" style="display: flex;">
+                <div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div>
+                <div class="focus-think-body"></div>
+            </div>
+            <div class="focus-ai"></div>
+        `;
+        focusNodesLayer.appendChild(turnDiv);
+        focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
+    }
+
+    // Update turns badge
+    const badgeEl = document.getElementById('focus-node-count-badge');
+    if (badgeEl) badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
+
+    // Trigger execution on the ChatNode
+    nodeInstance.run();
+}
+
+/**
+ * Real-time streaming hook invoked by ChatNode.run() to update Focus Mode UI.
+ */
+function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
+    const focusBg = document.getElementById('focus-bg');
+    if (!focusBg || focusBg.style.display === 'none') return;
+
+    const turnEl = document.getElementById(`focus-turn-${nodeId}`);
+    if (!turnEl) return;
+
+    const thinkEl = turnEl.querySelector('.focus-think');
+    const aiEl = turnEl.querySelector('.focus-ai');
+    const stopBtn = document.getElementById('focus-stop-btn');
+    const sendBtn = document.getElementById('focus-send-btn');
+    const nodesLayer = document.getElementById('focus-nodes-layer');
+
+    if (type === 'reasoning') {
+        if (thinkEl) {
+            thinkEl.style.display = 'block';
+            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(data) : data}</div>`;
+        }
+        if (stopBtn) stopBtn.style.display = 'flex';
+        if (sendBtn) sendBtn.style.display = 'none';
+    } else if (type === 'content') {
+        if (aiEl) {
+            aiEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(data) : data;
+        }
+        if (stopBtn) stopBtn.style.display = 'flex';
+        if (sendBtn) sendBtn.style.display = 'none';
+    } else if (type === 'error') {
+        if (isAborted) {
+            if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
+        } else {
+            if (aiEl) aiEl.innerHTML = `<span style="color: #ff5555;">Error: ${data ? (data.message || data) : 'Unknown error'}</span>`;
+        }
+        if (stopBtn) stopBtn.style.display = 'none';
+        if (sendBtn) sendBtn.style.display = 'flex';
+    } else if (type === 'complete') {
+        if (stopBtn) stopBtn.style.display = 'none';
+        if (sendBtn) sendBtn.style.display = 'flex';
+        if (window.Prism && aiEl) {
+            Prism.highlightAllUnder(aiEl);
+            if (thinkEl) Prism.highlightAllUnder(thinkEl);
+        }
+        const inputEl = document.getElementById('focus-chat-input');
+        if (inputEl) {
+            inputEl.focus();
+            lastFocusedInput = inputEl;
+        }
+    }
+
+    if (nodesLayer) {
+        nodesLayer.scrollTop = nodesLayer.scrollHeight;
+    }
+}
+
+let focusInputListenersInitialized = false;
+function setupFocusInputListeners() {
+    if (focusInputListenersInitialized) return;
+    focusInputListenersInitialized = true;
+
+    const chatInput = document.getElementById('focus-chat-input');
+    const sendBtn = document.getElementById('focus-send-btn');
+    const stopBtn = document.getElementById('focus-stop-btn');
+    const exitBtn = document.getElementById('exit-focus-btn');
+    const refreshBtn = document.getElementById('focus-refresh-files-btn');
+
+    if (exitBtn) {
+        exitBtn.addEventListener('click', exitFocusMode);
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            renderFocusProjectFiles();
+        });
+    }
+
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendFocusMessage);
+    }
+
+    if (stopBtn) {
+        stopBtn.addEventListener('click', () => {
+            if (activeNodeId) {
+                const nodeData = nodes.find(n => n.id === activeNodeId);
+                if (nodeData && nodeData.abortController) {
+                    nodeData.abortController.abort();
+                }
+            }
+        });
+    }
+
+    if (chatInput) {
+        chatInput.addEventListener('focus', () => {
+            lastFocusedInput = chatInput;
+            document.body.classList.add('input-focused');
+        });
+
+        chatInput.addEventListener('blur', () => {
+            document.body.classList.remove('input-focused');
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendFocusMessage();
+            }
+        });
+
+        // @ mention auto referencing
+        chatInput.addEventListener('keyup', (e) => {
+            if (e.key === ' ') {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                const range = selection.getRangeAt(0);
+                const textNode = range.startContainer;
+                if (textNode.nodeType === Node.TEXT_NODE) {
+                    const text = textNode.textContent;
+                    const cursorOffset = range.startOffset;
+                    const textBeforeCursor = text.slice(0, cursorOffset);
+                    const refRegex = /@([\w().\/-]+)\s$/;
+                    const match = textBeforeCursor.match(refRegex);
+                    if (match) {
+                        const refName = match[1];
+                        let isGroup = false;
+                        let targetId = null;
+                        const refNode = nodes.find(n => n.id === refName);
+                        if (refNode) {
+                            targetId = refName;
+                        } else {
+                            const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
+                            if (groupObj) {
+                                targetId = groupObj.id;
+                                isGroup = true;
+                            }
+                        }
+                        if (targetId) {
+                            const delRange = document.createRange();
+                            delRange.setStart(textNode, match.index);
+                            delRange.setEnd(textNode, cursorOffset);
+                            delRange.deleteContents();
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, match.index);
+                            newRange.collapse(true);
+                            insertChipAtRange(chatInput, newRange, targetId, isGroup);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Drop file directly into focus input
+        chatInput.addEventListener('drop', async (e) => {
+            const data = e.dataTransfer.getData('text/plain');
+            if (!data) return;
+            try {
+                const parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) {
+                    e.preventDefault(); e.stopPropagation();
+                    const selection = window.getSelection();
+                    let range = null;
+                    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                    else if (e.rangeParent) {
+                        range = document.createRange();
+                        range.setStart(e.rangeParent, e.rangeOffset);
+                    }
+                    if (range) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                    lastFocusedInput = chatInput;
+                    const filteredPaths = parsed.filter(p => !parsed.some(other => other !== p && p.startsWith(other + '/')));
+                    for (const filepath of filteredPaths) {
+                        if (typeof handleSandboxFileShiftClick === 'function') {
+                            await handleSandboxFileShiftClick(filepath);
+                        }
+                    }
+                }
+            } catch (err) { }
+        });
+    }
+
+    // ESC key to exit Focus Mode
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const focusBg = document.getElementById('focus-bg');
+            if (focusBg && focusBg.style.display !== 'none' && focusBg.style.display !== '') {
+                exitFocusMode();
+            }
+        }
+    });
+}

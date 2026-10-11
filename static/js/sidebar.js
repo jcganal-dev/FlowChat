@@ -447,7 +447,13 @@ async function uploadSandboxFiles(event) {
  */
 async function handleSandboxFileShiftClick(filepath) {
     if (!lastFocusedInput) {
-        return;
+        const focusInput = document.getElementById('focus-chat-input');
+        const focusBg = document.getElementById('focus-bg');
+        if (focusBg && focusBg.style.display !== 'none' && focusInput) {
+            lastFocusedInput = focusInput;
+        } else {
+            return;
+        }
     }
 
     if (lastFocusedInput.contentEditable === 'false' || lastFocusedInput.getAttribute('contenteditable') === 'false') {
