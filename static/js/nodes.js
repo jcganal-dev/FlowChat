@@ -389,6 +389,11 @@ function toggleFocusMode() {
     const focusBg = document.getElementById('focus-bg');
     if (!focusBg) return;
 
+    const activeData = nodes.find(n => n.id === activeNodeId);
+    if (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat') {
+        return
+    }
+
     if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
         exitFocusMode();
         return;
@@ -402,7 +407,6 @@ function toggleFocusMode() {
         }
     }
 
-    console.log(`Focusing on ${activeNodeId} (${current_active_lineage})`);
 
     isFocusModeActive = true;
     focusBg.style.display = 'flex';
@@ -411,7 +415,6 @@ function toggleFocusMode() {
     // Update header info
     const titleEl = document.getElementById('focus-lineage-title');
     const badgeEl = document.getElementById('focus-node-count-badge');
-    const activeData = nodes.find(n => n.id === activeNodeId);
 
     if (titleEl) {
         titleEl.textContent = activeData ? `${activeData.name || 'Branch'}` : 'Branch Chat';
@@ -427,10 +430,28 @@ function toggleFocusMode() {
     // Setup input listeners
     setupFocusInputListeners();
 
+    function moveContentEditableCaretToEnd(element) {
+        element.focus();
+
+        // Create a new range selection
+        const range = document.createRange();
+        range.selectNodeContents(element);
+
+        // Collapse the range to the end (false = end, true = start)
+        range.collapse(false);
+
+        // Apply the range to the window's selection object
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
     // Focus input
     const chatInput = document.getElementById('focus-chat-input');
     if (chatInput) {
+        chatInput.innerText = document.getElementById(activeNodeId).querySelector('.node-input').innerText;
         chatInput.focus();
+        moveContentEditableCaretToEnd(chatInput);
         lastFocusedInput = chatInput;
     }
 }
@@ -463,6 +484,7 @@ function exitFocusMode() {
     if (typeof drawGroups === 'function') drawGroups();
     if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
+    centerCanvas();
 }
 
 /**
@@ -604,6 +626,9 @@ function renderFocusLineage() {
     current_active_lineage.forEach(nodeId => {
         const nodeData = nodes.find(n => n.id === nodeId);
         if (!nodeData) return;
+
+        // Skip the last node
+        if (nodeId === activeNodeId) return;
 
         const nodeEl = document.getElementById(nodeId);
 

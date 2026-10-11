@@ -125,7 +125,12 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
-        document.getElementById('menu-focus-mode').style.display = 'block';
+
+        if (nodeData.hasChild || nodeData.aiText.trim() != '' || nodeData.type != 'chat') {
+            document.getElementById('menu-focus-mode').style.display = 'none';
+        } else {
+            document.getElementById('menu-focus-mode').style.display = 'block';
+        }
 
         const summarizeMenu = document.getElementById('menu-summarize');
         const summarizeSelectedMenu = document.getElementById('menu-summarize-selected');
@@ -672,4 +677,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!loaded) {
         if (typeof createNode === 'function') createNode();
     }
+
+    centerCanvas();
 });
