@@ -242,9 +242,12 @@ viewport.addEventListener('drop', async (e) => {
 });
 
 viewport.addEventListener('wheel', (e) => {
-
-    if (e.target.closest('.node.multi-selected') && !e.ctrlKey) {
-        return;
+    const targetElement = e.target.closest('.node')
+    if (targetElement && targetElement.querySelector('.ai-section')) {
+        const aiSection = targetElement.querySelector('.ai-section');
+        if (targetElement && !e.ctrlKey && aiSection.scrollHeight > aiSection.clientHeight) {
+            return;
+        }
     }
 
     e.preventDefault();

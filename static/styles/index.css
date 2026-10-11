@@ -917,9 +917,15 @@ body.shift-pressed.input-focused .node-id {
 
 
 /* Markdown Styles */
-/* .ai-content {
-    overflow: auto;
-} */
+.ai-content a {
+    color: var(--accent-primary-hover) !important;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.ai-content a:hover {
+    background-color: var(--transparent-light);
+}
 
 .ai-content p,
 .think-content p {
@@ -1207,7 +1213,7 @@ div[contentEditable='true'].scrape-node-input,
 
     .focus-node {
         width: 100%;
-        margin: 20px 0px;
+        margin: 60px 0px 10px 0px;
         display: flex;
         flex-direction: column;
 
@@ -1301,4 +1307,11 @@ div[contentEditable='true'].scrape-node-input,
     display: flex;
     gap: 4px;
     align-items: center;
+}
+
+.tree-item-wrapper {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
 }

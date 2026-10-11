@@ -173,7 +173,7 @@ async function fetchSandboxFiles() {
             } else {
 
                 item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${getIconpath(child.name)}">${child.name}`;
-                item.title = 'Double-click to open. Click/Shift-Click/Ctrl-Click to select. Shift+Click in textbox to reference.';
+                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
 
                 item.addEventListener('dblclick', () => {
                     window.open('/sandbox/' + filepath, '_blank');

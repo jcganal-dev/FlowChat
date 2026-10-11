@@ -31,131 +31,129 @@ class ChatNode extends BaseNode {
             <button class="add-child-btn ${this.nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
             <div class="resize-handle"></div>
         `;
-        setTimeout(() => {
-            this.runBtn = this.el.querySelector('.run-btn');
-            this.textarea = this.el.querySelector('.node-input');
-            this.addBtn = this.el.querySelector('.add-child-btn');
-            this.dupBtn = this.el.querySelector('.duplicate-btn');
-            this.stopBtn = this.el.querySelector('.stop-btn');
-            this.deleteBtn = this.el.querySelector('.delete-btn');
-            this.stopBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
-            });
-            this.runBtn.addEventListener('click', this.run.bind(this));
-            this.textarea.addEventListener('focus', () => {
-                lastFocusedInput = this.textarea;
-                document.body.classList.add('input-focused');
-            });
-            this.textarea.addEventListener('blur', () => {
-                lastFocusedInput = null;
-                document.body.classList.remove('input-focused');
-            });
-            this.textarea.addEventListener('drop', async (e) => {
-                const data = e.dataTransfer.getData('text/plain');
-                if (!data) return;
-                try {
-                    const parsed = JSON.parse(data);
-                    if (Array.isArray(parsed)) {
-                        e.preventDefault(); e.stopPropagation();
-                        const selection = window.getSelection();
-                        let range = null;
-                        if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
-                        else if (e.rangeParent) {
-                            range = document.createRange();
-                            range.setStart(e.rangeParent, e.rangeOffset);
-                        }
-                        if (range) {
-                            selection.removeAllRanges();
-                            selection.addRange(range);
-                        }
-                        lastFocusedInput = this.textarea;
-                        document.body.classList.add('input-focused');
-                        const filteredPaths = parsed.filter(p => !parsed.some(other => other !== p && p.startsWith(other + '/')));
-                        for (const filepath of filteredPaths) {
-                            if (typeof handleSandboxFileShiftClick === 'function') await handleSandboxFileShiftClick(filepath);
-                        }
-                        selectedSandboxFiles.clear();
-                        lastSelectedSandboxFileIndex = -1;
-                        if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
-                        if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
-                    }
-                } catch (err) { }
-            });
-
-            this.textarea.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    this.run();
-                }
-            });
-            this.textarea.addEventListener('keyup', (e) => {
-                if (e.key === ' ') {
+        this.runBtn = this.el.querySelector('.run-btn');
+        this.textarea = this.el.querySelector('.node-input');
+        this.addBtn = this.el.querySelector('.add-child-btn');
+        this.dupBtn = this.el.querySelector('.duplicate-btn');
+        this.stopBtn = this.el.querySelector('.stop-btn');
+        this.deleteBtn = this.el.querySelector('.delete-btn');
+        this.stopBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
+        });
+        this.runBtn.addEventListener('click', this.run.bind(this));
+        this.textarea.addEventListener('focus', () => {
+            lastFocusedInput = this.textarea;
+            document.body.classList.add('input-focused');
+        });
+        this.textarea.addEventListener('blur', () => {
+            lastFocusedInput = null;
+            document.body.classList.remove('input-focused');
+        });
+        this.textarea.addEventListener('drop', async (e) => {
+            const data = e.dataTransfer.getData('text/plain');
+            if (!data) return;
+            try {
+                const parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) {
+                    e.preventDefault(); e.stopPropagation();
                     const selection = window.getSelection();
-                    if (!selection.rangeCount) return;
-                    const range = selection.getRangeAt(0);
-                    const textNode = range.startContainer;
-                    if (textNode.nodeType === Node.TEXT_NODE) {
-                        const text = textNode.textContent;
-                        const cursorOffset = range.startOffset;
-                        const textBeforeCursor = text.slice(0, cursorOffset);
-                        const refRegex = /@([\w()-]+)\s$/;
-                        const match = textBeforeCursor.match(refRegex);
-                        if (match) {
-                            const refName = match[1];
-                            let isGroup = false;
-                            let targetId = null;
-                            const refNode = nodes.find(n => n.id === refName);
-                            if (refNode && refNode.id !== this.el.id) {
-                                targetId = refName;
-                            } else {
-                                const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
-                                if (groupObj) {
-                                    targetId = groupObj.id;
-                                    isGroup = true;
-                                }
+                    let range = null;
+                    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                    else if (e.rangeParent) {
+                        range = document.createRange();
+                        range.setStart(e.rangeParent, e.rangeOffset);
+                    }
+                    if (range) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                    lastFocusedInput = this.textarea;
+                    document.body.classList.add('input-focused');
+                    const filteredPaths = parsed.filter(p => !parsed.some(other => other !== p && p.startsWith(other + '/')));
+                    for (const filepath of filteredPaths) {
+                        if (typeof handleSandboxFileShiftClick === 'function') await handleSandboxFileShiftClick(filepath);
+                    }
+                    selectedSandboxFiles.clear();
+                    lastSelectedSandboxFileIndex = -1;
+                    if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
+                    if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
+                }
+            } catch (err) { }
+        });
+
+        this.textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.run();
+            }
+        });
+        this.textarea.addEventListener('keyup', (e) => {
+            if (e.key === ' ') {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                const range = selection.getRangeAt(0);
+                const textNode = range.startContainer;
+                if (textNode.nodeType === Node.TEXT_NODE) {
+                    const text = textNode.textContent;
+                    const cursorOffset = range.startOffset;
+                    const textBeforeCursor = text.slice(0, cursorOffset);
+                    const refRegex = /@([\w()-]+)\s$/;
+                    const match = textBeforeCursor.match(refRegex);
+                    if (match) {
+                        const refName = match[1];
+                        let isGroup = false;
+                        let targetId = null;
+                        const refNode = nodes.find(n => n.id === refName);
+                        if (refNode && refNode.id !== this.el.id) {
+                            targetId = refName;
+                        } else {
+                            const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
+                            if (groupObj) {
+                                targetId = groupObj.id;
+                                isGroup = true;
                             }
-                            if (targetId) {
-                                const delRange = document.createRange();
-                                delRange.setStart(textNode, match.index);
-                                delRange.setEnd(textNode, cursorOffset);
-                                delRange.deleteContents();
-                                const newRange = document.createRange();
-                                newRange.setStart(textNode, match.index);
-                                newRange.collapse(true);
-                                insertChipAtRange(this.textarea, newRange, targetId, isGroup);
-                            }
+                        }
+                        if (targetId) {
+                            const delRange = document.createRange();
+                            delRange.setStart(textNode, match.index);
+                            delRange.setEnd(textNode, cursorOffset);
+                            delRange.deleteContents();
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, match.index);
+                            newRange.collapse(true);
+                            insertChipAtRange(this.textarea, newRange, targetId, isGroup);
                         }
                     }
                 }
-            });
-            this.textarea.addEventListener('input', () => {
-                const chips = Array.from(this.textarea.querySelectorAll('.reference-node'));
-                this.nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
-                if (typeof drawEdges === 'function') drawEdges();
-            });
-            this.addBtn.addEventListener('click', this.onFork.bind(this));
-            this.dupBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                forkOffsetCounter += 1;
-                const data = nodes.find(n => n.id === this.el.id);
-                const forkX = data.x + 360;
-                const newId = createNode(data.parentId, forkX, data.y, this.textarea.innerHTML, data.turn, data.branch, data.name);
-                const newEl = document.getElementById(newId);
-                const newData = nodes.find(n => n.id === newId);
-                if (newEl && newData && data.nodeWidth) {
-                    newData.nodeWidth = data.nodeWidth;
-                    newEl.style.width = data.nodeWidth + 'px';
-                }
-            });
-            this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
-            this.el.addEventListener('click', (e) => {
-                if (this.el.dataset.dragged) return;
-                if (!e.target.closest('button') && !e.target.closest('textarea')) {
-                    selectNode(this.el.id, e.shiftKey, e.ctrlKey || e.metaKey);
-                }
-            });
-        }, 0);
+            }
+        });
+        this.textarea.addEventListener('input', () => {
+            const chips = Array.from(this.textarea.querySelectorAll('.reference-node'));
+            this.nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
+            if (typeof drawEdges === 'function') drawEdges();
+        });
+        this.addBtn.addEventListener('click', this.onFork.bind(this));
+        this.dupBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            forkOffsetCounter += 1;
+            const data = nodes.find(n => n.id === this.el.id);
+            const forkX = data.x + 360;
+            const newId = createNode(data.parentId, forkX, data.y, this.textarea.innerHTML, data.turn, data.branch, data.name);
+            const newEl = document.getElementById(newId);
+            const newData = nodes.find(n => n.id === newId);
+            if (newEl && newData && data.nodeWidth) {
+                newData.nodeWidth = data.nodeWidth;
+                newEl.style.width = data.nodeWidth + 'px';
+            }
+        });
+        this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
+        this.el.addEventListener('click', (e) => {
+            if (this.el.dataset.dragged) return;
+            if (!e.target.closest('button') && !e.target.closest('textarea')) {
+                selectNode(this.el.id, e.shiftKey, e.ctrlKey || e.metaKey);
+            }
+        });
         this.attachBaseListeners(this.config.restoreData);
     }
 

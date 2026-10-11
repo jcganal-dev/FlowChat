@@ -591,7 +591,7 @@ async function renderFocusProjectFiles() {
             } else {
                 const iconSrc = typeof getIconpath === 'function' ? getIconpath(child.name) : '/static/icons/file.svg';
                 item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${iconSrc}">${child.name}`;
-                item.title = 'Double-click to open. Click/Shift-Click/Ctrl-Click to select. Shift+Click in textbox to reference.';
+                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
 
                 item.addEventListener('dblclick', () => {
                     window.open('/sandbox/' + filepath, '_blank');
@@ -808,16 +808,25 @@ function renderFocusLineage() {
         const nodeEl = document.getElementById(nodeId);
 
         // Document or Image node attached in lineage
-        if (nodeData.type === 'document' || nodeData.type === 'image') {
+        if (nodeData.type === 'document' || nodeData.type === 'image' || nodeData.type === 'scrape') {
             const files = nodeData.files || [];
             const fileList = files.map(f => f.name).join(', ') || nodeData.id;
-            const icon = nodeData.type === 'image' ? '/static/icons/image.svg' : '/static/icons/file.svg';
+            const icon = {
+                'document': '/static/icons/file.svg',
+                'image': '/static/icons/image.svg',
+                'scrape': '/static/icons/globe.svg'
+            }[nodeData.type];
+            const text = {
+                'document': `Document attached: ${fileList}`,
+                'image': `Image attached: ${fileList}`,
+                'scrape': `Scraped: ${nodeData.htmlText}`
+            }[nodeData.type];
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
                 <div class="focus-user" style="align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
-                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-right: 4px;"> ${nodeData.type === 'image' ? 'Image' : 'Document'} attached: ${fileList}
+                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text}
                 </div>
             `;
             focusNodesLayer.appendChild(fileNodeEl);
@@ -906,7 +915,7 @@ async function sendFocusMessage() {
 
     const isLeafEmpty = targetNode &&
         targetNode.type === 'chat' &&
-        (!targetNode.userText || targetNode.userText.trim() === '') &&
+        !targetNode.hasChild &&
         (!targetNode.aiText || targetNode.aiText.trim() === '');
 
     if (isLeafEmpty) {
@@ -950,8 +959,12 @@ async function sendFocusMessage() {
     }
 
     const nodeInstance = targetEl.__nodeInstance;
-    nodeInstance.textarea.innerHTML = userHtml;
-    nodeInstance.textarea.dispatchEvent(new Event('input'));
+    const inputEl = (nodeInstance && nodeInstance.textarea) ? nodeInstance.textarea : targetEl.querySelector('.node-input');
+    if (inputEl) {
+        if (nodeInstance) nodeInstance.textarea = inputEl;
+        inputEl.innerHTML = userHtml;
+        inputEl.dispatchEvent(new Event('input'));
+    }
 
     // Append to Focus Mode conversation layer
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
@@ -1003,6 +1016,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         if (stopBtn) stopBtn.style.display = 'flex';
         if (sendBtn) sendBtn.style.display = 'none';
     } else if (type === 'content') {
+        if (thinkEl) thinkEl.remove();
         if (aiEl) {
             aiEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(data) : data;
         }
@@ -1028,7 +1042,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
             inputEl.focus();
             lastFocusedInput = inputEl;
         }
-        thinkEl.remove()
+        autoLayout();
     }
 
     if (nodesLayer) {

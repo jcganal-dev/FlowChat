@@ -436,7 +436,8 @@ $('menu-rename-node').addEventListener('click', () => {
         el.id = newId;
         const idLabel = el.querySelector('.node-id');
         if (idLabel) {
-            idLabel.textContent = newId;
+            // idLabel.textContent = newId;
+            idLabel.setAttribute('data-text', newId.replaceAll('_', ' '));
             idLabel.setAttribute('onclick', `handleIdClick(event, '${newId}')`);
         }
         const toggleBtn = el.querySelector('.toggle-btn');
@@ -528,7 +529,8 @@ $('menu-rename').addEventListener('click', () => {
             el.id = newId;
             const idLabel = el.querySelector('.node-id');
             if (idLabel) {
-                idLabel.textContent = newId;
+                // idLabel.textContent = newId;
+                idLabel.setAttribute('data-text', newId.replaceAll('_', ' '));
                 idLabel.setAttribute('onclick', `handleIdClick(event, '${newId}')`);
             }
             const toggleBtn = el.querySelector('.toggle-btn');
@@ -680,3 +682,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     centerCanvas();
 });
+
+const handler = (e) => {
+    const a = e.target.closest('a');
+    if (a && !a.target) a.target = '_blank';
+};
+document.addEventListener('click', handler);
