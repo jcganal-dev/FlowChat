@@ -246,8 +246,14 @@ viewport.addEventListener('wheel', (e) => {
     if (targetElement && targetElement.querySelector('.ai-section')) {
         const aiSection = targetElement.querySelector('.ai-section');
         if (targetElement && !e.ctrlKey && aiSection.scrollHeight > aiSection.clientHeight) {
+            // do normal scrolling
             return;
         }
+    }
+    const targetPre = e.target.closest('pre');
+    if (targetPre && e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+        // do normal scrolling
+        return;
     }
 
     e.preventDefault();

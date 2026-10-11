@@ -397,6 +397,7 @@ async function promptCreateFolder() {
             }
             localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
         }
+        renderFocusProjectFiles();
         fetchSandboxFiles();
     } else {
         window.customAlert('Failed to create folder.');
@@ -448,6 +449,7 @@ async function uploadSandboxFiles(event) {
             }
             localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
         }
+        renderFocusProjectFiles();
         fetchSandboxFiles();
     } else {
         window.customAlert('Upload failed!');

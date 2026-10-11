@@ -75,9 +75,21 @@
         <div id="focus-project-files" class="focus-project-files">
             <div class="focus-sidebar-header">
                 <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
-                <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
-                    <img src="/static/icons/refresh.svg" class="file-icon">
-                </a>
+                <div class="header-actions">
+                    <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
+                            src="/static/icons/create-folder.svg" class="file-icon"></a>
+                    <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
+                        title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
+                    <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
+                        title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
+                    <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory
+                        multiple onchange="uploadSandboxFiles(event)">
+                    <input type="file" id="sidebar-file-input" style="display: none;" multiple
+                        onchange="uploadSandboxFiles(event)">
+                    <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
+                        <img src="/static/icons/refresh.svg" class="file-icon">
+                    </a>
+                </div>
             </div>
             <div id="focus-file-tree" class="focus-file-tree"></div>
         </div>
@@ -90,16 +102,18 @@
             </div>
             <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
             <div id="focus-input-area" class="focus-input-area">
-                <div id="focus-chat-input" class="focus-chat-input"
-                    oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true" spellcheck="true"
-                    placeholder="Type prompt here..."></div>
-                <div class="focus-button-row">
-                    <button id="focus-stop-btn" class="focus-stop-btn" style="display: none;">
-                        <img src="/static/icons/stop.svg" class="file-icon"> Stop
-                    </button>
-                    <button id="focus-send-btn" class="focus-send-btn">
-                        <img src="/static/icons/send.svg" class="file-icon"> Send
-                    </button>
+                <div class="focus-chat-input-wrapper">
+                    <div id="focus-chat-input" class="focus-chat-input"
+                        oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true"
+                        spellcheck="true" placeholder="Type prompt here..."></div>
+                    <div class="focus-button-row">
+                        <button id="focus-stop-btn" class="focus-stop-btn" style="display: none;">
+                            <img src="/static/icons/stop.svg" class="file-icon">
+                        </button>
+                        <button id="focus-send-btn" class="focus-send-btn">
+                            <img src="/static/icons/send.svg" class="file-icon">
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

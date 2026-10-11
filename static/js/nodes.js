@@ -252,6 +252,7 @@ function toggleMute(nodeId, e) {
 function insertChipAtRange(textarea, range, refId, isGroup) {
     let refText = '';
     let chipLabel = '';
+    let isFile = false
 
     if (isGroup) {
         if (!groups[refId]) return false;
@@ -282,6 +283,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
             chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
+            isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
@@ -296,6 +298,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
                 chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
                 refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             }
+            isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
             chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
@@ -314,7 +317,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
 
     const labelSpan = document.createElement('span');
     labelSpan.className = 'ref-label';
-    labelSpan.innerHTML = chipLabel.replaceAll('_', ' ');
+    labelSpan.innerHTML = isFile ? chipLabel : chipLabel.replaceAll('_', ' ');
     chip.appendChild(labelSpan);
 
     const hiddenText = document.createElement('span');
@@ -819,17 +822,24 @@ function renderFocusLineage() {
             const text = {
                 'document': `Document attached: ${fileList}`,
                 'image': `Image attached: ${fileList}`,
-                'scrape': `Scraped: ${nodeData.htmlText}`
+                'scrape': `Scraped: ${nodeData.htmlText}, returned:`
             }[nodeData.type];
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
+            let aiHtml = '';
+            if (nodeData.type === 'scrape') {
+                aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText;
+            }
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
+                <div class="focus-user" style="align-self: ${nodeData.type === 'scrape' ? 'start' : 'center'}; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
                     <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text}
                 </div>
+                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content">${aiHtml}</div>` : ''}
             `;
+            fileNodeEl.style = "gap:0px;"
             focusNodesLayer.appendChild(fileNodeEl);
+
             return;
         }
 
@@ -878,9 +888,9 @@ function renderFocusLineage() {
             turnHtml += `<div class="focus-think" style="display: none;"></div>`;
         }
         if (aiHtml) {
-            turnHtml += `<div class="focus-ai">${aiHtml}</div>`;
+            turnHtml += `<div class="focus-ai ai-content">${aiHtml}</div>`;
         } else {
-            turnHtml += `<div class="focus-ai"></div>`;
+            turnHtml += `<div class="focus-ai ai-content"></div>`;
         }
 
         turnDiv.innerHTML = turnHtml;
@@ -978,7 +988,7 @@ async function sendFocusMessage() {
                 <div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div>
                 <div class="focus-think-body"></div>
             </div>
-            <div class="focus-ai"></div>
+            <div class="focus-ai ai-content"></div>
         `;
         focusNodesLayer.appendChild(turnDiv);
         focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
