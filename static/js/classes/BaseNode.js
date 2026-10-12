@@ -2,7 +2,7 @@ class BaseNode {
     constructor(config) {
         const { parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat" } = config;
         this.config = config;
-        
+
         if (restoreData) {
             this.nodeData = restoreData;
             this.id = this.nodeData.id;
@@ -36,7 +36,7 @@ class BaseNode {
         this.el.style.transform = `translate(${this.nodeData.x}px, ${this.nodeData.y}px)`;
         if (this.nodeData.nodeWidth) this.el.style.width = `${this.nodeData.nodeWidth}px`;
         this.el.style.zIndex = highestZIndex++;
-        
+
         this.el.__nodeInstance = this;
     }
 
@@ -167,7 +167,7 @@ class BaseNode {
         const isSymmetrical = moveEvent.ctrlKey || moveEvent.metaKey;
         let diff = isSymmetrical ? deltaX * 2 : deltaX;
         if (moveEvent.altKey) diff = Math.round(diff / (isSymmetrical ? GRID_SIZE * 2 : GRID_SIZE)) * (isSymmetrical ? GRID_SIZE * 2 : GRID_SIZE);
-        const snappedWidth = Math.max(300, this.resizeTargetStartWidth + diff);
+        const snappedWidth = Math.min(Math.max(NODE_WIDTH.min, this.resizeTargetStartWidth + diff), NODE_WIDTH.max);
         this.nodesToResize.forEach(item => {
             const oldHeight = item.el.offsetHeight;
             item.el.style.width = `${snappedWidth}px`;
