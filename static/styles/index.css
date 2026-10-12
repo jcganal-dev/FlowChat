@@ -574,7 +574,7 @@ body.shift-pressed.input-focused .node-id {
     color: var(--text-secondary);
     border: 1px solid var(--border-strong);
     border-radius: 4px;
-    padding: 8px;
+    padding: 0px 8px;
     resize: vertical;
     font-family: inherit;
     box-sizing: border-box;
@@ -1332,7 +1332,7 @@ h6 {
 
 .focus-chat-input {
     width: 100%;
-    min-height: 28px;
+    min-height: 30px;
     max-height: 160px;
     overflow-y: auto;
     font-family: inherit;

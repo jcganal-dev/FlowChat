@@ -822,16 +822,25 @@ function renderFocusLineage() {
             const text = {
                 'document': `Document attached: ${fileList}`,
                 'image': `Image attached: ${fileList}`,
-                'scrape': `Scraped: ${nodeData.htmlText}, returned:`
+                'scrape': `Scraped: <span style="text-decoration:underline;">${nodeData.htmlText}</span>`,
             }[nodeData.type];
+            const showSummary = nodeData.summaryText && nodeData.isCollapsed;
+            let aiHtml = nodeData.aiText;
+            if (nodeData.type === 'scrape') {
+                if (showSummary) {
+                    aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText;
+                } else {
+                    aiHtml = marked.parse(nodeData.aiText)
+                }
+            }
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
                 <div class="focus-user" style="align-self: ${nodeData.type === 'scrape' ? 'start' : 'center'}; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
-                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text}
+                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text} ${showSummary ? '(Summarized)' : ''}
                 </div>
-                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content focus-scraped-md">${marked.parse(nodeData.aiText)}</div>` : ''}
+                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>` : ''}
             `;
             fileNodeEl.style = "gap:0px;"
             focusNodesLayer.appendChild(fileNodeEl);
@@ -856,6 +865,10 @@ function renderFocusLineage() {
         }
         if (!aiHtml && nodeData.aiText) {
             aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText;
+        }
+        const showSummary = nodeData.summaryText && nodeData.isCollapsed;
+        if (showSummary) {
+            aiHtml = `<span style="font-style: italic;opacity: .5;font-size: 14px;line-height: 1;">Summarized response:</span> ${typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText}`
         }
 
         const thinking = nodeData.aiThinking ? nodeData.aiThinking.trim() : '';
