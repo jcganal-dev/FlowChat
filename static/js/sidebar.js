@@ -504,14 +504,19 @@ async function handleSandboxFileShiftClick(filepath) {
                 const virtualId = 'sandbox/' + filepath + '/*';
                 if (!virtualFileNodes[virtualId]) {
                     let folderFiles = [];
+                    let skippedCount = 0;
                     for (const fp of expanded) {
-                        const isImg = fp.match(/\.(png|jpg|jpeg|gif|webp)$/i);
-                        if (isImg) continue;
+                        const isImg = fp.match(imageWhitelist);
+                        const isText = textWhitelist.test(fp) || exactNameWhitelist.test(fp);
+                        if (isImg || !isText) {
+                            skippedCount++;
+                            continue;
+                        }
                         const r = await apiFetchSandboxFile(fp);
                         if (r) folderFiles.push({ name: fp, payload: await r.text() });
                     }
                     if (folderFiles.length === 0) {
-                        window.customAlert('No valid text documents found in folder.');
+                        window.customAlert(skippedCount > 0 ? `No valid text documents found in this folder (${skippedCount} non-text files skipped).` : 'No valid text documents found in folder.');
                         return;
                     }
                     const nodeData = {
@@ -536,13 +541,19 @@ async function handleSandboxFileShiftClick(filepath) {
         }
     }
 
-    const isImage = filepath.match(/\.(png|jpg|jpeg|gif|webp)$/i);
+    const isImage = filepath.match(imageWhitelist);
+    const isText = textWhitelist.test(filepath) || exactNameWhitelist.test(filepath);
     const virtualId = 'sandbox/' + filepath;
 
     if (!virtualFileNodes[virtualId]) {
         const res = await apiFetchSandboxFile(filepath);
         if (!res) {
             window.customAlert('Failed to load file content.');
+            return;
+        }
+
+        if (!isImage && !isText) {
+            window.customAlert('Unsupported file type. Please select a text-based file or an image.');
             return;
         }
 

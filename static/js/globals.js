@@ -3,9 +3,17 @@ const $make = (tag) => document.createElement(tag);
 const erase_thoughts = true;
 const GRID_SIZE = 24;
 const CONTEXT_LIMIT = 4096;
-const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore)$/i;
+const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore|svg)$/i;
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
 const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
+
+/**
+ * Returns a comma-separated list of extensions accepted by textWhitelist,
+ * suitable for an <input type="file" accept=""> attribute.
+ */
+function getTextWhitelistExtensions() {
+    return (textWhitelist.source.slice(2).match(/\w+/g) || []).join(',');
+}
 const NODE_WIDTH = {
     min: 300,
     max: 1200,

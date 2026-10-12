@@ -13,7 +13,7 @@ class FileNode extends BaseNode {
             <div class="files-container" id="files_${this.id}"></div>
             <div class="file-dropzone" id="drop_${this.id}">
                 <div class="drop-text">Drag ${this.nodeData.type === 'image' ? 'Image' : 'Document'}(s) Here<br><small>(or click to browse)</small></div>
-                <input type="file" id="input_${this.id}" style="display: none;" multiple accept="${this.nodeData.type === 'image' ? 'image/*' : '.txt,.js,.py,.html,.css,.json,.md,.csv,.log'}" />
+                <input type="file" id="input_${this.id}" style="display: none;" multiple accept="${this.nodeData.type === 'image' ? 'image/*' : getTextWhitelistExtensions()}">
             </div>
             <div class="handle handle-out"></div>
             <button class="add-child-btn" title="Branch">+</button>
@@ -100,6 +100,11 @@ class FileNode extends BaseNode {
         const isImageNode = this.nodeData.type === 'image';
         if (isImageNode && !file.type.startsWith('image/')) {
             window.customAlert("Please upload an image file for this node.");
+            return;
+        }
+        if (!isImageNode && !textWhitelist.test(file.name) && !exactNameWhitelist.test(file.name)) {
+            const acceptedExts = getTextWhitelistExtensions().split(',').join(', ');
+            window.customAlert(`Document nodes only accept text-based files (${acceptedExts}). Please upload a supported file.`);
             return;
         }
         const reader = new FileReader();

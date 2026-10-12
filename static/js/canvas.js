@@ -233,15 +233,34 @@ viewport.addEventListener('drop', async (e) => {
                     }
                 }
             } else {
+                const isImageNode = targetNodeData.type === 'image';
+                const acceptedFiles = filesData.filter(fd => {
+                    if (isImageNode) {
+                        return !!fd.name.match(imageWhitelist);
+                    }
+                    return textWhitelist.test(fd.name) || exactNameWhitelist.test(fd.name);
+                });
+                const mismatchedCount = filesData.length - acceptedFiles.length;
+
+                if (acceptedFiles.length === 0) {
+                    window.customAlert(isImageNode
+                        ? 'Unsupported file type for this node. Please drop an image file.'
+                        : 'Unsupported file type for this node. Please drop a text-based file.');
+                    return;
+                }
+                if (mismatchedCount > 0) {
+                    window.customAlert(`${mismatchedCount} file${mismatchedCount > 1 ? 's' : ''} were dropped but could not be added to a ${targetNodeData.type} node (only ${isImageNode ? 'image' : 'text-based'} files are accepted).`);
+                }
+
                 if (!targetNodeData.files) targetNodeData.files = [];
-                filesData.forEach(fd => targetNodeData.files.push(fd));
+                acceptedFiles.forEach(fd => targetNodeData.files.push(fd));
                 if (typeof targetNodeEl.renderFiles === 'function') targetNodeEl.renderFiles();
             }
             if (typeof saveState === 'function') saveState();
         }
     } else {
-        const imageFiles = filesData.filter(fd => fd.name.match(/\.(png|jpg|jpeg|gif|webp)$/i));
-        const documentFiles = filesData.filter(fd => !fd.name.match(/\.(png|jpg|jpeg|gif|webp)$/i));
+        const imageFiles = filesData.filter(fd => fd.name.match(imageWhitelist));
+        const documentFiles = filesData.filter(fd => !fd.name.match(imageWhitelist));
 
         const baseTitle = originalFilepaths.length === 1 ? originalFilepaths[0].split('/').pop() : `${filesData.length} items`;
 
