@@ -357,6 +357,13 @@ function handleIdClick(event, id, isGroup = false) {
     if (event.shiftKey) {
         let inserted = false;
         if (lastFocusedInput && lastSelectionRange) {
+            // Defensive: re-capture the live cursor position right before inserting.
+            // The stored range can go stale (e.g., the user moved the cursor or typing
+            // advanced the selection), which would drop the chip at a wrong spot.
+            const sel = window.getSelection();
+            if (sel.rangeCount && lastFocusedInput.contains(sel.anchorNode)) {
+                lastSelectionRange = sel.getRangeAt(0).cloneRange();
+            }
             inserted = insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
         }
 

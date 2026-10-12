@@ -30,9 +30,15 @@ function updateCanvas() {
 
         const isOffscreen = (screenX + w < 0) || (screenY + h < 0) || (screenX > vw) || (screenY > vh);
 
+        // Never cul the node that currently has an input focused — the user is typing in it,
+        // and hiding it would make the browser move focus away (to <body>), which breaks
+        // shift+click reference insertion (lastFocusedInput gets cleared by the textarea's blur).
+        const inputEl = el.querySelector('.node-input');
+        const isFocusedInputNode = inputEl && lastFocusedInput && inputEl.contains(lastFocusedInput);
+
         const edgeEl = document.getElementById('edge_' + node.id);
 
-        if (isOffscreen) {
+        if (isOffscreen && !isFocusedInputNode) {
             if (el.style.display !== 'none') el.style.display = 'none';
             if (edgeEl && edgeEl.style.display !== 'none') edgeEl.style.display = 'none';
         } else {

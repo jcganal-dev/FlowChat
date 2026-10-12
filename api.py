@@ -124,6 +124,7 @@ async def delete_sandbox_file(filename: str):
             os.remove(file_path)
         return JSONResponse(content={"message": "File/Folder deleted successfully"})
     except Exception as e:
+        print(str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 class MoveSandboxFilesRequest(BaseModel):

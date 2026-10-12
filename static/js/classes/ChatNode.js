@@ -170,6 +170,7 @@ class ChatNode extends BaseNode {
         const signal = this.nodeData.abortController.signal;
         const aiContentEl = this.el.querySelector('.ai-content');
         const aiThinkEl = this.el.querySelector('.think-content');
+        this.el.style.width = '';
         aiContentEl.innerHTML = '';
         aiThinkEl.innerHTML = `<div style="display:flex;flex-direction:row;"><img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>`;
         aiThinkEl.style.display = "flex";

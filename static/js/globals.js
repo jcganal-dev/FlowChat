@@ -97,6 +97,7 @@ async function copy_text(text) {
 
 function getIconpath(filepath) {
     const extension = filepath.split('.').pop().toLowerCase();
+    // png|jpg|jpeg|gif|webp|svg|ico
     switch (extension) {
         case 'js':
             return '/static/icons/js.svg';
@@ -106,6 +107,22 @@ function getIconpath(filepath) {
             return '/static/icons/css.svg';
         case 'py':
             return '/static/icons/py.svg';
+        case 'svg':
+            return '/static/icons/svg.svg';
+        case 'png':
+            return '/static/icons/image.svg';
+        case 'jpg':
+            return '/static/icons/image.svg';
+        case 'jpeg':
+            return '/static/icons/image.svg';
+        case 'gif':
+            return '/static/icons/image.svg';
+        case 'webp':
+            return '/static/icons/image.svg';
+        case 'webp':
+            return '/static/icons/image.svg';
+        case 'ico':
+            return '/static/icons/image.svg';
         default:
             return '/static/icons/file.svg';
     }
