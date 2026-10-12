@@ -8,6 +8,7 @@ async function saveState() {
             const textarea = el.querySelector('.node-input');
             if (textarea) n.htmlText = textarea.innerHTML;
             n.nodeWidth = el.offsetWidth || n.cachedWidth || n.nodeWidth;
+            n.nodeHeight = el.offsetHeight || n.cachedHeight || n.nodeHeight;
         }
     });
 
@@ -98,7 +99,9 @@ window.addEventListener('contextmenu', (e) => {
             allSameGroup = !anyUngrouped && groupIds.size === 1;
         }
 
-        if (selectedNodes.size > 1 && !allSameGroup) {
+        const sameLineage = (typeof areNodesInSameLineage === 'function') ? areNodesInSameLineage(selectedNodes) : true;
+
+        if (selectedNodes.size > 1 && !allSameGroup && sameLineage) {
             groupItem.style.opacity = '1';
             groupItem.style.pointerEvents = 'auto';
         } else {
@@ -117,11 +120,18 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-node').style.display = 'none';
         document.getElementById('menu-add-image').style.display = 'none';
         document.getElementById('menu-add-file').style.display = 'none';
+        document.getElementById('menu-add-scrape').style.display = 'none';
         document.getElementById('menu-open-palette').style.display = 'none';
         document.getElementById('menu-rename').style.display = 'block';
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
+
+        if (nodeData.hasChild || nodeData.aiText.trim() != '' || nodeData.type != 'chat') {
+            document.getElementById('menu-focus-mode').style.display = 'none';
+        } else {
+            document.getElementById('menu-focus-mode').style.display = 'block';
+        }
 
         const summarizeMenu = document.getElementById('menu-summarize');
         const summarizeSelectedMenu = document.getElementById('menu-summarize-selected');
@@ -139,7 +149,7 @@ window.addEventListener('contextmenu', (e) => {
             let anyExpanded = false;
             selectedNodes.forEach(id => {
                 const n = nodes.find(x => x.id === id);
-                if (n) {
+                if (n && n.summaryText && n.summaryText.trim() !== "") {
                     if (n.isCollapsed) anyCollapsed = true;
                     else anyExpanded = true;
                 }
@@ -171,14 +181,18 @@ window.addEventListener('contextmenu', (e) => {
         const deleteNodeMenu = document.getElementById('menu-delete-node');
         if (selectedNodes.size > 1 || !nodeData) {
             toggleNodeMenu.style.display = 'none';
-            if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
+            if (deleteNodeMenu) deleteNodeMenu.style.display = 'none';
         } else {
-            toggleNodeMenu.style.display = 'block';
-            if(deleteNodeMenu) deleteNodeMenu.style.display = 'block';
-            if (nodeData.isCollapsed) {
-                toggleNodeMenu.innerHTML = `<img src="${getIconpath('expand')}" class="file-icon"> Expand Node`;
+            if (deleteNodeMenu) deleteNodeMenu.style.display = 'block';
+            if (!nodeData.summaryText || nodeData.summaryText.trim() === "") {
+                toggleNodeMenu.style.display = 'none';
             } else {
-                toggleNodeMenu.innerHTML = `<img src="${getIconpath('collapse')}" class="file-icon"> Collapse Node`;
+                toggleNodeMenu.style.display = 'block';
+                if (nodeData.isCollapsed) {
+                    toggleNodeMenu.innerHTML = `<img src="/static/icons/expand.svg" class="file-icon"> Expand Node`;
+                } else {
+                    toggleNodeMenu.innerHTML = `<img src="/static/icons/collapse.svg" class="file-icon"> Collapse Node`;
+                }
             }
         }
 
@@ -186,8 +200,13 @@ window.addEventListener('contextmenu', (e) => {
             summarizeMenu.style.display = 'none';
         } else {
             summarizeMenu.style.display = 'block';
-            const hasSummary = nodeData && nodeData.nodeSummary && nodeData.nodeSummary.trim() !== "";
-            const icon = `<img src="${getIconpath('bulb')}" class="file-icon"></img>`
+            summarizeMenu.style.opacity = '1';
+            summarizeMenu.style.pointerEvents = 'auto';
+        }
+
+        if (summarizeMenu.style.display === 'block') {
+            const hasSummary = nodeData && nodeData.summaryText && nodeData.summaryText.trim() !== "";
+            const icon = `<img src="/static/icons/bulb.svg" class="file-icon"></img>`
             summarizeMenu.innerHTML = hasSummary ? icon + ' Re-Summarize Node' : icon + ' Summarize Node';
         }
 
@@ -200,6 +219,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-add-node').style.display = 'block';
         document.getElementById('menu-add-image').style.display = 'block';
         document.getElementById('menu-add-file').style.display = 'block';
+        document.getElementById('menu-add-scrape').style.display = 'block';
         document.getElementById('menu-open-palette').style.display = 'block';
         document.getElementById('menu-rename').style.display = 'none';
         document.getElementById('menu-rename-node').style.display = 'none';
@@ -211,8 +231,9 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-expand-selected').style.display = 'none';
         document.getElementById('menu-collapse-selected').style.display = 'none';
         document.getElementById('menu-toggle-node').style.display = 'none';
+        document.getElementById('menu-focus-mode').style.display = 'none';
         const deleteNodeMenu = document.getElementById('menu-delete-node');
-        if(deleteNodeMenu) deleteNodeMenu.style.display = 'none';
+        if (deleteNodeMenu) deleteNodeMenu.style.display = 'none';
 
         const rect = viewport.getBoundingClientRect();
         contextMenu.dataset.clickX = (e.clientX - rect.left - camera.x) / camera.zoom;
@@ -253,9 +274,29 @@ $('menu-add-file').addEventListener('click', () => {
     createNode(null, x, y, '', 1, 0, 'Document_Node', null, 'document');
 });
 
+$('menu-add-scrape').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
+    const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
+    createNode(null, x, y, '', 1, 0, 'Scrape_Node', null, 'scrape');
+});
+
+$('menu-focus-mode').addEventListener('click', () => {
+    contextMenu.style.display = 'none';
+    toggleFocusMode();
+});
+
 window.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) {
         contextMenu.style.display = 'none';
+    }
+});
+
+document.addEventListener('paste', (e) => {
+    if (e.target.isContentEditable) {
+        e.preventDefault();
+        const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+        document.execCommand('insertText', false, text);
     }
 });
 
@@ -275,6 +316,9 @@ window.addEventListener('keydown', (e) => {
     } else if (e.altKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         if (typeof centerCanvas === 'function') centerCanvas();
+    } else if (e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        if (typeof toggleFocusMode === 'function') toggleFocusMode();
     }
 });
 
@@ -284,6 +328,7 @@ $('menu-summarize').addEventListener('click', () => {
         triggerSingleSummarize(targetNodeIdForMenu);
     }
 });
+
 
 $('menu-summarize-selected').addEventListener('click', () => {
     contextMenu.style.display = 'none';
@@ -366,7 +411,8 @@ $('menu-rename-node').addEventListener('click', () => {
         el.id = newId;
         const idLabel = el.querySelector('.node-id');
         if (idLabel) {
-            idLabel.textContent = newId;
+            // idLabel.textContent = newId;
+            idLabel.setAttribute('data-text', newId.replaceAll('_', ' '));
             idLabel.setAttribute('onclick', `handleIdClick(event, '${newId}')`);
         }
         const toggleBtn = el.querySelector('.toggle-btn');
@@ -458,7 +504,8 @@ $('menu-rename').addEventListener('click', () => {
             el.id = newId;
             const idLabel = el.querySelector('.node-id');
             if (idLabel) {
-                idLabel.textContent = newId;
+                // idLabel.textContent = newId;
+                idLabel.setAttribute('data-text', newId.replaceAll('_', ' '));
                 idLabel.setAttribute('onclick', `handleIdClick(event, '${newId}')`);
             }
             const toggleBtn = el.querySelector('.toggle-btn');
@@ -607,4 +654,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!loaded) {
         if (typeof createNode === 'function') createNode();
     }
+
+    centerCanvas();
+    if (typeof refreshNodeCulling === 'function') refreshNodeCulling();
+    setTimeout(() => {
+        if (typeof refreshNodeCulling === 'function') refreshNodeCulling();
+    }, 60);
 });
+
+const handler = (e) => {
+    const a = e.target.closest('a');
+    if (a && !a.target) a.target = '_blank';
+};
+document.addEventListener('click', handler);

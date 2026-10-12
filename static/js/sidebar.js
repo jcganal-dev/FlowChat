@@ -4,16 +4,16 @@ sandboxContextMenu.id = 'sandbox-context-menu';
 sandboxContextMenu.className = 'context-menu'; // Use same styling but unique ID
 sandboxContextMenu.style.cssText = `
     position: absolute;
-    background: #1e1e2e;
-    border: 1px solid #444;
+    background: var(--bg-base, #1e1e2e);
+    border: 1px solid var(--border-strong, #444);
     border-radius: 6px;
     padding: 5px 0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    z-index: 10000;
+    box-shadow: 0 4px 12px var(--shadow-md, rgba(0, 0, 0, 0.5));
+    z-index: 20000;
     display: none;
-    color: #eee;
+    color: var(--text-secondary, #eee);
 `;
-sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file"><img src="${getIconpath('trash')}" class="file-icon"> Delete File</div>`;
+sandboxContextMenu.innerHTML = `<div class="context-item" id="menu-delete-sandbox-file"><img src="/static/icons/trash.svg" class="file-icon"> Delete File</div>`;
 document.body.appendChild(sandboxContextMenu);
 
 let targetSandboxFile = null;
@@ -62,7 +62,12 @@ document.getElementById('menu-delete-sandbox-file').addEventListener('click', as
         if (allSuccess) {
             selectedSandboxFiles.clear();
             lastSelectedSandboxFileIndex = -1;
-            fetchSandboxFiles();
+            const focusBg = document.getElementById('focus-bg');
+            if (focusBg && focusBg.style.display !== 'none' && typeof renderFocusProjectFiles === 'function') {
+                renderFocusProjectFiles();
+            } else {
+                fetchSandboxFiles();
+            }
         } else {
             window.customAlert('Failed to delete one or more files.');
         }
@@ -72,10 +77,14 @@ document.getElementById('menu-delete-sandbox-file').addEventListener('click', as
 document.addEventListener('click', (e) => {
     sandboxContextMenu.style.display = 'none';
     const palette = document.getElementById('sandbox-palette');
-    if (palette && !palette.contains(e.target) && selectedSandboxFiles.size > 0) {
+    const focusTree = document.getElementById('focus-file-tree');
+    const inPalette = palette && palette.contains(e.target);
+    const inFocusTree = focusTree && focusTree.contains(e.target);
+    if (!inPalette && !inFocusTree && selectedSandboxFiles.size > 0) {
         selectedSandboxFiles.clear();
         lastSelectedSandboxFileIndex = -1;
         updateSidebarSelection();
+        if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
     }
 });
 
@@ -146,8 +155,8 @@ async function fetchSandboxFiles() {
 
             if (child.type === 'directory') {
                 const isCollapsed = collapsedSandboxFolders.has(child.path);
-                const chevronChar = isCollapsed ? `<img src="${getIconpath('chevron-right')}" class="file-icon">` : `<img src="${getIconpath('chevron-down')}" class="file-icon">`;
-                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="${getIconpath('folder')}" class="file-icon"> ${child.name}`;
+                const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
+                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
 
                 const childrenContainer = document.createElement('div');
                 childrenContainer.className = 'folder-children';
@@ -164,7 +173,7 @@ async function fetchSandboxFiles() {
             } else {
 
                 item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${getIconpath(child.name)}">${child.name}`;
-                item.title = 'Double-click to open. Click/Shift-Click/Ctrl-Click to select. Shift+Click in textbox to reference.';
+                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
 
                 item.addEventListener('dblclick', () => {
                     window.open('/sandbox/' + filepath, '_blank');
@@ -187,7 +196,7 @@ async function fetchSandboxFiles() {
                 item.style.backgroundColor = 'var(--bg-hover)';
             });
             item.addEventListener('dragleave', (e) => {
-                item.style.backgroundColor = '';
+                item.style.backgroundColor = selectedSandboxFiles.has(filepath) ? 'rgba(255, 255, 255, 0.15)' : '';
             });
             item.addEventListener('drop', async (e) => {
                 e.preventDefault();
@@ -231,6 +240,12 @@ async function fetchSandboxFiles() {
                 e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
                 e.dataTransfer.effectAllowed = 'copy';
             });
+            item.addEventListener('dragend', () => {
+                selectedSandboxFiles.clear();
+                lastSelectedSandboxFileIndex = -1;
+                updateSidebarSelection();
+                if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
+            });
 
             item.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
@@ -245,7 +260,7 @@ async function fetchSandboxFiles() {
 
                 const delMenu = document.getElementById('menu-delete-sandbox-file');
                 if (delMenu) {
-                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="${getIconpath('trash')}" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="${getIconpath('trash')}" class="file-icon"> Delete`;
+                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
                 }
 
                 sandboxContextMenu.style.display = 'block';
@@ -267,11 +282,11 @@ async function fetchSandboxFiles() {
                         const chevron = item.querySelector('.chevron');
                         if (childrenContainer.style.display === 'none') {
                             childrenContainer.style.display = 'block';
-                            chevron.innerHTML = `<img src="${getIconpath('chevron-down')}" class="file-icon">`;
+                            chevron.innerHTML = `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
                             collapsedSandboxFolders.delete(filepath);
                         } else {
                             childrenContainer.style.display = 'none';
-                            chevron.innerHTML = `<img src="${getIconpath('chevron-right')}" class="file-icon">`;
+                            chevron.innerHTML = `<img src="/static/icons/chevron-right.svg" class="file-icon">`;
                             collapsedSandboxFolders.add(filepath);
                         }
                         localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
@@ -382,6 +397,7 @@ async function promptCreateFolder() {
             }
             localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
         }
+        renderFocusProjectFiles();
         fetchSandboxFiles();
     } else {
         window.customAlert('Failed to create folder.');
@@ -433,6 +449,7 @@ async function uploadSandboxFiles(event) {
             }
             localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
         }
+        renderFocusProjectFiles();
         fetchSandboxFiles();
     } else {
         window.customAlert('Upload failed!');
@@ -447,7 +464,13 @@ async function uploadSandboxFiles(event) {
  */
 async function handleSandboxFileShiftClick(filepath) {
     if (!lastFocusedInput) {
-        return;
+        const focusInput = document.getElementById('focus-chat-input');
+        const focusBg = document.getElementById('focus-bg');
+        if (focusBg && focusBg.style.display !== 'none' && focusInput) {
+            lastFocusedInput = focusInput;
+        } else {
+            return;
+        }
     }
 
     if (lastFocusedInput.contentEditable === 'false' || lastFocusedInput.getAttribute('contenteditable') === 'false') {

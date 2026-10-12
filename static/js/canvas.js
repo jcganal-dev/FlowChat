@@ -23,8 +23,8 @@ function updateCanvas() {
             node.cachedHeight = el.offsetHeight;
         }
 
-        const w = (node.cachedWidth || 336) * camera.zoom;
-        const h = (node.cachedHeight || 200) * camera.zoom;
+        const w = (node.cachedWidth || node.nodeWidth || 336) * camera.zoom;
+        const h = (node.cachedHeight || node.nodeHeight || 200) * camera.zoom;
         const screenX = node.x * camera.zoom + camera.x;
         const screenY = node.y * camera.zoom + camera.y;
 
@@ -40,6 +40,33 @@ function updateCanvas() {
             if (edgeEl && edgeEl.style.display === 'none') edgeEl.style.display = '';
         }
     });
+}
+
+/**
+ * Unhides all nodes temporarily to measure their true rendered dimensions and recalculates culling.
+ * Prevents large nodes positioned above the viewport from being erroneously culled on reload.
+ */
+function refreshNodeCulling() {
+    nodes.filter(n => !n.isVirtual).forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el && el.style.display === 'none') {
+            el.style.display = '';
+        }
+    });
+
+    // Force layout reflow so the browser computes actual offsetWidth and offsetHeight
+    document.body.offsetHeight;
+
+    nodes.filter(n => !n.isVirtual).forEach(n => {
+        const el = document.getElementById(n.id);
+        if (el) {
+            n.cachedWidth = el.offsetWidth;
+            n.cachedHeight = el.offsetHeight;
+            n.nodeHeight = el.offsetHeight;
+        }
+    });
+
+    updateCanvas();
 }
 
 let hasMovedDuringPan = false;
@@ -67,6 +94,8 @@ window.addEventListener('mousemove', (e) => {
     if (isPanning) {
         if (Math.abs(e.clientX - panStartX) > 3 || Math.abs(e.clientY - panStartY) > 3) {
             hasMovedDuringPan = true;
+            if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
+            if (typeof sandboxContextMenu !== 'undefined' && sandboxContextMenu) sandboxContextMenu.style.display = 'none';
         }
         camera.x = e.clientX - startPanX;
         camera.y = e.clientY - startPanY;
@@ -233,10 +262,30 @@ viewport.addEventListener('drop', async (e) => {
 
         if (typeof saveState === 'function') saveState();
     }
+    selectedSandboxFiles.clear();
+    lastSelectedSandboxFileIndex = -1;
+    if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
+    if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
 });
 
 viewport.addEventListener('wheel', (e) => {
+    const targetElement = e.target.closest('.node')
+    if (targetElement && targetElement.querySelector('.ai-section')) {
+        const aiSection = targetElement.querySelector('.ai-section');
+        if (targetElement && !e.ctrlKey && aiSection.scrollHeight > aiSection.clientHeight) {
+            // do normal scrolling
+            return;
+        }
+    }
+    const targetPre = e.target.closest('pre');
+    if (targetPre && e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+        // do normal scrolling
+        return;
+    }
+
     e.preventDefault();
+    if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
+    if (typeof sandboxContextMenu !== 'undefined' && sandboxContextMenu) sandboxContextMenu.style.display = 'none';
     const zoomSensitivity = 0.001;
     const delta = e.deltaY * -zoomSensitivity;
     let newZoom = camera.zoom * Math.exp(delta);
@@ -355,14 +404,14 @@ function drawGroups() {
 
         let btnHtml = '';
         if (group.isCollapsed) {
-            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('expand')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Expand</button>`;
+            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="/static/icons/expand.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Expand</button>`;
         } else if (hasSummary) {
             btnHtml = `
-                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="${getIconpath('collapse')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
-                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src="${getIconpath('bulb')}" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Re-Summarize</button>
+                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="/static/icons/collapse.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
+                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src="/static/icons/bulb.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Re-Summarize</button>
             `;
         } else {
-            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
+            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='/static/icons/bulb.svg' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
         }
 
         box.innerHTML = `
@@ -880,3 +929,22 @@ function centerCanvas() {
         nodesLayer.style.transition = 'none';
     }, 300);
 }
+
+/**
+ * Prevent default zooming when mouse as rightclick ontext menu or project files
+ */
+
+const preventZoomElements = [
+    'context-menu',
+    'sandbox-palette'
+]
+
+document.addEventListener('wheel', (e) => {
+    preventZoomElements.forEach(className => {
+        if (e.target.closest('.' + className) && e.ctrlKey) {
+            e.preventDefault();
+            viewport.dispatchEvent(new WheelEvent('wheel', e));
+            return;
+        }
+    });
+}, { passive: false });

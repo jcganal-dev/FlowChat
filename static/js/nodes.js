@@ -60,787 +60,58 @@ function getLineagePath(idA, idB) {
 }
 
 /**
- * Initializes the base data structure and DOM element for any new node type (chat, image, document).
- * @param {string|null} parentId - The parent node ID.
- * @param {number} x - The X coordinate.
- * @param {number} y - The Y coordinate.
- * @param {string} initialUserText - The starting text of the node.
- * @param {number} turn - The depth turn number of the node.
- * @param {number} branch - The branch index of the node.
- * @param {string} name - The base name of the node.
- * @param {Object|null} restoreData - Optional data object to restore from save state.
- * @param {string} type - The type of node to spawn (e.g. 'chat', 'image').
- * @returns {Object} An object containing the new ID, nodeData, DOM element, and collapsed state.
+ * Checks if a set of nodes all belong to the same lineage (a single ancestry path).
+ * @param {Set<string>} nodeIds - The set of node IDs to check.
+ * @returns {boolean} True if they form a single lineage path, false otherwise.
  */
-function setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, restoreData, type) {
-    let nodeData;
-    let id;
-    if (restoreData) {
-        nodeData = restoreData;
-        id = nodeData.id;
-        nodeData.abortController = null;
-        if (!nodeData.files) nodeData.files = [];
-        if (nodeData.filePayload && nodeData.files.length === 0) {
-            nodeData.files.push({
-                name: nodeData.fileName || 'File',
-                payload: nodeData.filePayload
-            });
+function areNodesInSameLineage(nodeIds) {
+    if (nodeIds.size <= 1) return true;
+
+    let deepestNode = null;
+    let maxDepth = -1;
+
+    const nodesArray = Array.from(nodeIds).map(id => nodes.find(n => n.id === id)).filter(Boolean);
+    if (nodesArray.length !== nodeIds.size) return false;
+
+    nodesArray.forEach(n => {
+        let depth = 0;
+        let curr = n.parentId;
+        while (curr) {
+            depth++;
+            const parent = nodes.find(x => x.id === curr);
+            curr = parent ? parent.parentId : null;
         }
-        if (typeof erase_thoughts !== 'undefined' && erase_thoughts && nodeData.aiText) nodeData.aiThinking = "";
-        nodes.push(nodeData);
-    } else {
-        nodeData = {
-            id: undefined,
-            type: type,
-            files: [],
-            filePayload: null,
-            fileName: null,
-            userText: initialUserText,
-            htmlText: initialUserText,
-            aiText: "",
-            aiThinking: "",
-            parentId, x, y,
-            muted: false,
-            references: [],
-            turn: turn, branch: branch,
-            name: name, hasChild: false,
-            isCollapsed: false,
-            abortController: null
-        };
-        id = idfy(nodeData);
-        nodeData.id = id;
-        nodes.push(nodeData);
+        if (depth > maxDepth) {
+            maxDepth = depth;
+            deepestNode = n;
+        }
+    });
+
+    let hitCount = 0;
+    let curr = deepestNode ? deepestNode.id : null;
+    while (curr) {
+        if (nodeIds.has(curr)) hitCount++;
+        const n = nodes.find(x => x.id === curr);
+        curr = n ? n.parentId : null;
     }
 
-    const isCollapsed = nodeData.isCollapsed;
-    const el = document.createElement('div');
-
-    el.className = `node turn-node ${isCollapsed ? 'collapsed-node' : ''}`;
-    if (nodeData.muted) el.classList.add('muted-node');
-    el.id = id;
-    el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
-    if (nodeData.nodeWidth) el.style.width = `${nodeData.nodeWidth}px`;
-    el.style.zIndex = highestZIndex++;
-
-    return { id, nodeData, el, isCollapsed };
+    return hitCount === nodeIds.size;
 }
 
-/**
- * Attaches common drag-to-move, resizing, and selection event listeners to a base node element.
- * @param {string} id - The node ID.
- * @param {HTMLElement} el - The node's DOM element.
- * @param {Object|null} restoreData - Whether this node is being restored from a save.
- */
-function attachBaseListeners(id, el, restoreData) {
-    nodesLayer.appendChild(el);
-
-    setTimeout(() => {
-        const header = el.querySelector('.node-header');
-        if (header) {
-            header.addEventListener('mousedown', (e) => {
-                if (e.button === 1) return; // Allow middle-click to bubble
-                e.preventDefault();
-                e.stopPropagation();
-                el.style.zIndex = highestZIndex++;
-
-                const startX = e.clientX;
-                const startY = e.clientY;
-                const nodeData = nodes.find(n => n.id === el.id);
-                if (!nodeData) return;
-
-                const startNodeX = nodeData.x;
-                const startNodeY = nodeData.y;
-
-                const isShiftDrag = e.shiftKey;
-                const isMultiSelect = selectedNodes.has(el.id);
-                const draggedNodes = [];
-
-                if (isMultiSelect) {
-                    selectedNodes.forEach(selId => {
-                        const selData = nodes.find(n => n.id === selId);
-                        const selEl = document.getElementById(selId);
-                        if (selData && selEl) {
-                            draggedNodes.push({ node: selData, startX: selData.x, startY: selData.y, el: selEl });
-                        }
-                    });
-                } else {
-                    draggedNodes.push({ node: nodeData, startX: nodeData.x, startY: nodeData.y, el: el });
-                }
-
-                const descendants = [];
-                if (isShiftDrag) {
-                    const queue = draggedNodes.map(dn => dn.node.id);
-                    const seen = new Set(queue);
-
-                    while (queue.length > 0) {
-                        const currentId = queue.shift();
-                        const children = nodes.filter(n => n.parentId === currentId);
-                        children.forEach(child => {
-                            if (!seen.has(child.id)) {
-                                seen.add(child.id);
-                                descendants.push({
-                                    node: child,
-                                    startX: child.x,
-                                    startY: child.y,
-                                    el: document.getElementById(child.id)
-                                });
-                                queue.push(child.id);
-                            }
-                        });
-                    }
-                }
-
-                let hasMovedNode = false;
-
-                function onMouseMove(moveEvent) {
-                    const dx = (moveEvent.clientX - startX) / camera.zoom;
-                    const dy = (moveEvent.clientY - startY) / camera.zoom;
-                    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMovedNode = true;
-
-                    let primaryTargetX = startNodeX + dx;
-                    let primaryTargetY = startNodeY + dy;
-
-                    if (moveEvent.altKey) {
-                        primaryTargetX = Math.round(primaryTargetX / GRID_SIZE) * GRID_SIZE;
-                        primaryTargetY = Math.round(primaryTargetY / GRID_SIZE) * GRID_SIZE;
-                    }
-
-                    const actualDx = primaryTargetX - startNodeX;
-                    const actualDy = primaryTargetY - startNodeY;
-
-                    draggedNodes.forEach(dn => {
-                        dn.node.x = dn.startX + actualDx;
-                        dn.node.y = dn.startY + actualDy;
-                        if (dn.el) dn.el.style.transform = `translate(${dn.node.x}px, ${dn.node.y}px)`;
-                    });
-
-                    if (isShiftDrag) {
-                        descendants.forEach(desc => {
-                            desc.node.x = desc.startX + actualDx;
-                            desc.node.y = desc.startY + actualDy;
-                            if (desc.el) desc.el.style.transform = `translate(${desc.node.x}px, ${desc.node.y}px)`;
-                        });
-                    }
-
-                    if (typeof drawEdges === 'function') drawEdges();
-                    if (typeof drawGroups === 'function') drawGroups();
-                    if (typeof updateCanvas === 'function') updateCanvas();
-                }
-
-                function onMouseUp() {
-                    window.removeEventListener('mousemove', onMouseMove);
-                    window.removeEventListener('mouseup', onMouseUp);
-                    if (hasMovedNode) {
-                        el.dataset.dragged = 'true';
-                        setTimeout(() => delete el.dataset.dragged, 0);
-                    }
-                    if (typeof saveState === 'function') saveState();
-                }
-
-                window.addEventListener('mousemove', onMouseMove);
-                window.addEventListener('mouseup', onMouseUp);
-            });
-        }
-    }, 0);
-
-    if (typeof nodeResizeObserver !== 'undefined') {
-        nodeResizeObserver.observe(el);
-    }
-
-    const resizer = el.querySelector('.resize-handle');
-    if (resizer) {
-        resizer.addEventListener('mousedown', (e) => {
-            if (e.button === 1) return; // Allow middle-click to bubble
-            e.preventDefault();
-            e.stopPropagation();
-
-            const startMouseX = e.clientX;
-            const nodeData = nodes.find(n => n.id === el.id);
-            if (!nodeData) return;
-
-            const targetStartWidth = el.offsetWidth;
-
-            const isMultiSelect = selectedNodes.has(el.id);
-            const nodesToResize = [];
-
-            if (isMultiSelect) {
-                selectedNodes.forEach(selId => {
-                    const selData = nodes.find(n => n.id === selId);
-                    const selEl = document.getElementById(selId);
-                    if (selData && selEl) {
-                        nodesToResize.push({
-                            data: selData,
-                            el: selEl,
-                            startWidth: selEl.offsetWidth,
-                            startNodeX: selData.x,
-                            accumulatedShiftX: 0
-                        });
-                    }
-                });
-            } else {
-                nodesToResize.push({
-                    data: nodeData,
-                    el: el,
-                    startWidth: targetStartWidth,
-                    startNodeX: nodeData.x,
-                    accumulatedShiftX: 0
-                });
-            }
-
-            function onMouseMove(moveEvent) {
-                const deltaX = (moveEvent.clientX - startMouseX) / camera.zoom;
-                const isSymmetrical = moveEvent.ctrlKey || moveEvent.metaKey;
-
-                let diff;
-                if (isSymmetrical) {
-                    diff = deltaX * 2;
-                    if (moveEvent.altKey) {
-                        diff = Math.round(diff / (GRID_SIZE * 2)) * (GRID_SIZE * 2);
-                    }
-                } else {
-                    diff = deltaX;
-                    if (moveEvent.altKey) {
-                        diff = Math.round(diff / GRID_SIZE) * GRID_SIZE;
-                    }
-                }
-                const snappedWidth = Math.max(300, targetStartWidth + diff);
-
-                nodesToResize.forEach(item => {
-                    const oldHeight = item.el.offsetHeight;
-
-                    item.el.style.width = `${snappedWidth}px`;
-
-                    const widthDiff = snappedWidth - item.startWidth;
-
-                    if (isSymmetrical) {
-                        item.data.x = item.startNodeX - (widthDiff / 2);
-                    } else {
-                        item.data.x = item.startNodeX;
-                    }
-
-                    item.data.nodeWidth = snappedWidth;
-                    item.el.style.transform = `translate(${item.data.x}px, ${item.data.y}px)`;
-
-                    const newHeight = item.el.offsetHeight;
-                    const deltaY = newHeight - oldHeight;
-
-                    const startCenterX = item.startNodeX + item.startWidth / 2;
-                    const currentCenterX = item.data.x + snappedWidth / 2;
-                    const totalDeltaCenter = currentCenterX - startCenterX;
-
-                    const targetTotalShiftX = totalDeltaCenter;
-                    const deltaXShift = targetTotalShiftX - item.accumulatedShiftX;
-                    item.accumulatedShiftX = targetTotalShiftX;
-
-                    if (deltaXShift !== 0 || deltaY !== 0) {
-                        if (typeof shiftChildrenXY === 'function') {
-                            shiftChildrenXY(item.data.id, deltaXShift, deltaY);
-                        }
-                    }
-                });
-
-                clearTimeout(layoutDebounceTimeout);
-                layoutDebounceTimeout = setTimeout(() => {
-                    if (typeof drawEdges === 'function') drawEdges();
-                    if (typeof drawGroups === 'function') drawGroups();
-                }, 15);
-            }
-
-            function onMouseUp() {
-                window.removeEventListener('mousemove', onMouseMove);
-                window.removeEventListener('mouseup', onMouseUp);
-                if (typeof saveState === 'function') saveState();
-            }
-
-            window.addEventListener('mousemove', onMouseMove);
-            window.addEventListener('mouseup', onMouseUp);
-        });
-    }
-
-    if (!restoreData) {
-        selectNode(id);
-    }
-}
-
-/**
- * Main factory function to dynamically spawn either a Chat, Image, or Document node based on parameters.
- * @returns {string} The ID of the newly created node.
- */
 function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat") {
     if (restoreData) type = restoreData.type || 'chat';
-
-    if (type === 'image') return createImageNode(parentId, x, y, initialUserText, turn, branch, name, restoreData);
-    if (type === 'document') return createDocumentNode(parentId, x, y, initialUserText, turn, branch, name, restoreData);
-    return createChatNode(parentId, x, y, initialUserText, turn, branch, name, restoreData);
-}
-
-/**
- * Creates an Image file node capable of dragging/dropping image files to be used as context.
- */
-function createImageNode(parentId, x, y, initialUserText, turn, branch, name, restoreData) {
-    return _createFileNode(parentId, x, y, initialUserText, turn, branch, name, restoreData, 'image');
-}
-
-/**
- * Creates a Document file node capable of dragging/dropping text/code files to be used as context.
- */
-function createDocumentNode(parentId, x, y, initialUserText, turn, branch, name, restoreData) {
-    return _createFileNode(parentId, x, y, initialUserText, turn, branch, name, restoreData, 'document');
-}
-
-/**
- * Internal helper function to construct the DOM layout and file-drop events for Image and Document nodes.
- */
-function _createFileNode(parentId, x, y, initialUserText, turn, branch, name, restoreData, type) {
-    const { id, nodeData, el, isCollapsed } = setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, restoreData, type);
-    el.classList.add('file-node');
-
-    el.innerHTML = `
-        <div class="handle handle-in"></div>
-        <div class="node-header">
-            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')" data-text="${id.replaceAll('_', ' ')}"></span>
-            <div>
-                <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
-            </div>
-        </div>
-        
-        <div class="files-container" id="files_${id}"></div>
-
-        <div class="file-dropzone" id="drop_${id}">
-            <div class="drop-text">Drag ${type === 'image' ? 'Image' : 'Document'}(s) Here<br><small>(or click to browse)</small></div>
-            <input type="file" id="input_${id}" style="display: none;" multiple accept="${type === 'image' ? 'image/*' : '.txt,.js,.py,.html,.css,.json,.md,.csv,.log'}" />
-        </div>
-        
-        <div class="handle handle-out"></div>
-        <button class="add-child-btn" title="Branch">+</button>
-        <div class="resize-handle"></div>
-    `;
-
-    setTimeout(() => {
-        const deleteBtn = el.querySelector('.delete-btn');
-        const dropzone = el.querySelector('.file-dropzone');
-        const fileInput = el.querySelector('input[type="file"]');
-        const addBtn = el.querySelector('.add-child-btn');
-
-        addBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            forkOffsetCounter += 1;
-
-            const data = nodes.find(n => n.id === el.id);
-            const bottomY = data.y + el.offsetHeight;
-            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
-
-            let childWidth = 336; // default chat node width
-            const parentWidth = el.offsetWidth;
-            const q_p = Math.round(parentWidth / GRID_SIZE);
-            const q_c_default = Math.round(childWidth / GRID_SIZE);
-            if (q_p % 2 !== q_c_default % 2) {
-                childWidth += GRID_SIZE;
-            }
-
-            const forkX = data.x + (parentWidth - childWidth) / 2;
-            const forkY = snappedBottomY + (GRID_SIZE * 3);
-
-            const existingChildren = nodes.filter(n => n.parentId === data.id);
-            const newTurn = data.turn + 1;
-            const newBranch = data.branch + existingChildren.length;
-            const newName = data.name;
-
-            const newId = createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
-
-            const newEl = document.getElementById(newId);
-            const newData = nodes.find(n => n.id === newId);
-            if (newEl && newData) {
-                newData.nodeWidth = childWidth;
-                newEl.style.width = childWidth + 'px';
-            }
-        });
-
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (selectedNodes.has(el.id) && selectedNodes.size > 1) {
-                Array.from(selectedNodes).forEach(id => deleteNode(id, e.shiftKey));
-                selectedNodes.clear();
-            } else {
-                deleteNode(el.id, e.shiftKey);
-            }
-        });
-
-        dropzone.addEventListener('click', () => fileInput.click());
-
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) processMultipleFiles(e.target.files);
-        });
-
-        dropzone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropzone.classList.add('dragover');
-        });
-
-        dropzone.addEventListener('dragleave', () => {
-            dropzone.classList.remove('dragover');
-        });
-
-        dropzone.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dropzone.classList.remove('dragover');
-            if (e.dataTransfer.files.length) processMultipleFiles(e.dataTransfer.files);
-        });
-
-        function renderFiles() {
-            const data = nodes.find(n => n.id === el.id);
-            if (!data) return;
-            const container = el.querySelector('.files-container');
-            const dropzone = el.querySelector('.file-dropzone');
-            if (!container) return;
-
-            container.innerHTML = '';
-
-            data.files.forEach((f, idx) => {
-                const item = document.createElement('div');
-                item.className = 'file-item';
-
-                if (data.type === 'image') {
-                    item.innerHTML = `
-                        <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px; border-radius: 8px;" />
-                        <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('trash')}" class="file-icon"></a>
-                    `;
-                } else {
-                    const src = getIconpath(f.name.split('.').pop().toLowerCase());
-                    item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="${getIconpath('trash')}" class="file-icon"></a>`;
-                }
-
-                container.appendChild(item);
-            });
-
-            if (dropzone) {
-                if (data.files.length > 0) {
-                    dropzone.classList.add('minimized');
-                    const dt = dropzone.querySelector('.drop-text');
-                    if (dt) dt.innerHTML = `<img src="${getIconpath('upload')}" class="file-icon" style="margin: 4px 0px 0px 0px;">`;
-                } else {
-                    dropzone.classList.remove('minimized');
-                    const dt = dropzone.querySelector('.drop-text');
-                    if (dt) dt.innerHTML = `Drag ${data.type === 'image' ? 'Image' : 'Document'}(s) Here<br><small>(or click to browse)</small>`;
-                }
-            }
-
-            container.querySelectorAll('.remove-file-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const idx = parseInt(btn.getAttribute('data-idx'));
-                    data.files.splice(idx, 1);
-                    renderFiles();
-                    if (typeof saveState === 'function') saveState();
-                });
-            });
-
-            if (typeof drawGroups === 'function') drawGroups();
-            if (typeof drawEdges === 'function') drawEdges();
-        }
-
-        el.renderFiles = renderFiles;
-
-        function processMultipleFiles(fileList) {
-            const data = nodes.find(n => n.id === el.id);
-            if (!data) return;
-            const files = Array.from(fileList);
-            files.forEach(f => processFile(f, data));
-        }
-
-        function processFile(file, data) {
-            if (!data) return;
-            const isImageNode = data.type === 'image';
-            if (isImageNode && !file.type.startsWith('image/')) {
-                window.customAlert("Please upload an image file for this node.");
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                data.files.push({
-                    name: file.name,
-                    payload: e.target.result
-                });
-                renderFiles();
-                if (typeof saveState === 'function') saveState();
-            };
-
-            if (isImageNode) {
-                reader.readAsDataURL(file);
-            } else {
-                reader.readAsText(file);
-            }
-        }
-
-        el.addEventListener('click', (e) => {
-            if (el.dataset.dragged) return;
-            if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(el.id, e.shiftKey, e.ctrlKey || e.metaKey);
-        });
-
-        renderFiles();
-    }, 0);
-
-    attachBaseListeners(id, el, restoreData);
-    return id;
+    const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
+    let nodeInstance;
+    if (type === 'image' || type === 'document') nodeInstance = new FileNode(config);
+    else if (type === 'tool') nodeInstance = new ToolNode(config);
+    else if (type === 'scrape') nodeInstance = new ScrapeNode(config);
+    else nodeInstance = new ChatNode(config);
+    return nodeInstance.id;
 }
 
 /**
  * Creates a Chat node with interactive text areas, LLM execution controls, and branching capabilities.
  * @returns {string} The ID of the created Chat node.
- */
-function createChatNode(parentId, x, y, initialUserText, turn, branch, name, restoreData) {
-    const { id, nodeData, el, isCollapsed } = setupNodeBase(parentId, x, y, initialUserText, turn, branch, name, restoreData, 'chat');
-
-    const runStyle = nodeData.aiText || nodeData.aiThinking ? 'display: none;' : '';
-    const inputContent = restoreData ? (nodeData.htmlText || nodeData.userText) : initialUserText;
-    const isEditable = restoreData && nodeData.aiText ? 'false' : 'true';
-
-    el.innerHTML = `
-        <div class="handle handle-in"></div>
-        <div class="node-header">
-            <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${id}')" data-text="${id.replaceAll('_', ' ')}"></span>
-            <div>
-                <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${id}')">${nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
-                <a class="duplicate-btn" title="Duplicate Branch"><img src="${getIconpath('file')}" class="file-icon"></a>
-                <a class="delete-btn" title="Delete"><img src="${getIconpath('close')}" class="file-icon"></a>
-            </div>
-        </div>
-        <div class="user-section">
-            <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
-            <div class="button-row" style="${runStyle}">
-                <button class="run-btn"><img src="${getIconpath('send')}" class="file-icon" style="margin:0px"> Send</button>
-                <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="${getIconpath('stop')}" class="file-icon" style="margin:0px"> Stop</button>
-            </div>
-        </div>
-        <div class="ai-section">
-            <div class="think-content" style="${nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${nodeData.aiThinking.trim() == '' ? 'Thinking...' : nodeData.aiThinking}</div>
-            <div class="ai-content">${nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText) : ''}</div>
-        </div>
-        <div class="node-summary-display">${nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText) : ''}</div>
-        <div class="handle handle-out"></div>
-        <button class="add-child-btn ${nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
-        <div class="resize-handle"></div>
-    `;
-
-    setTimeout(() => {
-        const runBtn = el.querySelector('.run-btn');
-        const textarea = el.querySelector('.node-input');
-        const addBtn = el.querySelector('.add-child-btn');
-        const dupBtn = el.querySelector('.duplicate-btn');
-        const stopBtn = el.querySelector('.stop-btn');
-        const deleteBtn = el.querySelector('.delete-btn');
-
-        stopBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const data = nodes.find(n => n.id === el.id);
-            if (data && data.abortController) {
-                data.abortController.abort();
-            }
-        });
-
-        runBtn.addEventListener('click', () => {
-            if (typeof runUserNode === 'function') runUserNode(el.id);
-        });
-
-        textarea.addEventListener('focus', () => {
-            lastFocusedInput = textarea;
-            document.body.classList.add('input-focused');
-        });
-
-        textarea.addEventListener('blur', () => {
-            lastFocusedInput = null;
-            document.body.classList.remove('input-focused');
-        });
-
-        textarea.addEventListener('drop', async (e) => {
-            const data = e.dataTransfer.getData('text/plain');
-            if (!data) return;
-            try {
-                const parsed = JSON.parse(data);
-                if (Array.isArray(parsed)) {
-                    e.preventDefault();
-                    e.stopPropagation();
-
-                    const selection = window.getSelection();
-                    let range = null;
-                    if (document.caretRangeFromPoint) {
-                        range = document.caretRangeFromPoint(e.clientX, e.clientY);
-                    } else if (e.rangeParent) {
-                        range = document.createRange();
-                        range.setStart(e.rangeParent, e.rangeOffset);
-                    }
-
-                    if (range) {
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                    }
-
-                    lastFocusedInput = textarea;
-                    document.body.classList.add('input-focused');
-
-                    const filteredPaths = parsed.filter(p => {
-                        return !parsed.some(other => other !== p && p.startsWith(other + '/'));
-                    });
-
-                    for (const filepath of filteredPaths) {
-                        if (typeof handleSandboxFileShiftClick === 'function') {
-                            await handleSandboxFileShiftClick(filepath);
-                        }
-                    }
-                }
-            } catch (err) {
-                // Not JSON, just let the native drop behavior or paste handler deal with it
-            }
-        });
-
-        textarea.addEventListener('paste', (e) => {
-            e.preventDefault();
-            const text = (e.originalEvent || e).clipboardData.getData('text/plain');
-            document.execCommand('insertText', false, text);
-        });
-
-        textarea.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (typeof runUserNode === 'function') runUserNode(el.id);
-            }
-        });
-
-        textarea.addEventListener('keyup', (e) => {
-            if (e.key === ' ') {
-                const selection = window.getSelection();
-                if (!selection.rangeCount) return;
-
-                const range = selection.getRangeAt(0);
-                const textNode = range.startContainer;
-
-                if (textNode.nodeType === Node.TEXT_NODE) {
-                    const text = textNode.textContent;
-                    const cursorOffset = range.startOffset;
-
-                    const textBeforeCursor = text.slice(0, cursorOffset);
-                    const refRegex = /@([\w()-]+)\s$/;
-                    const match = textBeforeCursor.match(refRegex);
-
-                    if (match) {
-                        const refName = match[1];
-                        let isGroup = false;
-                        let targetId = null;
-
-                        const refNode = nodes.find(n => n.id === refName);
-                        if (refNode && refNode.id !== el.id) {
-                            targetId = refName;
-                        } else {
-                            const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
-                            if (groupObj) {
-                                targetId = groupObj.id;
-                                isGroup = true;
-                            }
-                        }
-
-                        if (targetId) {
-                            const delRange = document.createRange();
-                            delRange.setStart(textNode, match.index);
-                            delRange.setEnd(textNode, cursorOffset);
-                            delRange.deleteContents();
-
-                            const newRange = document.createRange();
-                            newRange.setStart(textNode, match.index);
-                            newRange.collapse(true);
-
-                            insertChipAtRange(textarea, newRange, targetId, isGroup);
-                        }
-                    }
-                }
-            }
-        });
-
-        textarea.addEventListener('input', () => {
-            const nodeData = nodes.find(n => n.id === el.id);
-            if (!nodeData) return;
-            const chips = Array.from(textarea.querySelectorAll('.reference-node'));
-            nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
-            if (typeof drawEdges === 'function') drawEdges();
-        });
-
-        addBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            forkOffsetCounter += 1;
-
-            const data = nodes.find(n => n.id === el.id);
-            const bottomY = data.y + el.offsetHeight;
-            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
-
-            let childWidth = 336; // default chat node width
-            const parentWidth = el.offsetWidth;
-            const q_p = Math.round(parentWidth / GRID_SIZE);
-            const q_c_default = Math.round(childWidth / GRID_SIZE);
-            if (q_p % 2 !== q_c_default % 2) {
-                childWidth += GRID_SIZE;
-            }
-
-            const forkX = data.x + (parentWidth - childWidth) / 2;
-            const forkY = snappedBottomY + (GRID_SIZE * 3);
-
-            const existingChildren = nodes.filter(n => n.parentId === data.id);
-            const newTurn = data.turn + 1;
-            const newBranch = data.branch + existingChildren.length;
-            const newName = data.name;
-
-            const newId = createNode(data.id, forkX, forkY, "", newTurn, newBranch, newName);
-
-            const newEl = document.getElementById(newId);
-            const newData = nodes.find(n => n.id === newId);
-            if (newEl && newData) {
-                newData.nodeWidth = childWidth;
-                newEl.style.width = childWidth + 'px';
-            }
-        });
-
-        dupBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            forkOffsetCounter += 1;
-
-            const data = nodes.find(n => n.id === el.id);
-            const forkX = data.x + 360;
-
-            const newId = createNode(data.parentId, forkX, data.y, textarea.innerHTML, data.turn, data.branch, data.name);
-
-            const newEl = document.getElementById(newId);
-            const newData = nodes.find(n => n.id === newId);
-            if (newEl && newData && data.nodeWidth) {
-                newData.nodeWidth = data.nodeWidth;
-                newEl.style.width = data.nodeWidth + 'px';
-            }
-        });
-
-        deleteBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (selectedNodes.has(el.id) && selectedNodes.size > 1) {
-                Array.from(selectedNodes).forEach(id => deleteNode(id, e.shiftKey));
-                selectedNodes.clear();
-            } else {
-                deleteNode(el.id, e.shiftKey);
-            }
-        });
-
-        el.addEventListener('click', (e) => {
-            if (el.dataset.dragged) return;
-            if (!e.target.closest('button') && !e.target.closest('textarea')) {
-                selectNode(el.id, e.shiftKey, e.ctrlKey || e.metaKey);
-            }
-        });
-    }, 0);
-
-    attachBaseListeners(id, el, restoreData);
-    return id;
-}
-
-/**
- * Deletes a target node from the canvas. Optionally deletes its entire descendant branch.
- * @param {string} nodeId - The target node ID.
- * @param {boolean} deleteBranch - If true, deletes all children recursively. If false, reconnects children to parent.
  */
 function deleteNode(nodeId, deleteBranch) {
     const nodeIndex = nodes.findIndex(n => n.id === nodeId);
@@ -940,6 +211,8 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
         curr = n ? n.parentId : null;
     }
 
+    current_active_lineage = Array.from(lineage).reverse()
+
     document.querySelectorAll('.node').forEach(el => {
         el.classList.toggle('active-branch', lineage.has(el.id));
         const isMulti = selectedNodes.has(el.id) && (selectedNodes.size > 1 || el.id !== activeNodeId || shiftSelectionStartId === el.id);
@@ -979,6 +252,7 @@ function toggleMute(nodeId, e) {
 function insertChipAtRange(textarea, range, refId, isGroup) {
     let refText = '';
     let chipLabel = '';
+    let isFile = false
 
     if (isGroup) {
         if (!groups[refId]) return false;
@@ -1007,12 +281,13 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (!refData) return false;
 
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="${getIconpath('image')}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
+            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
+            isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
-                chipLabel = `<img src="${getIconpath('folder')}" class="file-icon"> ${folderName}/*`;
+                chipLabel = `<img src="/static/icons/folder.svg" class="file-icon"> ${folderName}/*`;
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
                     refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
@@ -1023,12 +298,13 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
                 chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
                 refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             }
+            isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
-            chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> Summary of ${refId}`;
+            chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `<img src="${getIconpath('node')}" class="file-icon"> ${refId}`;
+            chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         }
     }
@@ -1041,7 +317,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
 
     const labelSpan = document.createElement('span');
     labelSpan.className = 'ref-label';
-    labelSpan.innerHTML = chipLabel.replaceAll('_', ' ');
+    labelSpan.innerHTML = isFile ? chipLabel : chipLabel.replaceAll('_', ' ');
     chip.appendChild(labelSpan);
 
     const hiddenText = document.createElement('span');
@@ -1101,3 +377,836 @@ document.addEventListener('selectionchange', () => {
         lastSelectionRange = sel.getRangeAt(0).cloneRange();
     }
 });
+
+
+/* =========================================================================
+   FOCUS MODE IMPLEMENTATION
+   ========================================================================= */
+
+let isFocusModeActive = false;
+
+/**
+ * Toggles the linear chat Focus Mode on or off for the current active branch lineage.
+ */
+function toggleFocusMode() {
+    const focusBg = document.getElementById('focus-bg');
+    if (!focusBg) return;
+
+    const activeData = nodes.find(n => n.id === activeNodeId);
+    if (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat') {
+        return
+    }
+
+    if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
+        exitFocusMode();
+        return;
+    }
+
+    if (!activeNodeId) {
+        if (nodes.length > 0) {
+            selectNode(nodes[nodes.length - 1].id);
+        } else {
+            createNode();
+        }
+    }
+
+
+    isFocusModeActive = true;
+    focusBg.style.display = 'flex';
+    document.body.classList.add('focus-mode-active');
+
+    // Update header info
+    const titleEl = document.getElementById('focus-lineage-title');
+    const badgeEl = document.getElementById('focus-node-count-badge');
+
+    if (titleEl) {
+        titleEl.textContent = activeData ? `${activeData.name || 'Branch'}` : 'Branch Chat';
+    }
+    if (badgeEl) {
+        badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
+    }
+
+    // Render project files & lineage
+    renderFocusProjectFiles();
+    renderFocusLineage();
+
+    // Setup input listeners
+    setupFocusInputListeners();
+
+    function moveContentEditableCaretToEnd(element) {
+        element.focus();
+
+        // Create a new range selection
+        const range = document.createRange();
+        range.selectNodeContents(element);
+
+        // Collapse the range to the end (false = end, true = start)
+        range.collapse(false);
+
+        // Apply the range to the window's selection object
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    // Focus input
+    const chatInput = document.getElementById('focus-chat-input');
+    if (chatInput) {
+        chatInput.innerHTML = document.getElementById(activeNodeId).querySelector('.node-input').innerHTML;
+        chatInput.focus();
+        moveContentEditableCaretToEnd(chatInput);
+        lastFocusedInput = chatInput;
+    }
+}
+
+/**
+ * Exits Focus Mode and synchronizes the canvas camera and state.
+ */
+function exitFocusMode() {
+    const focusBg = document.getElementById('focus-bg');
+    if (focusBg) focusBg.style.display = 'none';
+    isFocusModeActive = false;
+    document.body.classList.remove('focus-mode-active');
+    const sandboxMenu = document.getElementById('sandbox-context-menu');
+    if (sandboxMenu) sandboxMenu.style.display = 'none';
+
+    if (lastFocusedInput && lastFocusedInput.id === 'focus-chat-input') {
+        lastFocusedInput = null;
+    }
+
+    if (activeNodeId) {
+        selectNode(activeNodeId);
+        const activeEl = document.getElementById(activeNodeId);
+        const activeData = nodes.find(n => n.id === activeNodeId);
+        if (activeEl && activeData) {
+            camera.x = (window.innerWidth / 2) - activeData.x - (activeEl.offsetWidth / 2);
+            camera.y = (window.innerHeight / 2) - activeData.y - (activeEl.offsetHeight / 2);
+            if (typeof updateCanvas === 'function') updateCanvas();
+        }
+        document.getElementById(activeNodeId).querySelector('.node-input').innerHTML = document.getElementById('focus-chat-input').innerHTML;
+    }
+
+    if (typeof drawEdges === 'function') drawEdges();
+    if (typeof drawGroups === 'function') drawGroups();
+    if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
+    if (typeof saveState === 'function') saveState();
+    centerCanvas();
+}
+
+/**
+ * Updates visual selection highlighting in the focus file tree.
+ */
+function updateFocusFileSelection() {
+    const tree = document.getElementById('focus-file-tree');
+    if (!tree) return;
+    const items = tree.querySelectorAll('.file-item');
+    items.forEach((item) => {
+        const filepath = item.dataset.path;
+        if (filepath && selectedSandboxFiles.has(filepath)) {
+            item.style.background = 'rgba(255, 255, 255, 0.15)';
+        } else {
+            item.style.background = '';
+        }
+    });
+}
+
+/**
+ * Renders the project files tree inside #focus-file-tree.
+ * Full parity with the floating sidebar palette: selection (single, Shift-range, Ctrl-toggle),
+ * drag/drop between folders, context menu, and Shift+Click-to-reference when input is focused.
+ */
+async function renderFocusProjectFiles() {
+    const treeContainer = document.getElementById('focus-file-tree');
+    if (!treeContainer) return;
+
+    treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/hourglass.svg" class="file-icon"> Loading files...</div>';
+
+    const data = await apiFetchSandboxFiles();
+    if (!data) {
+        treeContainer.innerHTML = '<div class="focus-loading-files" style="color:#ef4444;">Failed to load project files</div>';
+        return;
+    }
+
+    treeContainer.innerHTML = '';
+    const items = data.items || data.files.map(f => ({ path: f, type: 'file' }));
+    const sRoot = { name: 'Sandbox (S:)', path: '', type: 'directory', children: {}, isSandboxRoot: true };
+    const treeRoot = { name: '', path: '', type: 'directory', children: { 'S:/': sRoot } };
+
+    items.forEach(item => {
+        const parts = item.path.split('/');
+        let current = sRoot;
+        for (let i = 0; i < parts.length - 1; i++) {
+            if (!current.children[parts[i]]) {
+                current.children[parts[i]] = { name: parts[i], path: parts.slice(0, i + 1).join('/'), type: 'directory', children: {} };
+            }
+            current = current.children[parts[i]];
+        }
+        const name = parts[parts.length - 1];
+        if (item.type === 'directory') {
+            if (!current.children[name]) {
+                current.children[name] = { name, path: item.path, type: 'directory', children: {} };
+            }
+        } else {
+            current.children[name] = { name, path: item.path, type: 'file' };
+        }
+    });
+
+    currentSandboxFiles = []; // Reset and rebuild in visual order
+
+    function renderNode(node, container, depth = 0) {
+        const children = Object.values(node.children).sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+
+        children.forEach(child => {
+            const itemWrapper = document.createElement('div');
+            itemWrapper.className = 'tree-item-wrapper';
+
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.style.paddingLeft = `${depth * 16 + 8}px`;
+            item.style.paddingTop = '4px';
+            item.style.paddingBottom = '4px';
+            item.style.paddingRight = '8px';
+            item.style.borderRadius = '4px';
+            item.style.cursor = 'pointer';
+
+            const filepath = child.path;
+            currentSandboxFiles.push(filepath);
+            const index = currentSandboxFiles.length - 1;
+
+            item.dataset.path = filepath;
+
+            if (child.type === 'directory') {
+                const isCollapsed = collapsedSandboxFolders.has(child.path);
+                const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
+                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
+
+                const childrenContainer = document.createElement('div');
+                childrenContainer.className = 'folder-children';
+                if (isCollapsed) childrenContainer.style.display = 'none';
+
+                itemWrapper.appendChild(item);
+                itemWrapper.appendChild(childrenContainer);
+                container.appendChild(itemWrapper);
+                renderNode(child, childrenContainer, depth + 1);
+            } else {
+                const iconSrc = typeof getIconpath === 'function' ? getIconpath(child.name) : '/static/icons/file.svg';
+                item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${iconSrc}">${child.name}`;
+                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
+
+                item.addEventListener('dblclick', () => {
+                    window.open('/sandbox/' + filepath, '_blank');
+                });
+
+                itemWrapper.appendChild(item);
+                container.appendChild(itemWrapper);
+            }
+
+            // --- Shared events for selection, drag/drop, and context menu ---
+
+            // Prevent text-selection on modifier clicks
+            item.addEventListener('mousedown', (e) => {
+                if (child.isSandboxRoot) return;
+                if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                    e.preventDefault();
+                }
+            });
+
+            // Drag-over / drag-leave for move targets
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                item.style.backgroundColor = 'var(--bg-hover)';
+            });
+            item.addEventListener('dragleave', () => {
+                item.style.backgroundColor = selectedSandboxFiles.has(filepath) ? 'rgba(255, 255, 255, 0.15)' : '';
+            });
+
+            // Drop to move files between folders
+            item.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                item.style.backgroundColor = '';
+                const raw = e.dataTransfer.getData('text/plain');
+                try {
+                    const paths = JSON.parse(raw);
+                    let targetDir = child.type === 'directory' ? filepath : (filepath.includes('/') ? filepath.substring(0, filepath.lastIndexOf('/')) : "");
+                    if (paths.some(p => targetDir === p || targetDir.startsWith(p + '/'))) return;
+                    const success = await apiMoveSandboxFiles(paths, targetDir);
+                    if (success) {
+                        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
+                            let parts = targetDir.split('/');
+                            let currentPath = '';
+                            for (let part of parts) {
+                                currentPath += (currentPath ? '/' : '') + part;
+                                collapsedSandboxFolders.delete(currentPath);
+                            }
+                            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
+                        }
+                        selectedSandboxFiles.clear();
+                        renderFocusProjectFiles();
+                    }
+                } catch (err) { }
+            });
+
+            // Drag start
+            item.draggable = !child.isSandboxRoot;
+            item.addEventListener('dragstart', (e) => {
+                if (child.isSandboxRoot) { e.preventDefault(); return; }
+                if (!selectedSandboxFiles.has(filepath)) {
+                    selectedSandboxFiles.clear();
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                    updateFocusFileSelection();
+                }
+                e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
+                e.dataTransfer.effectAllowed = 'copy';
+            });
+            item.addEventListener('dragend', () => {
+                selectedSandboxFiles.clear();
+                lastSelectedSandboxFileIndex = -1;
+                if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
+                updateFocusFileSelection();
+            });
+
+            // Context menu (right-click)
+            item.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (child.isSandboxRoot) return;
+                if (!selectedSandboxFiles.has(filepath)) {
+                    selectedSandboxFiles.clear();
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                    updateFocusFileSelection();
+                }
+                targetSandboxFile = filepath;
+
+                const delMenu = document.getElementById('menu-delete-sandbox-file');
+                if (delMenu) {
+                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
+                }
+
+                const ctxMenu = document.getElementById('sandbox-context-menu') || (typeof sandboxContextMenu !== 'undefined' ? sandboxContextMenu : null);
+                if (ctxMenu) {
+                    ctxMenu.style.display = 'block';
+                    ctxMenu.style.left = `${e.clientX}px`;
+                    ctxMenu.style.top = `${e.clientY}px`;
+                }
+            });
+
+            // Click handler: reference insertion OR selection
+            item.addEventListener('click', (e) => {
+                // If an input is focused and Shift is held, insert a reference chip
+                if (e.shiftKey && lastFocusedInput) {
+                    e.preventDefault();
+                    handleSandboxFileShiftClick(filepath);
+                    return;
+                }
+
+                // Directory toggle (plain click only)
+                if (child.type === 'directory') {
+                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                        e.stopPropagation();
+                        const childrenContainer = itemWrapper.querySelector('.folder-children');
+                        const chevron = item.querySelector('.chevron');
+                        if (childrenContainer.style.display === 'none') {
+                            childrenContainer.style.display = 'block';
+                            chevron.innerHTML = `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
+                            collapsedSandboxFolders.delete(filepath);
+                        } else {
+                            childrenContainer.style.display = 'none';
+                            chevron.innerHTML = `<img src="/static/icons/chevron-right.svg" class="file-icon">`;
+                            collapsedSandboxFolders.add(filepath);
+                        }
+                        localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
+                    }
+                }
+
+                if (child.isSandboxRoot) return;
+
+                // Shift+Click range selection (no input focused)
+                if (e.shiftKey) {
+                    if (lastSelectedSandboxFileIndex === -1) {
+                        selectedSandboxFiles.add(filepath);
+                        lastSelectedSandboxFileIndex = index;
+                    } else {
+                        const visibleItems = Array.from(treeContainer.querySelectorAll('.file-item'))
+                            .filter(el => el.offsetParent !== null)
+                            .map(el => el.dataset.path);
+                        const lastPath = currentSandboxFiles[lastSelectedSandboxFileIndex];
+                        const startIdx = visibleItems.indexOf(lastPath);
+                        const endIdx = visibleItems.indexOf(filepath);
+
+                        if (startIdx !== -1 && endIdx !== -1) {
+                            const start = Math.min(startIdx, endIdx);
+                            const end = Math.max(startIdx, endIdx);
+                            selectedSandboxFiles.clear();
+                            for (let i = start; i <= end; i++) {
+                                selectedSandboxFiles.add(visibleItems[i]);
+                            }
+                        } else {
+                            selectedSandboxFiles.add(filepath);
+                        }
+                    }
+                } else if (e.ctrlKey || e.metaKey) {
+                    // Ctrl/Cmd toggle
+                    if (selectedSandboxFiles.has(filepath)) {
+                        selectedSandboxFiles.delete(filepath);
+                    } else {
+                        selectedSandboxFiles.add(filepath);
+                        lastSelectedSandboxFileIndex = index;
+                    }
+                } else {
+                    // Plain click – single select
+                    selectedSandboxFiles.clear();
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                }
+                updateFocusFileSelection();
+            });
+        });
+    }
+
+    renderNode(treeRoot, treeContainer);
+
+    // Root-level drop to move files to root
+    treeContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+    });
+    treeContainer.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        if (e.defaultPrevented) return;
+        const raw = e.dataTransfer.getData('text/plain');
+        try {
+            const paths = JSON.parse(raw);
+            if (!Array.isArray(paths)) return;
+            const itemsToMove = paths.filter(p => p.includes('/'));
+            if (itemsToMove.length === 0) return;
+            const success = await apiMoveSandboxFiles(itemsToMove, "");
+            if (success) {
+                selectedSandboxFiles.clear();
+                renderFocusProjectFiles();
+            }
+        } catch (err) { }
+    });
+}
+
+/**
+ * Renders the linear message lineage history in the main chat layer.
+ */
+function renderFocusLineage() {
+    const focusNodesLayer = document.getElementById('focus-nodes-layer');
+    if (!focusNodesLayer) return;
+
+    focusNodesLayer.innerHTML = '';
+
+    current_active_lineage.forEach(nodeId => {
+        const nodeData = nodes.find(n => n.id === nodeId);
+        if (!nodeData) return;
+
+        // Skip the last node
+        if (nodeId === activeNodeId) return;
+
+        const nodeEl = document.getElementById(nodeId);
+
+        // Document or Image node attached in lineage
+        if (nodeData.type === 'document' || nodeData.type === 'image' || nodeData.type === 'scrape') {
+            const files = nodeData.files || [];
+            const fileList = files.map(f => f.name).join(', ') || nodeData.id;
+            const icon = {
+                'document': '/static/icons/file.svg',
+                'image': '/static/icons/image.svg',
+                'scrape': '/static/icons/globe.svg'
+            }[nodeData.type];
+            const text = {
+                'document': `Document attached: ${fileList}`,
+                'image': `Image attached: ${fileList}`,
+                'scrape': `Scraped: <span style="text-decoration:underline;">${nodeData.htmlText}</span>`,
+            }[nodeData.type];
+            const showSummary = nodeData.summaryText && nodeData.isCollapsed;
+            let aiHtml = nodeData.aiText;
+            if (nodeData.type === 'scrape') {
+                if (showSummary) {
+                    aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText;
+                } else {
+                    aiHtml = marked.parse(nodeData.aiText)
+                }
+            }
+            const fileNodeEl = document.createElement('div');
+            fileNodeEl.className = 'focus-node';
+            fileNodeEl.id = `focus-turn-${nodeId}`;
+            fileNodeEl.innerHTML = `
+                <div class="focus-user" style="align-self: ${nodeData.type === 'scrape' ? 'start' : 'center'}; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
+                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text} ${showSummary ? '(Summarized)' : ''}
+                </div>
+                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>` : ''}
+            `;
+            fileNodeEl.style = "gap:0px;"
+            focusNodesLayer.appendChild(fileNodeEl);
+
+            return;
+        }
+
+        // Chat node
+        let userHtml = '';
+        if (nodeEl) {
+            const inputEl = nodeEl.querySelector('.node-input');
+            if (inputEl) userHtml = inputEl.innerHTML.trim();
+        }
+        if (!userHtml && nodeData.userText) {
+            userHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.userText) : nodeData.userText;
+        }
+
+        let aiHtml = '';
+        if (nodeEl) {
+            const contentEl = nodeEl.querySelector('.ai-content');
+            if (contentEl) aiHtml = contentEl.innerHTML.trim();
+        }
+        if (!aiHtml && nodeData.aiText) {
+            aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText;
+        }
+        const showSummary = nodeData.summaryText && nodeData.isCollapsed;
+        if (showSummary) {
+            aiHtml = `<span style="font-style: italic;opacity: .5;font-size: 14px;line-height: 1;">Summarized response:</span> ${typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText}`
+        }
+
+        const thinking = nodeData.aiThinking ? nodeData.aiThinking.trim() : '';
+
+        // Skip completely unexecuted trailing node in lineage display
+        if (!userHtml && !aiHtml && !thinking) {
+            return;
+        }
+
+        const turnDiv = document.createElement('div');
+        turnDiv.className = 'focus-node';
+        turnDiv.id = `focus-turn-${nodeId}`;
+
+        let turnHtml = '';
+        if (userHtml) {
+            turnHtml += `<div class="focus-user">${userHtml}</div>`;
+        }
+        if (thinking) {
+            turnHtml += `
+                <div class="focus-think" style="display: block;">
+                    <div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div>
+                    <div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(thinking) : thinking}</div>
+                </div>
+            `;
+        } else {
+            turnHtml += `<div class="focus-think" style="display: none;"></div>`;
+        }
+        if (aiHtml) {
+            turnHtml += `<div class="focus-ai ai-content">${aiHtml}</div>`;
+        } else {
+            turnHtml += `<div class="focus-ai ai-content"></div>`;
+        }
+
+        turnDiv.innerHTML = turnHtml;
+        focusNodesLayer.appendChild(turnDiv);
+    });
+
+    focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
+}
+
+/**
+ * Handles sending messages directly from Focus Mode.
+ * Automatically spawns or uses a child ChatNode on the canvas, sets user content, and streams response.
+ */
+async function sendFocusMessage() {
+    const chatInput = document.getElementById('focus-chat-input');
+    if (!chatInput) return;
+
+    const userHtml = chatInput.innerHTML.trim();
+    const userText = chatInput.textContent.trim();
+    if (!userText) return;
+
+    const sendBtn = document.getElementById('focus-send-btn');
+    const stopBtn = document.getElementById('focus-stop-btn');
+    if (sendBtn) sendBtn.style.display = 'none';
+    if (stopBtn) stopBtn.style.display = 'flex';
+
+    chatInput.innerHTML = '';
+
+    // Check if current activeNodeId is an unexecuted leaf chat node
+    let targetNodeId = null;
+    let targetNode = nodes.find(n => n.id === activeNodeId);
+
+    const isLeafEmpty = targetNode &&
+        targetNode.type === 'chat' &&
+        !targetNode.hasChild &&
+        (!targetNode.aiText || targetNode.aiText.trim() === '');
+
+    if (isLeafEmpty) {
+        targetNodeId = targetNode.id;
+    } else {
+        // Automatically create a new child ChatNode attached to current activeNode
+        const parentId = activeNodeId;
+        const parentNode = nodes.find(n => n.id === parentId);
+        let forkX = 408, forkY = 216, turn = 1, branch = 0, name = "Chat_Node", childWidth = 336;
+        if (parentNode) {
+            const parentEl = document.getElementById(parentNode.id);
+            const parentHeight = parentEl ? parentEl.offsetHeight : 150;
+            const parentWidth = parentEl ? parentEl.offsetWidth : 336;
+            const bottomY = parentNode.y + parentHeight;
+            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
+            if (Math.round(parentWidth / GRID_SIZE) % 2 !== Math.round(childWidth / GRID_SIZE) % 2) childWidth += GRID_SIZE;
+            forkX = parentNode.x + (parentWidth - childWidth) / 2;
+            forkY = snappedBottomY + (GRID_SIZE * 3);
+            const existingChildren = nodes.filter(n => n.parentId === parentNode.id);
+            turn = parentNode.turn + 1;
+            branch = parentNode.branch + existingChildren.length;
+            name = parentNode.name;
+        }
+
+        targetNodeId = createNode(parentId, forkX, forkY, "", turn, branch, name);
+        const newEl = document.getElementById(targetNodeId);
+        const newData = nodes.find(n => n.id === targetNodeId);
+        if (newEl && newData) {
+            newData.nodeWidth = childWidth;
+            newEl.style.width = childWidth + 'px';
+        }
+        selectNode(targetNodeId);
+    }
+
+    // Set input content in canvas node instance
+    const targetEl = document.getElementById(targetNodeId);
+    if (!targetEl || !targetEl.__nodeInstance) {
+        if (sendBtn) sendBtn.style.display = 'flex';
+        if (stopBtn) stopBtn.style.display = 'none';
+        return;
+    }
+
+    const nodeInstance = targetEl.__nodeInstance;
+    const inputEl = (nodeInstance && nodeInstance.textarea) ? nodeInstance.textarea : targetEl.querySelector('.node-input');
+    if (inputEl) {
+        if (nodeInstance) nodeInstance.textarea = inputEl;
+        inputEl.innerHTML = userHtml;
+        inputEl.dispatchEvent(new Event('input'));
+    }
+
+    // Append to Focus Mode conversation layer
+    const focusNodesLayer = document.getElementById('focus-nodes-layer');
+    if (focusNodesLayer) {
+        const turnDiv = document.createElement('div');
+        turnDiv.className = 'focus-node';
+        turnDiv.id = `focus-turn-${targetNodeId}`;
+        turnDiv.innerHTML = `
+            <div class="focus-user">${userHtml}</div>
+            <div class="focus-think" style="display: flex;">
+                <div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div>
+                <div class="focus-think-body"></div>
+            </div>
+            <div class="focus-ai ai-content"></div>
+        `;
+        focusNodesLayer.appendChild(turnDiv);
+        focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
+    }
+
+    // Update turns badge
+    const badgeEl = document.getElementById('focus-node-count-badge');
+    if (badgeEl) badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
+
+    // Trigger execution on the ChatNode
+    nodeInstance.run();
+}
+
+/**
+ * Real-time streaming hook invoked by ChatNode.run() to update Focus Mode UI.
+ */
+function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
+    const focusBg = document.getElementById('focus-bg');
+    if (!focusBg || focusBg.style.display === 'none') return;
+
+    const turnEl = document.getElementById(`focus-turn-${nodeId}`);
+    if (!turnEl) return;
+
+    const thinkEl = turnEl.querySelector('.focus-think');
+    const aiEl = turnEl.querySelector('.focus-ai');
+    const stopBtn = document.getElementById('focus-stop-btn');
+    const sendBtn = document.getElementById('focus-send-btn');
+    const nodesLayer = document.getElementById('focus-nodes-layer');
+
+    if (type === 'reasoning') {
+        if (thinkEl) {
+            thinkEl.style.display = 'block';
+            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(data) : data}</div>`;
+        }
+        if (stopBtn) stopBtn.style.display = 'flex';
+        if (sendBtn) sendBtn.style.display = 'none';
+    } else if (type === 'content') {
+        if (thinkEl) thinkEl.remove();
+        if (aiEl) {
+            aiEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(data) : data;
+        }
+        if (stopBtn) stopBtn.style.display = 'flex';
+        if (sendBtn) sendBtn.style.display = 'none';
+    } else if (type === 'error') {
+        if (isAborted) {
+            if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
+        } else {
+            if (aiEl) aiEl.innerHTML = `<span style="color: #ff5555;">Error: ${data ? (data.message || data) : 'Unknown error'}</span>`;
+        }
+        if (stopBtn) stopBtn.style.display = 'none';
+        if (sendBtn) sendBtn.style.display = 'flex';
+    } else if (type === 'complete') {
+        if (stopBtn) stopBtn.style.display = 'none';
+        if (sendBtn) sendBtn.style.display = 'flex';
+        if (window.Prism && aiEl) {
+            Prism.highlightAllUnder(aiEl);
+            if (thinkEl) Prism.highlightAllUnder(thinkEl);
+        }
+        const inputEl = document.getElementById('focus-chat-input');
+        if (inputEl) {
+            inputEl.focus();
+            lastFocusedInput = inputEl;
+        }
+        autoLayout();
+    }
+
+    if (nodesLayer) {
+        nodesLayer.scrollTop = nodesLayer.scrollHeight;
+    }
+}
+
+let focusInputListenersInitialized = false;
+function setupFocusInputListeners() {
+    if (focusInputListenersInitialized) return;
+    focusInputListenersInitialized = true;
+
+    const chatInput = document.getElementById('focus-chat-input');
+    const sendBtn = document.getElementById('focus-send-btn');
+    const stopBtn = document.getElementById('focus-stop-btn');
+    const exitBtn = document.getElementById('exit-focus-btn');
+    const refreshBtn = document.getElementById('focus-refresh-files-btn');
+
+    if (exitBtn) {
+        exitBtn.addEventListener('click', exitFocusMode);
+    }
+
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            renderFocusProjectFiles();
+        });
+    }
+
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendFocusMessage);
+    }
+
+    if (stopBtn) {
+        stopBtn.addEventListener('click', () => {
+            if (activeNodeId) {
+                const nodeData = nodes.find(n => n.id === activeNodeId);
+                if (nodeData && nodeData.abortController) {
+                    nodeData.abortController.abort();
+                }
+            }
+        });
+    }
+
+    if (chatInput) {
+        chatInput.addEventListener('focus', () => {
+            lastFocusedInput = chatInput;
+            document.body.classList.add('input-focused');
+        });
+
+        chatInput.addEventListener('blur', () => {
+            lastFocusedInput = null;
+            document.body.classList.remove('input-focused');
+        });
+
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendFocusMessage();
+            }
+        });
+
+        // @ mention auto referencing
+        chatInput.addEventListener('keyup', (e) => {
+            if (e.key === ' ') {
+                const selection = window.getSelection();
+                if (!selection.rangeCount) return;
+                const range = selection.getRangeAt(0);
+                const textNode = range.startContainer;
+                if (textNode.nodeType === Node.TEXT_NODE) {
+                    const text = textNode.textContent;
+                    const cursorOffset = range.startOffset;
+                    const textBeforeCursor = text.slice(0, cursorOffset);
+                    const refRegex = /@([\w().\/-]+)\s$/;
+                    const match = textBeforeCursor.match(refRegex);
+                    if (match) {
+                        const refName = match[1];
+                        let isGroup = false;
+                        let targetId = null;
+                        const refNode = nodes.find(n => n.id === refName);
+                        if (refNode) {
+                            targetId = refName;
+                        } else {
+                            const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
+                            if (groupObj) {
+                                targetId = groupObj.id;
+                                isGroup = true;
+                            }
+                        }
+                        if (targetId) {
+                            const delRange = document.createRange();
+                            delRange.setStart(textNode, match.index);
+                            delRange.setEnd(textNode, cursorOffset);
+                            delRange.deleteContents();
+                            const newRange = document.createRange();
+                            newRange.setStart(textNode, match.index);
+                            newRange.collapse(true);
+                            insertChipAtRange(chatInput, newRange, targetId, isGroup);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Drop file directly into focus input
+        chatInput.addEventListener('drop', async (e) => {
+            const data = e.dataTransfer.getData('text/plain');
+            if (!data) return;
+            try {
+                const parsed = JSON.parse(data);
+                if (Array.isArray(parsed)) {
+                    e.preventDefault(); e.stopPropagation();
+                    const selection = window.getSelection();
+                    let range = null;
+                    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                    else if (e.rangeParent) {
+                        range = document.createRange();
+                        range.setStart(e.rangeParent, e.rangeOffset);
+                    }
+                    if (range) {
+                        selection.removeAllRanges();
+                        selection.addRange(range);
+                    }
+                    lastFocusedInput = chatInput;
+                    const filteredPaths = parsed.filter(p => !parsed.some(other => other !== p && p.startsWith(other + '/')));
+                    for (const filepath of filteredPaths) {
+                        if (typeof handleSandboxFileShiftClick === 'function') {
+                            await handleSandboxFileShiftClick(filepath);
+                        }
+                    }
+                    selectedSandboxFiles.clear();
+                    lastSelectedSandboxFileIndex = -1;
+                    if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
+                    if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
+                }
+            } catch (err) { }
+        });
+    }
+
+    // ESC key to exit Focus Mode
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const focusBg = document.getElementById('focus-bg');
+            if (focusBg && focusBg.style.display !== 'none' && focusBg.style.display !== '') {
+                exitFocusMode();
+            }
+        }
+    });
+}

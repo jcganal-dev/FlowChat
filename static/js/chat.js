@@ -69,180 +69,6 @@ function updateThermometer(nodeId) {
  * Updates the node's UI dynamically as the stream returns content and reasoning.
  * @param {string} nodeId - The ID of the chat node triggering the execution.
  */
-async function runUserNode(nodeId) {
-    const nodeEl = document.getElementById(nodeId);
-    const textarea = nodeEl.querySelector('.node-input');
-    const usertext = textarea.textContent.trim();
-    if (!usertext) return;
-
-    const nodeData = nodes.find(n => n.id === nodeId);
-
-    const chips = Array.from(nodeEl.querySelectorAll('.reference-node'));
-    const refs = chips.map(chip => chip.getAttribute('data-ref')).filter(id => id);
-    nodeData.references = refs;
-
-    nodeData.userText = usertext;
-    nodeData.aiText = "";
-    nodeData.aiThinking = "";
-
-    nodeData.abortController = new AbortController();
-    const signal = nodeData.abortController.signal;
-
-    const aiContentEl = nodeEl.querySelector('.ai-content');
-    const aiThinkEl = nodeEl.querySelector('.think-content');
-    const runBtn = nodeEl.querySelector('.run-btn');
-    const stopBtn = nodeEl.querySelector('.stop-btn');
-
-    aiContentEl.innerHTML = '';
-    aiThinkEl.innerHTML = "";
-    aiThinkEl.style.display = "none";
-    textarea.contentEditable = false;
-
-    runBtn.style.display = 'none';
-    if (stopBtn) stopBtn.style.display = 'flex';
-
-    forkOffsetCounter = 0;
-
-    const history = walkContext(nodeId);
-    updateThermometer(nodeId);
-
-    if (refs.length > 0) {
-        let systemDirectives = "STRICT INSTRUCTIONS FROM REFERENCED NODES:\n";
-        let hasImageRefs = false;
-        const imageContents = [];
-        let hasTextRefs = false;
-
-        refs.forEach(rId => {
-            const rNode = nodes.find(n => n.id === rId);
-            if (rNode) {
-                if (rNode.type === 'image' && (rNode.files && rNode.files.length > 0)) {
-                    hasImageRefs = true;
-                    rNode.files.forEach(f => {
-                        imageContents.push({ type: "image_url", image_url: { url: f.payload } });
-                    });
-                } else if (rNode.type === 'document' && (rNode.files && rNode.files.length > 0)) {
-                    hasTextRefs = true;
-                    rNode.files.forEach(f => {
-                        systemDirectives += `\n[DOCUMENT ATTACHED: ${f.name}]\n${f.payload}\n`;
-                    });
-                } else if (rNode.type === 'chat' || !rNode.type) {
-                    hasTextRefs = true;
-                    systemDirectives += `\nRule: ${rNode.userText}\nStatus: ${rNode.aiText}\n`;
-                }
-            }
-        });
-
-        if (hasTextRefs) {
-            if (history.length > 0 && history[0].role === 'system') {
-                history[0].content += "\n\n" + systemDirectives;
-            } else {
-                history.unshift({ role: 'system', content: systemDirectives });
-            }
-        }
-
-        if (hasImageRefs && history.length > 0) {
-            const lastMsg = history[history.length - 1];
-            if (lastMsg.role === 'user') {
-                const originalText = lastMsg.content;
-                lastMsg.content = [
-                    { type: "text", text: originalText },
-                    ...imageContents
-                ];
-            }
-        }
-    }
-
-    let aborted = false;
-    textarea.style.border = "none";
-    textarea.style.background = "transparent";
-    textarea.style.height = "auto";
-    textarea.style.color = "#eee";
-
-    let erased_thoughts = false;
-
-    // Dynamically inject the system reminder into the final user message for the API call only
-    if (history.length > 0) {
-        const lastMsg = history[history.length - 1];
-        if (lastMsg.role === 'user') {
-            const reminderText = "[System Reminder] 1. Do not overthing, determine the task, immidiately stop thinking after you arrive at an answer. [End System Reminder]\n";
-            if (typeof lastMsg.content === 'string') {
-                lastMsg.content = reminderText + lastMsg.content;
-            } else if (Array.isArray(lastMsg.content) && lastMsg.content.length > 0 && lastMsg.content[0].type === 'text') {
-                lastMsg.content[0].text = reminderText + lastMsg.content[0].text;
-            }
-        }
-    }
-
-    const payload = { messages: history, max_tokens: 1000 };
-
-    await streamChatApi(payload, signal, {
-        onContent: (content) => {
-            if (!erased_thoughts) {
-                if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
-                    aiThinkEl.innerHTML = '';
-                    nodeData.aiThinking = '';
-                }
-                erased_thoughts = true;
-            }
-            nodeData.aiText += content;
-            if (typeof renderMarkdown === 'function') {
-                aiContentEl.innerHTML = renderMarkdown(nodeData.aiText);
-                if (window.Prism) Prism.highlightAllUnder(aiContentEl);
-            } else {
-                aiContentEl.innerHTML += content;
-            }
-            if (typeof drawEdges === 'function') drawEdges();
-            updateThermometer(nodeId);
-        },
-        onReasoning: (reasoning) => {
-            aiThinkEl.style.display = "flex";
-            nodeData.aiThinking += reasoning;
-            if (typeof renderMarkdown === 'function') {
-                aiThinkEl.innerHTML = renderMarkdown(nodeData.aiThinking);
-                if (window.Prism) Prism.highlightAllUnder(aiThinkEl);
-            } else {
-                aiThinkEl.innerHTML += reasoning;
-            }
-            aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
-            if (typeof drawEdges === 'function') drawEdges();
-            updateThermometer(nodeId);
-        },
-        onError: (error) => {
-            if (error.name === 'AbortError' || (error.message && error.message.includes('AbortError'))) {
-                aborted = true;
-                aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
-                textarea.contentEditable = true;
-                textarea.style.border = "";
-                textarea.style.background = "";
-                runBtn.style.display = 'flex';
-                stopBtn.style.display = 'none';
-            } else {
-                aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
-            }
-        },
-        onComplete: () => {
-            nodeEl.querySelector('.add-child-btn').classList.remove('hidden');
-            nodeEl.querySelector('.add-child-btn').click();
-        }
-    });
-
-    if (!aborted) {
-        const btnRow = nodeEl.querySelector('.button-row');
-        if (btnRow) btnRow.style.display = 'none';
-    }
-
-    if (!textarea.disabled) {
-        textarea.disabled = false;
-    }
-    updateThermometer(nodeId);
-}
-
-
-
-/**
- * Compiles all conversation text within a specified group and requests the LLM to generate individual summaries for each node.
- * @param {string} groupId - The ID of the group to summarize.
- */
 async function triggerSummarize(groupId) {
     const group = groups[groupId];
     const token_per_node = 150
@@ -257,24 +83,28 @@ async function triggerSummarize(groupId) {
         const uText = n.userText || "";
         const aText = n.aiText || "";
         if (uText.trim() === "" && aText.trim() === "") return;
-        rawText += `[NODE_${idx}]\nUser: ${uText}\nAI: ${aText}\n\n`;
+        if (n.type === 'scrape') {
+            rawText += `[NODE_${idx}]\nSource URL: ${uText}\nScraped Content:\n${aText}\n\n`;
+        } else {
+            rawText += `[NODE_${idx}]\nUser: ${uText}\nAI: ${aText}\n\n`;
+        }
         summarizableNodes.push(n);
     });
 
     const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
 
     if (summarizableNodes.length === 0) {
-        if (btn) btn.innerHTML = `<img src='${getIconpath('bulb')}' class="file-icon" style='margin-bottom: -2px;'> Summarize`
+        if (btn) btn.innerHTML = `<img src='/static/icons/bulb.svg' class="file-icon" style='margin-bottom: -2px;'> Summarize`
         group.isSummarized = true;
         if (typeof renderGroups === 'function') renderGroups();
         return;
     }
 
-    if (btn) btn.innerHTML = "<img src='" + getIconpath('magnifying-glass') + "' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
+    if (btn) btn.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures BOTH what the user asked/requested and what the AI did/said in response. Be as concise as possible without losing the core meaning of the interaction. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>User asked about X, AI explained Y.</SUMMARY_0>. Do not include any other text. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: `You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures what the AI did/said in response to the user's request. Be as concise as possible without losing the core meaning of the response. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>User asked about X, AI explained Y.</SUMMARY_0>. Do not include any other text. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: summarizableNodes.length * token_per_node
@@ -286,11 +116,11 @@ async function triggerSummarize(groupId) {
             summary += content;
         },
         onReasoning: (reasoning) => {
-            if (btn && summary === "") btn.innerHTML = "<img src='" + getIconpath('clock') + "' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+            if (btn && summary === "") btn.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Summarize failed:", error);
-            if (btn) btn.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
+            if (btn) btn.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
             groupNodes.forEach((n, idx) => {
@@ -314,7 +144,7 @@ async function triggerSummarize(groupId) {
 
                     const toggleBtn = el.querySelector('.toggle-btn');
                     if (toggleBtn) {
-                        toggleBtn.style.display = 'inline-block';
+                        toggleBtn.style.display = 'flex';
                         toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
                     }
 
@@ -346,22 +176,27 @@ async function triggerSingleSummarize(nodeId) {
     const aText = node.aiText || "";
     if (uText.trim() === "" && aText.trim() === "") return;
     if (node.type === 'document' || node.type === 'image') return;
+    if (node.type === 'scrape' && (aText.trim() === "" || aText.startsWith("Error:") || aText.startsWith("Failed"))) return;
 
-    let rawText = `User: ${uText}\nAI: ${aText}`;
+    let rawText = node.type === 'scrape'
+        ? `Source URL: ${uText}\n\nScraped Content:\n${aText}`
+        : `User: ${uText}\nAI: ${aText}`;
 
     const el = document.getElementById(node.id);
     let sumEl = null;
+    let oldHeight = 0;
     if (el) {
+        oldHeight = el.offsetHeight;
         sumEl = el.querySelector('.node-summary-display');
         if (sumEl) {
             sumEl.style.display = 'block';
-            sumEl.innerHTML = "<img src='" + getIconpath('magnifying-glass') + "' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
+            sumEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
         }
     }
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. Write a summary as concise as possible without it lossing the meaning of the conversation segment. Do NOT include formatting, tags, or labels. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: `You are a quick and precise summarizer. Write a summary that captures what the AI did/said in response to the user's request. The summary should be as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: 150
@@ -374,14 +209,13 @@ async function triggerSingleSummarize(nodeId) {
             if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(summary) : summary;
         },
         onReasoning: (reasoning) => {
-            if (sumEl && summary === "") sumEl.innerHTML = "<img src='" + getIconpath('clock') + "' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+            if (sumEl && summary === "") sumEl.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Single Summarize failed:", error);
-            if (sumEl) sumEl.innerHTML = "<img src='" + getIconpath('error') + "' class='file-icon' style='margin-bottom: -2px;'> Error";
+            if (sumEl) sumEl.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
-            const oldHeight = el ? el.offsetHeight : 0;
             node.summaryText = summary.trim() || "Summary unavailable.";
             node.isCollapsed = true;
 
@@ -392,7 +226,7 @@ async function triggerSingleSummarize(nodeId) {
                 }
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
-                    toggleBtn.style.display = 'inline-block';
+                    toggleBtn.style.display = 'flex';
                     toggleBtn.innerHTML = '<img src="/static/icons/expand.svg" class="file-icon">';
                 }
 

@@ -8,9 +8,10 @@
     <link rel="stylesheet" href="/static/styles/index.css">
     <link rel="icon" href="/static/icons/temp_icon.png" type="image/png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/gh/PrismJS/prism-themes@master/themes/prism-vsc-dark-plus.css"
+        rel="stylesheet" />
+    <script src="/static/js/prism.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
 <body class="no-select" onload="Prism.highlightAll()">
@@ -71,7 +72,53 @@
             </div>
         </div>
     </div>
-
+    <div id="focus-bg" class="focus-bg" style="display: none;">
+        <div id="focus-project-files" class="focus-project-files">
+            <div class="focus-sidebar-header">
+                <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
+                <div class="header-actions">
+                    <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
+                            src="/static/icons/create-folder.svg" class="file-icon"></a>
+                    <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
+                        title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
+                    <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
+                        title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
+                    <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory
+                        multiple onchange="uploadSandboxFiles(event)">
+                    <input type="file" id="sidebar-file-input" style="display: none;" multiple
+                        onchange="uploadSandboxFiles(event)">
+                    <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
+                        <img src="/static/icons/refresh.svg" class="file-icon">
+                    </a>
+                </div>
+            </div>
+            <div id="focus-file-tree" class="focus-file-tree"></div>
+        </div>
+        <div id="focus-main-container" class="focus-main-container">
+            <div id="focus-header" class="focus-header">
+                <span id="focus-lineage-title" class="focus-lineage-title">Branch Chat</span>
+                <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
+                    <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
+                </button>
+            </div>
+            <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
+            <div id="focus-input-area" class="focus-input-area">
+                <div class="focus-chat-input-wrapper">
+                    <div id="focus-chat-input" class="focus-chat-input"
+                        oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true"
+                        spellcheck="true" placeholder="Type prompt here..."></div>
+                    <div class="focus-button-row">
+                        <button id="focus-stop-btn" class="focus-stop-btn" style="display: none;">
+                            <img src="/static/icons/stop.svg" class="file-icon">
+                        </button>
+                        <button id="focus-send-btn" class="focus-send-btn">
+                            <img src="/static/icons/send.svg" class="file-icon">
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
@@ -87,6 +134,11 @@
 <script src="/static/js/globals.js"></script>
 <script src="/static/js/api.js"></script>
 <script src="/static/js/canvas.js"></script>
+<script src="/static/js/classes/BaseNode.js"></script>
+<script src="/static/js/classes/ChatNode.js"></script>
+<script src="/static/js/classes/FileNode.js"></script>
+<script src="/static/js/classes/ToolNode.js"></script>
+<script src="/static/js/classes/ScrapeNode.js"></script>
 <script src="/static/js/nodes.js"></script>
 <script src="/static/js/chat.js"></script>
 <script src="/static/js/sidebar.js"></script>

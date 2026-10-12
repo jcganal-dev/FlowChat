@@ -12,6 +12,38 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
 from keys.apikeys import APIKeys
+from crawl4ai import AsyncWebCrawler
+from ddgs import DDGS
+import sys
+import asyncio
+# from concurrent.futures import ThreadPoolExecutor
+
+# Helper to run Crawl4AI in an isolated thread with correct event loop policy on Windows
+def run_crawl_sync(url: str):
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    async def _crawl():
+        from crawl4ai import AsyncWebCrawler
+        async with AsyncWebCrawler(verbose=False) as crawler:
+            result = await crawler.arun(url=url)
+            return result.markdown if result else None
+    return asyncio.run(_crawl())
+
+def run_crawl_multi_sync(links: list):
+    if sys.platform == 'win32':
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    async def _crawl():
+        from crawl4ai import AsyncWebCrawler
+        res = []
+        async with AsyncWebCrawler(verbose=False) as crawler:
+            for link in links:
+                try:
+                    result = await crawler.arun(url=link)
+                    res.append((link, result.markdown if result else None, None))
+                except Exception as e:
+                    res.append((link, None, str(e)))
+        return res
+    return asyncio.run(_crawl())
 
 # Initialize SQLite database
 DB_PATH = "flowchat.db"
@@ -29,8 +61,6 @@ def init_db():
 
 init_db()
 
-
-
 app = FastAPI()
 
 app.add_middleware(
@@ -41,9 +71,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# (Place this under your app initialization and CORS middleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 os.makedirs("sandbox", exist_ok=True)
 app.mount("/sandbox", StaticFiles(directory="sandbox"), name="sandbox")
 templates = Jinja2Templates(directory="templates")
@@ -137,9 +165,86 @@ async def serve_canvas(request: Request):
         context={"request": request},
     )
 
+class SaveSandboxFileRequest(BaseModel):
+    filename: str
+    content: str
 
+@app.post("/api/sandbox/save")
+async def save_sandbox_file(req: SaveSandboxFileRequest):
+    try:
+        os.makedirs("sandbox", exist_ok=True)
+        filename = os.path.basename(req.filename)
+        if not filename.endswith(".md"):
+            filename += ".md"
+        file_path = os.path.join("sandbox", filename)
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(req.content)
+        return JSONResponse(content={"message": "Saved successfully"})
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ScrapeRequest(BaseModel):
+    url: str
+
+@app.post("/api/scrape")
+async def scrape_with_jina(req: ScrapeRequest):
+    """
+    Scrapes a webpage using Jina Reader.
+    
+    Args:
+        req.url (str): The URL of the webpage to scrape.
+    """
+    target = req.url
+    
+    # Check if it looks like a URL
+    is_url = target.startswith("http://") or target.startswith("https://") or ("." in target and " " not in target)
+    target_url = target
+    if is_url and not target.startswith("http"):
+        target_url = "https://" + target
+    
+    markdown_content = None
+    loop = asyncio.get_running_loop()
+    if is_url:
+        try:
+            markdown_content = await loop.run_in_executor(None, run_crawl_sync, target_url)
+        except Exception as e:
+            print(f"Direct crawl failed: {e}")
+
+    if markdown_content:
+        return JSONResponse(content={"content": markdown_content})
+
+    # If we are here, it failed or wasn't a URL. Send to ddgs
+    links = []
+    try:
+        with DDGS(timeout=20) as ddgs:
+            results = ddgs.text(target, max_results=2, backend="lite")
+            for r in results:
+                links.append(r.get("href"))
+    except Exception as e:
+        return JSONResponse(content={"error": f"DDGS failed: {e}", "content": None}, status_code=500)
+
+    if not links:
+        return JSONResponse(content={"error": "No results found on DDGS", "content": None}, status_code=404)
+
+    # Crawl the links
+    combined_markdown = f"# Search Results for: {target}\n\n"
+    try:
+        results = await loop.run_in_executor(None, run_crawl_multi_sync, links)
+        for i, (link, md, err) in enumerate(results):
+            if md:
+                combined_markdown += f"## Source {i+1}: {link}\n\n{md}\n\n---\n\n"
+            else:
+                combined_markdown += f"## Source {i+1}: {link}\n\nFailed to scrape: {err}\n\n---\n\n"
+    except Exception as e:
+        return JSONResponse(content={"error": f"Crawler failed on links: {e}", "content": None}, status_code=500)
+
+    return JSONResponse(content={"content": combined_markdown})
 
 OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL = "apodex/apodex-1.1-mini:free"
+# OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
+# MODEL = "minicpm"
+
 OPENROUTER_API_KEY = APIKeys().get_key()
 
 # Define your base rules
@@ -163,7 +268,7 @@ async def chat_endpoint(user_data: ChatPayload):
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
 
     payload = {
-        "model": "apodex/apodex-1.1-mini:free",
+        "model": MODEL,
         "messages": user_data.messages,
         "include_reasoning": True,
         "stream": True

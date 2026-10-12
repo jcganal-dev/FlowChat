@@ -6,9 +6,15 @@ const CONTEXT_LIMIT = 4096;
 const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore)$/i;
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
 const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
+const NODE_WIDTH = {
+    min: 300,
+    max: 1200,
+};
+const systemReminders = 'Do not overthink, immediately stop thinking after you arrive at an answer.'
 
 let nodes = [];
 let groups = {};
+let current_active_lineage = []
 let camera = { x: 0, y: 0, zoom: 1 };
 let selectedNodes = new Set();
 let activeNodeId = null;
@@ -38,22 +44,25 @@ const edgesLayer = $('edges-layer');
 const contextMenu = $make('div');
 
 contextMenu.id = 'context-menu';
+contextMenu.classList.add('context-menu')
 contextMenu.innerHTML = `
-    <div class="context-item" id="menu-add-node"><img src="${getIconpath('chatnode')}" class="file-icon"> Add Chat Node</div>
-    <div class="context-item" id="menu-add-image"><img src="${getIconpath('image')}" class="file-icon"> Add Image Node</div>
-    <div class="context-item" id="menu-add-file"><img src="${getIconpath('file')}" class="file-icon"> Add Document Node</div>
-    <div class="context-item" id="menu-open-palette"><img src="${getIconpath('sandbox')}" class="file-icon"> Open Sandbox Files</div>
-    <div class="context-item" id="menu-rename-node"><img src="${getIconpath('pencil')}" class="file-icon"> Rename Node</div>
-    <div class="context-item" id="menu-rename"><img src="${getIconpath('brush')}" class="file-icon"> Rename Branch</div>
+    <div class="context-item" id="menu-add-node"><img src="/static/icons/chatnode.svg" class="file-icon"> Add Chat Node</div>
+    <div class="context-item" id="menu-add-image"><img src="/static/icons/image.svg" class="file-icon"> Add Image Node</div>
+    <div class="context-item" id="menu-add-file"><img src="/static/icons/file.svg" class="file-icon"> Add Document Node</div>
+    <div class="context-item" id="menu-add-scrape"><img src="/static/icons/globe.svg" class="file-icon"> Add Scrape Node</div>
+    <div class="context-item" id="menu-open-palette"><img src="/static/icons/sandbox.svg" class="file-icon"> Open Sandbox Files</div>
+    <div class="context-item" id="menu-rename-node"><img src="/static/icons/pencil.svg" class="file-icon"> Rename Node</div>
+    <div class="context-item" id="menu-rename"><img src="/static/icons/brush.svg" class="file-icon"> Rename Branch</div>
+    <div class="context-item" id="menu-focus-mode"><img src="/static/icons/focus.svg" class="file-icon"> Enter Focus Mode</div>
     <div class="context-item" id="menu-toggle-node"></div>
-    <div class="context-item" id="menu-summarize"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Node</div>
-    <div class="context-item" id="menu-summarize-selected"><img src="${getIconpath('bulb')}" class="file-icon"> Summarize Selected Nodes</div>
-    <div class="context-item" id="menu-expand-selected"><img src="${getIconpath('expand')}" class="file-icon"> Expand Selected Nodes</div>
-    <div class="context-item" id="menu-collapse-selected"><img src="${getIconpath('collapse')}" class="file-icon"> Collapse Selected Nodes</div>
-    <div class="context-item" id="menu-group"><img src="${getIconpath('group')}" class="file-icon"> Group Selected Nodes</div>
-    <div class="context-item" id="menu-ungroup"><img src="${getIconpath('ungroup')}" class="file-icon"> Ungroup Node</div>
-    <div class="context-item" id="menu-delete-node"><img src="${getIconpath('trash')}" class="file-icon"> Delete Node</div>
-    <div class="context-item" id="menu-delete-selected"><img src="${getIconpath('trash')}" class="file-icon"> Delete Selected Nodes</div>
+    <div class="context-item" id="menu-summarize"><img src="/static/icons/bulb.svg" class="file-icon"> Summarize Node</div>
+    <div class="context-item" id="menu-summarize-selected"><img src="/static/icons/bulb.svg" class="file-icon"> Summarize Selected Nodes</div>
+    <div class="context-item" id="menu-expand-selected"><img src="/static/icons/expand.svg" class="file-icon"> Expand Selected Nodes</div>
+    <div class="context-item" id="menu-collapse-selected"><img src="/static/icons/collapse.svg" class="file-icon"> Collapse Selected Nodes</div>
+    <div class="context-item" id="menu-group"><img src="/static/icons/group.svg" class="file-icon"> Group Selected Nodes</div>
+    <div class="context-item" id="menu-ungroup"><img src="/static/icons/ungroup.svg" class="file-icon"> Ungroup Node</div>
+    <div class="context-item" id="menu-delete-node"><img src="/static/icons/trash.svg" class="file-icon"> Delete Node</div>
+    <div class="context-item" id="menu-delete-selected"><img src="/static/icons/trash.svg" class="file-icon"> Delete Selected Nodes</div>
 `;
 document.body.appendChild(contextMenu);
 
@@ -89,52 +98,8 @@ function getIconpath(filepath) {
             return '/static/icons/css.svg';
         case 'py':
             return '/static/icons/py.svg';
-        case 'node':
-            return '/static/icons/node.svg';
-        case 'chatnode':
-            return '/static/icons/chatnode.svg';
-        case 'pencil':
-            return '/static/icons/pencil.svg';
-        case 'brush':
-            return '/static/icons/brush.svg';
-        case 'image':
-            return '/static/icons/image.svg';
-        case 'sandbox':
-            return '/static/icons/sandbox.svg';
-        case 'bulb':
-            return '/static/icons/bulb.svg';
-        case 'group':
-            return '/static/icons/group.svg';
-        case 'ungroup':
-            return '/static/icons/ungroup.svg';
-        case 'expand':
-            return '/static/icons/expand.svg';
-        case 'collapse':
-            return '/static/icons/collapse.svg';
-        case 'folder':
-            return '/static/icons/folder.svg';
-        case 'trash':
-            return '/static/icons/trash.svg';
-        case 'close':
-            return '/static/icons/close.svg';
-        case 'clock':
-            return '/static/icons/clock.svg';
-        case 'magnifying-glass':
-            return '/static/icons/magnifying-glass.svg';
-        case 'error':
-            return '/static/icons/error.svg';
-        case 'upload':
-            return '/static/icons/upload.svg';
-        case 'chevron-right':
-            return '/static/icons/chevron-right.svg';
-        case 'chevron-down':
-            return '/static/icons/chevron-down.svg';
-        case 'send':
-            return '/static/icons/send.svg';
-        case 'stop':
-            return '/static/icons/stop.svg';
         default:
-            return '/static/icons/default.svg';
+            return '/static/icons/file.svg';
     }
 }
 
