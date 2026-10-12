@@ -8,7 +8,10 @@ class ChatNode extends BaseNode {
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
             <div class="node-header">
-                <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                <div class="header-name">
+                    <img src="/static/icons/node.svg" class="file-icon" />
+                    <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                </div>
                 <div>
                     <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${this.nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${this.id}')">${this.nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
                     <a class="duplicate-btn" title="Duplicate Branch"><img src="/static/icons/file.svg" class="file-icon"></a>

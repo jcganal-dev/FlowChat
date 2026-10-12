@@ -5,7 +5,10 @@ class FileNode extends BaseNode {
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
             <div class="node-header">
-                <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                <div class="header-name">
+                    <img src="/static/icons/${this.nodeData.type === 'image'? 'image' : 'file'}.svg" class="file-icon" />
+                    <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                </div>
                 <div>
                     <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>

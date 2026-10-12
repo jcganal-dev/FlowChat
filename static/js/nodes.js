@@ -281,27 +281,28 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (!refData) return false;
 
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
+            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refId}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
+            chipLabel = `<img src="/static/icons/file.svg" class="file-icon"> ${refId}`;
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
-                chipLabel = `<img src="/static/icons/folder.svg" class="file-icon"> ${folderName}/*`;
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
                     refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
                 });
             } else {
-                let src = getIconpath(refData.files[0].name.split('.').pop().toLowerCase())
-                src = refData.files.length > 1 ? getIconpath('') : src;
-                chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
                 refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             }
             isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
             chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
+        } else if (refData.type === 'scrape') {
+            if (!refData.aiText || refData.aiText.trim() === '') return false;
+            chipLabel = `<img src="/static/icons/globe.svg" class="file-icon"> ${refId}`;
+            refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
             chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> ${refId}`;

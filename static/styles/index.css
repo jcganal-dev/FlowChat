@@ -375,19 +375,22 @@ body.is-panning * {
 }
 
 .node-header {
-    border-bottom: 1px solid var(--border-base);
+    /* border-bottom: 1px solid var(--border-base); */
+    /* background: var(--text-inverse); */
     font-size: 12px;
     font-weight: bold;
     cursor: grab;
     color: var(--text-muted);
     display: flex;
     justify-content: space-between;
-    padding: 8px;
-    background: var(--text-inverse);
+    padding: 4px 8px 0px 8px;
 
-    .node-id {
+    .header-name {
         cursor: grab;
         width: 80%;
+        display: flex;
+        justify-content: start;
+        align-items: center;
     }
 
     .node-id::after {
@@ -825,6 +828,9 @@ body.shift-pressed.input-focused .node-id {
 .node.file-node {
     min-width: 260px;
     line-height: 1;
+    .node-header {
+        line-height: 2;
+    }
 }
 
 .file-dropzone {
@@ -1182,7 +1188,7 @@ div[contentEditable='true'].scrape-node-input,
 .exit-focus-btn {
     position: fixed;
     top: 10px;
-    right: 10px;
+    right: 15px;
     background: var(--bg-surface);
     color: var(--text-primary);
     border: 1px solid var(--border-strong);
