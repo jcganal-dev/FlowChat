@@ -98,7 +98,7 @@ function areNodesInSameLineage(nodeIds) {
     return hitCount === nodeIds.size;
 }
 
-function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat") {
+function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat") {
     if (restoreData) type = restoreData.type || 'chat';
     const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
     let nodeInstance;
@@ -420,7 +420,7 @@ function toggleFocusMode() {
     const badgeEl = document.getElementById('focus-node-count-badge');
 
     if (titleEl) {
-        titleEl.textContent = activeData ? `${activeData.name || 'Branch'}` : 'Branch Chat';
+        titleEl.textContent = activeData ? `${activeData.name.replaceAll('_',' ') || 'Branch'}` : 'Branch Chat';
     }
     if (badgeEl) {
         badgeEl.textContent = `${current_active_lineage.length} turns in branch`;

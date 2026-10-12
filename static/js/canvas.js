@@ -174,7 +174,7 @@ viewport.addEventListener('drop', async (e) => {
 
         const isImage = filepath.match(imageWhitelist);
         const isText = filepath.match(textWhitelist) || filepath.match(exactNameWhitelist);
-
+        
         if (!isImage && !isText) {
             skippedFiles.push(filepath);
             continue;

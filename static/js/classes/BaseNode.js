@@ -1,6 +1,6 @@
 class BaseNode {
     constructor(config) {
-        const { parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat" } = config;
+        const { parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat" } = config;
         this.config = config;
 
         if (restoreData) {

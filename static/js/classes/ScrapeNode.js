@@ -172,11 +172,13 @@ class ScrapeNode extends BaseNode {
             // if ()
             this.el.querySelector('.add-child-btn').classList.remove('hidden');
             // Spawn a child ChatNode automatically
-            const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');
+            this.el.querySelector('.add-child-btn').click()
+            // const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');
             if (typeof drawEdges === 'function') drawEdges();
             if (typeof saveState === 'function') saveState();
-            if (typeof selectNode === 'function') selectNode(newNodeId);
             if (typeof centerCanvas === 'function') centerCanvas();
+            const aiSection = this.el.querySelector('.ai-section')
+            aiSection.scrollTo({ top: aiSection.scrollHeight, behavior: 'smooth' });
         } else {
             this.textarea.contentEditable = true;
             this.runBtn.style.display = 'inline-flex';

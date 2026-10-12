@@ -307,8 +307,8 @@ html {
     height: 100vh;
     position: relative;
     /* The Infinite Dotted Grid */
-    background-image: radial-gradient(var(--transparent-grid) 1px, transparent 1px);
-    background-size: 24px 24px;
+    /* background-image: radial-gradient(var(--transparent-grid) 1px, transparent 1px); */
+    /* background-size: 24px 24px; */
     /* Base grid size */
     background-position: 0 0;
 }
@@ -358,7 +358,7 @@ body.is-panning * {
 .node {
     box-sizing: border-box;
     position: absolute;
-    width: 360px;
+    /* width: 360px; */
     background: var(--bg-base);
     border: 1px solid var(--border-base);
     box-shadow: 0 6px 16px var(--shadow-md);
@@ -367,6 +367,7 @@ body.is-panning * {
     min-width: 300px;
     max-width: 1200px;
     cursor: auto;
+    width: fit-content;
 }
 
 .node.user-node {
@@ -554,7 +555,6 @@ body.shift-pressed.input-focused .node-id {
 }
 
 .turn-node {
-    width: 360px;
     background: var(--bg-surface-hover);
     border: 1px solid var(--border-base);
     display: flex;
@@ -1361,5 +1361,30 @@ h6 {
 
     img {
         max-width: 720px;
+    }
+}
+
+.hint-overlay {
+    position: fixed;
+    top:0;
+    left:0;
+    width: 100dvw;
+    height: 100dvh;
+    pointer-events: none;
+    display: flex;
+    justify-content: start;
+    align-items: end;
+
+    list {
+        font-size: 12px;
+        transition: 0.2s all ease-out;
+        pointer-events: fill;
+        opacity:0.1;
+        ul {
+            padding-left: 15px;
+        }
+    }
+    list:hover {
+        opacity: 0;
     }
 }

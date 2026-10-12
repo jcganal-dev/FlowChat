@@ -11,17 +11,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
-from keys.apikeys import APIKeys
-from crawl4ai import AsyncWebCrawler
 from ddgs import DDGS
-import sys
 import asyncio
-# from concurrent.futures import ThreadPoolExecutor
+from dotenv import load_dotenv
+import os
 
-# Helper to run Crawl4AI in an isolated thread with correct event loop policy on Windows
 def run_crawl_sync(url: str):
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     async def _crawl():
         from crawl4ai import AsyncWebCrawler
         async with AsyncWebCrawler(verbose=False) as crawler:
@@ -30,8 +25,6 @@ def run_crawl_sync(url: str):
     return asyncio.run(_crawl())
 
 def run_crawl_multi_sync(links: list):
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
     async def _crawl():
         from crawl4ai import AsyncWebCrawler
         res = []
@@ -240,17 +233,19 @@ async def scrape_with_jina(req: ScrapeRequest):
 
     return JSONResponse(content={"content": combined_markdown})
 
-OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "apodex/apodex-1.1-mini:free"
-# OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
-# MODEL = "minicpm"
+load_dotenv() 
+API_KEY = os.getenv("API_KEY")
+SERVER_URL = os.getenv("SERVER_URL")
+MODEL = os.getenv("MODEL")
+if not API_KEY:
+    raise ValueError("API_KEY not found in .env file")
+if not SERVER_URL:
+    raise ValueError("SERVER_URL not found in .env file")
+if not MODEL:
+    raise ValueError("MODEL not found in .env file")
 
-OPENROUTER_API_KEY = APIKeys().get_key()
-
-# Define your base rules
 SYSTEM_INSTRUCTIONS = []
 
-# Combine them into a single string with newlines
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
 
 class ChatPayload(BaseModel):
@@ -277,10 +272,10 @@ async def chat_endpoint(user_data: ChatPayload):
     async def stream_generator():
         async with httpx.AsyncClient(timeout=None) as client:
             headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+                "Authorization": f"Bearer {API_KEY}",
                 "Content-Type": "application/json"
             }
-            async with client.stream("POST", OPENROUTER_SERVER_URL, json=payload, headers=headers) as response:
+            async with client.stream("POST", SERVER_URL, json=payload, headers=headers) as response:  # type: ignore
                 if response.status_code != 200:
                     error_body = await response.aread()
                     try:
