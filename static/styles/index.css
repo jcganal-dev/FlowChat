@@ -1138,11 +1138,11 @@ div[contentEditable='true'].scrape-node-input,
     display: flex;
 }
 
-.focus-project-files {
-    width: 20dvw;
+.focus-project-files, .focus-chat-selection {
+    min-width: 15dvw;
     height: 100%;
     background-color: var(--bg-input);
-    display: flex;
+    display: none;
     flex-direction: column;
     border-right: 1px solid var(--border-base);
 }
@@ -1155,6 +1155,11 @@ div[contentEditable='true'].scrape-node-input,
     color: var(--text-primary);
     font-size: 14px;
     font-weight: bold;
+    span {
+        display: flex;
+        flex-direction: row;
+        gap: 5px;
+    }
 }
 
 .focus-file-tree {
@@ -1165,7 +1170,8 @@ div[contentEditable='true'].scrape-node-input,
 }
 
 .focus-main-container {
-    width: 80dvw;
+    min-width: 80dvw;
+    width: 100%;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -1173,23 +1179,10 @@ div[contentEditable='true'].scrape-node-input,
     user-select: text;
 }
 
-.focus-header {
-    padding: 10px 20px;
-    background-color: var(--bg-base);
-    border-bottom: 1px solid var(--border-base);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-primary);
-}
-
-.focus-lineage-title {
-    font-size: 14px;
-    font-weight: bold;
-    color: var(--text-primary);
-}
-
 .exit-focus-btn {
+    position: fixed;
+    top: 10px;
+    right: 10px;
     background: var(--bg-surface);
     color: var(--text-primary);
     border: 1px solid var(--border-strong);
@@ -1221,6 +1214,9 @@ h6 {
     margin: 0px;
 }
 
+#focus-nodes-layer > :first-child {
+    margin-top: 30px !important;
+}
 .focus-nodes-layer {
     flex: 1;
     overflow-y: auto;
@@ -1387,4 +1383,63 @@ h6 {
     list:hover {
         opacity: 0;
     }
+}
+
+.focus-think-body {
+    max-height: 200px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+}
+
+.focus-tab-selection {
+    background-color: var(--bg-input);
+    border-right: 1px solid var(--border-strong);
+    min-width: 2.5dvw;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0px;
+}
+.tab-btn {
+    padding: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: 0.2s all ease-out;
+}
+.tab-btn:hover {
+    background-color: var(--bg-surface-hover);
+}
+.tab-icon {
+    width: 28px;
+}
+
+#chat-selection {
+    display: flex;
+    flex-direction: column-reverse;
+    align-items: center;
+    justify-content: center;
+    margin-top: 5px;
+}
+
+.chat-entry {
+    width: 95%;
+    cursor: pointer;
+}
+
+.chat-entry-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 3px 10px;
+    border-radius: 25px;
+    font-size: 14px;
+}
+
+.chat-entry-text:hover {
+    background-color: var(--bg-surface-hover);
 }

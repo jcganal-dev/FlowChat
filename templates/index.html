@@ -79,6 +79,18 @@
         </div>
     </div>
     <div id="focus-bg" class="focus-bg" style="display: none;">
+        <div id="focus-tab-selection" class="focus-tab-selection">
+            <a class="tab-btn" onclick="showSidebar('focus-chat-selection');updateChatHistory()" title="Chat History"><img src="/static/icons/chatnode.svg" class="tab-icon"/></a>
+            <a class="tab-btn" onclick="showSidebar('focus-project-files')" title="Sandbox"><img src="/static/icons/sandbox.svg" class="tab-icon"/></a>
+        </div>
+        <div id="focus-chat-selection" style="display: flex;" class="focus-chat-selection">
+            <div class="focus-sidebar-header">
+                <span><img src="/static/icons/chatnode.svg" class="file-icon"> Chat History</span>
+            </div>
+            <div id="chat-selection">
+
+            </div>
+        </div>
         <div id="focus-project-files" class="focus-project-files">
             <div class="focus-sidebar-header">
                 <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
@@ -101,12 +113,9 @@
             <div id="focus-file-tree" class="focus-file-tree"></div>
         </div>
         <div id="focus-main-container" class="focus-main-container">
-            <div id="focus-header" class="focus-header">
-                <span id="focus-lineage-title" class="focus-lineage-title">Branch Chat</span>
-                <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
-                    <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
-                </button>
-            </div>
+            <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
+                <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
+            </button>
             <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
             <div id="focus-input-area" class="focus-input-area">
                 <div class="focus-chat-input-wrapper">
@@ -128,6 +137,79 @@
 </body>
 
 </html>
+
+<script>
+    let lastOpenedTab = 'focus-chat-selection'
+    function showSidebar(target) {
+        if (lastOpenedTab == target) {
+            $(target).style.display = 'none'
+            lastOpenedTab = ''
+            return
+        }
+        $(target).style.display = 'flex'
+        if(lastOpenedTab) $(lastOpenedTab).style.display = 'none'
+        lastOpenedTab = target
+        return
+    }
+
+    let last_active_chat = ''
+
+    function addToChatHistory(targetNode) {
+        let textDisplay = ''
+        if (targetNode.parentId) {
+            const parent = nodes.find(n => n.id === targetNode.parentId);
+            if (parent) {
+                textDisplay = parent.htmlText
+                if (parent.type=='document' || parent.type =='image') {
+                    // textDisplay = `<img src="/static/icons/${parent.type=='document'?'file':'image'}.svg" class="file-icon" style="margin-bottom: -2px;"/> ${parent.type=='document'?'Document':'Image'} attached: `
+                    textDisplay = `${parent.type=='document'?'Document':'Image'} attached: `
+                    parent.files.forEach(file => {
+                        textDisplay += `${file.name}, `
+                    });
+                    textDisplay = textDisplay.slice(0, textDisplay.length-2)
+                }
+                else if (parent.type=='scrape') {
+                    // textDisplay = `<img src="/static/icons/globe.svg" class="file-icon" style="margin-bottom: -2px;"/> Scraped: ${parent.htmlText}`
+                    textDisplay = `Scraped: ${parent.htmlText}`
+                }
+            }
+        } else {
+            textDisplay = targetNode.id
+        }
+
+        const chatEntry = document.createElement('div')
+
+        if (activeNodeId == targetNode.id) {
+            last_active_chat = chatEntry
+        }
+
+        chatEntry.classList.add('chat-entry')
+
+        chatEntry.innerHTML = `<div class='chat-entry-text' style='overflow:hidden;'>${textDisplay}</div>`
+
+        if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
+
+        chatEntry.addEventListener('click', () => {
+            if (last_active_chat) {
+                last_active_chat.querySelector('.chat-entry-text').style.backgroundColor = 'transparent'
+            }
+            chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
+            last_active_chat = chatEntry
+            $(targetNode.id).click();
+            toggleFocusMode(true);
+        })
+        $('chat-selection').appendChild(chatEntry)
+    }
+
+    function updateChatHistory() {
+        $('chat-selection').innerHTML = ''
+        nodes.forEach(node => {
+            if (node.type == 'chat' && node.aiText == '' && node.aiThinking == '' && node.hasChild == false) {
+                if (typeof addToChatHistory == "function") {addToChatHistory(node)}
+            }
+        });
+    }
+</script>
 
 <!-- Dependencies for Markdown, Math, and Highlighting -->
 <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>

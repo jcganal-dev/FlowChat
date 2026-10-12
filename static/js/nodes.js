@@ -395,7 +395,7 @@ let isFocusModeActive = false;
 /**
  * Toggles the linear chat Focus Mode on or off for the current active branch lineage.
  */
-function toggleFocusMode() {
+function toggleFocusMode(stayFocused = false) {
     const focusBg = document.getElementById('focus-bg');
     if (!focusBg) return;
 
@@ -405,8 +405,10 @@ function toggleFocusMode() {
     }
 
     if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
-        exitFocusMode();
-        return;
+        if (!stayFocused) {
+            exitFocusMode();
+            return;
+        }
     }
 
     if (!activeNodeId) {
@@ -417,18 +419,16 @@ function toggleFocusMode() {
         }
     }
 
+    updateChatHistory()
+
 
     isFocusModeActive = true;
     focusBg.style.display = 'flex';
     document.body.classList.add('focus-mode-active');
 
     // Update header info
-    const titleEl = document.getElementById('focus-lineage-title');
     const badgeEl = document.getElementById('focus-node-count-badge');
-
-    if (titleEl) {
-        titleEl.textContent = activeData ? `${activeData.name.replaceAll('_',' ') || 'Branch'}` : 'Branch Chat';
-    }
+    
     if (badgeEl) {
         badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
     }
@@ -1036,8 +1036,9 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
 
     if (type === 'reasoning') {
         if (thinkEl) {
+            const truncData = data.slice(Math.max(0,data.length-1000),data.length)
             thinkEl.style.display = 'block';
-            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(data) : data}</div>`;
+            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${truncData}</div>`;
         }
         if (stopBtn) stopBtn.style.display = 'flex';
         if (sendBtn) sendBtn.style.display = 'none';
@@ -1069,6 +1070,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
             lastFocusedInput = inputEl;
         }
         autoLayout();
+        updateChatHistory();
     }
 
     if (nodesLayer) {

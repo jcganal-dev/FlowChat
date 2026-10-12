@@ -97,7 +97,7 @@ async function copy_text(text) {
 
 function getIconpath(filepath) {
     const extension = filepath.split('.').pop().toLowerCase();
-    // png|jpg|jpeg|gif|webp|svg|ico
+    
     switch (extension) {
         case 'js':
             return '/static/icons/js.svg';
