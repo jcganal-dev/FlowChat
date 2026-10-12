@@ -10,6 +10,7 @@ const NODE_WIDTH = {
     min: 300,
     max: 1200,
 };
+const systemReminders = 'Do not overthink, immediately stop thinking after you arrive at an answer.'
 
 let nodes = [];
 let groups = {};

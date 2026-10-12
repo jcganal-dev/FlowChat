@@ -23,7 +23,7 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="ai-section">
-                <div class="think-content" style="${this.nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${this.nodeData.aiThinking.trim() == '' ? `<img src="/static/icons/clock.svg" class='file-icon'> Thinking...` : this.nodeData.aiThinking}</div>
+                <div class="think-content" style="${this.nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${this.nodeData.aiThinking.trim() == '' ? `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...` : this.nodeData.aiThinking}</div>
                 <div class="ai-content">${this.nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.aiText) : this.nodeData.aiText) : ''}</div>
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
@@ -171,7 +171,7 @@ class ChatNode extends BaseNode {
         const aiContentEl = this.el.querySelector('.ai-content');
         const aiThinkEl = this.el.querySelector('.think-content');
         aiContentEl.innerHTML = '';
-        aiThinkEl.innerHTML = `<div style="display:flex;flex-direction:row;"><img src="/static/icons/clock.svg" class='file-icon'> Thinking...</div>`;
+        aiThinkEl.innerHTML = `<div style="display:flex;flex-direction:row;"><img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>`;
         aiThinkEl.style.display = "flex";
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
@@ -220,7 +220,7 @@ class ChatNode extends BaseNode {
         if (history.length > 0) {
             const lastMsg = history[history.length - 1];
             if (lastMsg.role === 'user') {
-                const reminderText = "[System Reminder] 1. Do not overthing, determine the task, immidiately stop thinking after you arrive at an answer. [End System Reminder]\n";
+                const reminderText = `${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:""}\n`;
                 if (typeof lastMsg.content === 'string') lastMsg.content = reminderText + lastMsg.content;
                 else if (Array.isArray(lastMsg.content) && lastMsg.content.length > 0 && lastMsg.content[0].type === 'text') {
                     lastMsg.content[0].text = reminderText + lastMsg.content[0].text;
@@ -252,9 +252,11 @@ class ChatNode extends BaseNode {
             onReasoning: (reasoning) => {
                 aiThinkEl.style.display = "flex";
                 this.nodeData.aiThinking += reasoning;
-                if (typeof renderMarkdown === 'function') {
-                    aiThinkEl.innerHTML = renderMarkdown(this.nodeData.aiThinking);
-                } else aiThinkEl.innerHTML += reasoning;
+                // if (typeof renderMarkdown === 'function') {
+                //     aiThinkEl.innerHTML = renderMarkdown(this.nodeData.aiThinking);
+                // } else aiThinkEl.innerHTML += reasoning;
+                aiThinkEl.innerHTML += reasoning;
+                aiThinkEl.innerHTML = aiThinkEl.innerHTML.slice(Math.max(0, aiThinkEl.innerHTML.length-1500), aiThinkEl.innerHTML.length)
                 aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
                 if (typeof drawEdges === 'function') drawEdges();
                 updateThermometer(this.id);

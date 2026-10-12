@@ -104,7 +104,7 @@ async function triggerSummarize(groupId) {
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures BOTH what the user asked/requested and what the AI did/said in response. Be as concise as possible without losing the core meaning of the interaction. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>User asked about X, AI explained Y.</SUMMARY_0>. Do not include any other text. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: `You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures what the AI did/said in response to the user's request. Be as concise as possible without losing the core meaning of the response. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>User asked about X, AI explained Y.</SUMMARY_0>. Do not include any other text. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: summarizableNodes.length * token_per_node
@@ -116,7 +116,7 @@ async function triggerSummarize(groupId) {
             summary += content;
         },
         onReasoning: (reasoning) => {
-            if (btn && summary === "") btn.innerHTML = "<img src='/static/icons/clock.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+            if (btn && summary === "") btn.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Summarize failed:", error);
@@ -196,7 +196,7 @@ async function triggerSingleSummarize(nodeId) {
 
     const payload = {
         messages: [
-            { role: "system", content: "You are a quick and precise summarizer. Write a summary as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. [System Reminder] Do not overthink, immediately stop thinking after you arrive at an answer. [End System Reminder]" },
+            { role: "system", content: `You are a quick and precise summarizer. Write a summary that captures what the AI did/said in response to the user's request. The summary should be as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: 150
@@ -209,7 +209,7 @@ async function triggerSingleSummarize(nodeId) {
             if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(summary) : summary;
         },
         onReasoning: (reasoning) => {
-            if (sumEl && summary === "") sumEl.innerHTML = "<img src='/static/icons/clock.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
+            if (sumEl && summary === "") sumEl.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Single Summarize failed:", error);

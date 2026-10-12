@@ -519,7 +519,7 @@ async function renderFocusProjectFiles() {
     const treeContainer = document.getElementById('focus-file-tree');
     if (!treeContainer) return;
 
-    treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/clock.svg" class="file-icon"> Loading files...</div>';
+    treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/hourglass.svg" class="file-icon"> Loading files...</div>';
 
     const data = await apiFetchSandboxFiles();
     if (!data) {
@@ -889,7 +889,7 @@ function renderFocusLineage() {
         if (thinking) {
             turnHtml += `
                 <div class="focus-think" style="display: block;">
-                    <div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div>
+                    <div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div>
                     <div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(thinking) : thinking}</div>
                 </div>
             `;
@@ -994,7 +994,7 @@ async function sendFocusMessage() {
         turnDiv.innerHTML = `
             <div class="focus-user">${userHtml}</div>
             <div class="focus-think" style="display: flex;">
-                <div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div>
+                <div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div>
                 <div class="focus-think-body"></div>
             </div>
             <div class="focus-ai ai-content"></div>
@@ -1030,7 +1030,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     if (type === 'reasoning') {
         if (thinkEl) {
             thinkEl.style.display = 'block';
-            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/clock.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(data) : data}</div>`;
+            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(data) : data}</div>`;
         }
         if (stopBtn) stopBtn.style.display = 'flex';
         if (sendBtn) sendBtn.style.display = 'none';

@@ -537,14 +537,16 @@ body.shift-pressed.input-focused .node-id {
     padding-left: 8px;
     margin: 8px 12px;
     white-space: pre-wrap;
-    /* Preserves the model's internal line breaks */
     max-height: 100px;
     min-height: 0px;
     display: flex;
     flex-direction: column;
     height: fit-content;
-    overflow-y: auto;
-    overflow-x: hidden;
+    overflow: hidden;
+}
+
+.think-content::-webkit-scrollbar {
+    display: none;
 }
 
 .think-content:empty {
@@ -649,18 +651,6 @@ body.shift-pressed.input-focused .node-id {
     background: none;
     border: none;
     cursor: pointer;
-}
-
-.think-content {
-    max-height: 200px;
-    overflow-y: auto;
-    scrollbar-width: none;
-    /* Firefox */
-}
-
-.think-content::-webkit-scrollbar {
-    display: none;
-    /* Chrome, Safari, Edge */
 }
 
 .hidden {
