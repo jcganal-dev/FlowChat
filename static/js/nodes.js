@@ -428,7 +428,7 @@ function toggleFocusMode(stayFocused = false) {
 
     // Update header info
     const badgeEl = document.getElementById('focus-node-count-badge');
-    
+
     if (badgeEl) {
         badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
     }
@@ -934,6 +934,7 @@ async function sendFocusMessage() {
     if (stopBtn) stopBtn.style.display = 'flex';
 
     chatInput.innerHTML = '';
+    chatInput.contentEditable = false;
 
     // Check if current activeNodeId is an unexecuted leaf chat node
     let targetNodeId = null;
@@ -981,6 +982,7 @@ async function sendFocusMessage() {
     if (!targetEl || !targetEl.__nodeInstance) {
         if (sendBtn) sendBtn.style.display = 'flex';
         if (stopBtn) stopBtn.style.display = 'none';
+        chatInput.contentEditable = true;
         return;
     }
 
@@ -1023,6 +1025,7 @@ async function sendFocusMessage() {
  */
 function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     const focusBg = document.getElementById('focus-bg');
+    const chatInput = document.getElementById('focus-chat-input');
     if (!focusBg || focusBg.style.display === 'none') return;
 
     const turnEl = document.getElementById(`focus-turn-${nodeId}`);
@@ -1042,6 +1045,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         }
         if (stopBtn) stopBtn.style.display = 'flex';
         if (sendBtn) sendBtn.style.display = 'none';
+        chatInput.contentEditable = false;
     } else if (type === 'content') {
         if (thinkEl) thinkEl.remove();
         if (aiEl) {
@@ -1049,6 +1053,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         }
         if (stopBtn) stopBtn.style.display = 'flex';
         if (sendBtn) sendBtn.style.display = 'none';
+        chatInput.contentEditable = false;
     } else if (type === 'error') {
         if (isAborted) {
             if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
@@ -1057,9 +1062,11 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         }
         if (stopBtn) stopBtn.style.display = 'none';
         if (sendBtn) sendBtn.style.display = 'flex';
+        chatInput.contentEditable = true;
     } else if (type === 'complete') {
         if (stopBtn) stopBtn.style.display = 'none';
         if (sendBtn) sendBtn.style.display = 'flex';
+        chatInput.contentEditable = true;
         if (window.Prism && aiEl) {
             Prism.highlightAllUnder(aiEl);
             if (thinkEl) Prism.highlightAllUnder(thinkEl);
