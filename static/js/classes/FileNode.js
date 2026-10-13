@@ -47,7 +47,9 @@ class FileNode extends BaseNode {
             });
             this.el.addEventListener('click', (e) => {
                 if (this.el.dataset.dragged) return;
-                if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(this.id, e.shiftKey, e.ctrlKey || e.metaKey);
+                if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) {
+                    selectNode(this.el.id, e.shiftKey, e.ctrlKey || e.metaKey);
+                }
             });
             this.renderFiles();
         }, 0);
