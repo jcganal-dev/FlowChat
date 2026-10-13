@@ -308,7 +308,10 @@ html {
     position: relative;
     /* The Infinite Dotted Grid */
     /* background-image: radial-gradient(var(--transparent-grid) 1px, transparent 1px); */
-    /* background-size: 24px 24px; */
+    background-image: 
+    linear-gradient(to right, var(--shadow-sm) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--shadow-sm) 1px, transparent 1px);
+
     /* Base grid size */
     background-position: 0 0;
 }
@@ -1194,6 +1197,7 @@ div[contentEditable='true'].scrape-node-input,
         display: flex;
         flex-direction: row;
         gap: 5px;
+        align-items: center;
     }
 }
 
