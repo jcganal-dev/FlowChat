@@ -7,6 +7,77 @@ const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
 const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
+
+function groupIcon(color='#000000') {
+    return `
+    <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" class='file-icon'>
+        <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+        <g id="SVGRepo_iconCarrier">
+            <path d="M3 1H1V3H3V1Z" fill="${color}"></path>
+            <path d="M3 13H1V15H3V13Z" fill="${color}"></path>
+            <path d="M1 9H3V11H1V9Z" fill="${color}"></path>
+            <path d="M3 5H1V7H3V5Z" fill="${color}"></path>
+            <path d="M5 1H7V3H5V1Z" fill="${color}"></path>
+            <path d="M7 13H5V15H7V13Z" fill="${color}"></path>
+            <path d="M9 1H11V3H9V1Z" fill="${color}"></path>
+            <path d="M11 13H9V15H11V13Z" fill="${color}"></path>
+            <path d="M13 1H15V3H13V1Z" fill="${color}"></path>
+            <path d="M15 13H13V15H15V13Z" fill="${color}"></path>
+            <path d="M13 9H15V11H13V9Z" fill="${color}"></path>
+            <path d="M15 5H13V7H15V5Z" fill="${color}"></path>
+        </g>
+    </svg>
+    `
+}
+
+function documentIcon(color='#38bdf8') {
+    return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="800px" height="800px" viewBox="0 0 24 24" fill="none" class="file-icon">
+            <path d="M3 14H21M3 19H15M3 5H11M3 9.5H11M19.4 11H16.6C16.0399 11 15.7599 11 15.546 10.891C15.3578 10.7951 15.2049 10.6422 15.109 10.454C15 10.2401 15 9.96005 15 9.4V6.6C15 6.03995 15 5.75992 15.109 5.54601C15.2049 5.35785 15.3578 5.20487 15.546 5.10899C15.7599 5 16.0399 5 16.6 5H19.4C19.9601 5 20.2401 5 20.454 5.10899C20.6422 5.20487 20.7951 5.35785 20.891 5.54601C21 5.75992 21 6.03995 21 6.6V9.4C21 9.96005 21 10.2401 20.891 10.454C20.7951 10.6422 20.6422 10.7951 20.454 10.891C20.2401 11 19.9601 11 19.4 11Z" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    `
+}
+
+function imageIcon(color='#38bdf8') {
+    return `
+        <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+
+        <!-- Uploaded to: SVG Repo, www.svgrepo.com, Transformed by: SVG Repo Mixer Tools -->
+        <svg width="800px" height="800px" viewBox="0 0 24.00 24.00" fill="none" xmlns="http://www.w3.org/2000/svg" class="file-icon">
+
+        <g id="SVGRepo_bgCarrier" stroke-width="0"/>
+
+        <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"/>
+
+        <g id="SVGRepo_iconCarrier">
+        <path d="M21.6799 16.9599L18.5499 9.64988C17.4899 7.16988 15.5399 7.06988 14.2299 9.42988L12.3399 12.8399C11.3799 14.5699 9.58993 14.7199 8.34993 13.1699L8.12993 12.8899C6.83993 11.2699 5.01993 11.4699 4.08993 13.3199L2.36993 16.7699C1.15993 19.1699 2.90993 21.9999 5.58993 21.9999H18.3499C20.9499 21.9999 22.6999 19.3499 21.6799 16.9599Z" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M6.96997 8C8.62682 8 9.96997 6.65685 9.96997 5C9.96997 3.34315 8.62682 2 6.96997 2C5.31312 2 3.96997 3.34315 3.96997 5C3.96997 6.65685 5.31312 8 6.96997 8Z" stroke="${color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>
+
+        </svg>
+    `
+}
+
+function scrapeIcon(color='#38bdf8') {
+    return `
+<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class='file-icon'>
+    <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+    <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" stroke="#000CCCCCC" stroke-width="0.048"></g>
+    <g id="SVGRepo_iconCarrier">
+        <path d="M22 14.3529C22 17.4717 19.4416 20 16.2857 20H11M14.381 9.02721C14.9767 8.81911 15.6178 8.70588 16.2857 8.70588C16.9404 8.70588 17.5693 8.81468 18.1551 9.01498M7.11616 11.6089C6.8475 11.5567 6.56983 11.5294 6.28571 11.5294C3.91878 11.5294 2 13.4256 2 15.7647C2 18.1038 3.91878 20 6.28571 20H7M7.11616 11.6089C6.88706 10.9978 6.7619 10.3369 6.7619 9.64706C6.7619 6.52827 9.32028 4 12.4762 4C15.4159 4 17.8371 6.19371 18.1551 9.01498M7.11616 11.6089C7.68059 11.7184 8.20528 11.9374 8.66667 12.2426M18.1551 9.01498C18.8381 9.24853 19.4623 9.60648 20 10.0614" stroke="${color}" stroke-width="2.4" stroke-linecap="round"></path>
+    </g>
+</svg>
+    `
+}
+
+function chatIcon(color='#38bdf8') {
+    return `
+<?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+<svg fill="${color}" class='file-icon' width="800px" height="800px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20,9H16a1,1,0,0,0-1,1v1H7V7H8A1,1,0,0,0,9,6V2A1,1,0,0,0,8,1H4A1,1,0,0,0,3,2V6A1,1,0,0,0,4,7H5V20a1,1,0,0,0,1,1h9v1a1,1,0,0,0,1,1h4a1,1,0,0,0,1-1V18a1,1,0,0,0-1-1H16a1,1,0,0,0-1,1v1H7V13h8v1a1,1,0,0,0,1,1h4a1,1,0,0,0,1-1V10A1,1,0,0,0,20,9ZM5,3H7V5H5ZM17,19h2v2H17Zm2-6H17V11h2Z"/></svg>
+    `
+}
+
 /**
  * Returns a comma-separated list of extensions accepted by textWhitelist,
  * suitable for an <input type="file" accept=""> attribute.

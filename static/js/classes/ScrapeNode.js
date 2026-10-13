@@ -9,7 +9,9 @@ class ScrapeNode extends BaseNode {
             <div class="handle handle-in"></div>
             <div class="node-header">
                 <div class="header-name">
-                    <img src="/static/icons/globe.svg" class="file-icon" />
+                    <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
+                        ${scrapeIcon()}
+                    </span>
                     <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 </div>
                 <div>
@@ -171,12 +173,9 @@ class ScrapeNode extends BaseNode {
         const isSuccess = !this.nodeData.aiText.startsWith("Error:") && !this.nodeData.aiText.startsWith("Failed") && this.nodeData.aiText !== "No content returned.";
 
         if (isSuccess) {
-            // let nodeData = nodes.find(n => n.id === virtualId);
-            // if ()
             this.el.querySelector('.add-child-btn').classList.remove('hidden');
-            // Spawn a child ChatNode automatically
-            this.el.querySelector('.add-child-btn').click()
-            // const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');
+            console.log(this.nodeData)
+            if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
             if (typeof drawEdges === 'function') drawEdges();
             if (typeof saveState === 'function') saveState();
             if (typeof centerCanvas === 'function') centerCanvas();

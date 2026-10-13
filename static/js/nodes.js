@@ -98,7 +98,7 @@ function areNodesInSameLineage(nodeIds) {
     return hitCount === nodeIds.size;
 }
 
-function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat") {
+function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat") {
     if (restoreData) type = restoreData.type || 'chat';
     const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
     let nodeInstance;
@@ -150,7 +150,7 @@ function deleteNode(nodeId, deleteBranch) {
     }
     if (nodes.length === 0) {
         setTimeout(() => {
-            createNode();
+            createNode(null, 0,0);
         }, 20);
     }
 
@@ -260,14 +260,14 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         const gNodes = nodes.filter(n => n.groupId === refId);
 
         if (groupObj.isCollapsed) {
-            chipLabel = `Summary of ${groupObj.name}`;
+            chipLabel = `Summary of <span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
             gNodes.forEach((n, idx) => {
                 if (n.summaryText && n.summaryText !== "Summary unavailable.") {
                     refText += `[NODE_${idx}] SUMMARY: ${n.summaryText}\n\n`;
                 }
             });
         } else {
-            chipLabel = `${groupObj.name}`;
+            chipLabel = `<span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
             gNodes.forEach((n, idx) => {
                 if (n.aiText && n.aiText.trim() !== '') {
                     refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${n.aiText}\n\n`;
@@ -285,7 +285,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="/static/icons/file.svg" class="file-icon"> ${refId}`;
+            chipLabel = `<img src="/static/icons/document.svg" class="file-icon"> ${refId}`;
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
@@ -821,16 +821,16 @@ function renderFocusLineage() {
         // Document or Image node attached in lineage
         if (nodeData.type === 'document' || nodeData.type === 'image' || nodeData.type === 'scrape') {
             const files = nodeData.files || [];
-            const fileList = files.map(f => f.name).join(', ') || nodeData.id;
+            const fileList = files.map(f => f.name).join(', ') || 'None';
             const icon = {
-                'document': '/static/icons/file.svg',
-                'image': '/static/icons/image.svg',
-                'scrape': '/static/icons/globe.svg'
+                'document': documentIcon(),
+                'image': imageIcon(),
+                'scrape': scrapeIcon()
             }[nodeData.type];
             const text = {
                 'document': `Document attached: ${fileList}`,
                 'image': `Image attached: ${fileList}`,
-                'scrape': `Scraped: <span style="text-decoration:underline;">${nodeData.htmlText}</span>`,
+                'scrape': `Scraped: <span style="text-decoration:${nodeData.htmlText? 'underline': 'none'};">${nodeData.htmlText || 'None'}</span>`,
             }[nodeData.type];
             const showSummary = nodeData.summaryText && nodeData.isCollapsed;
             let aiHtml = nodeData.aiText;
@@ -845,8 +845,8 @@ function renderFocusLineage() {
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="align-self: ${nodeData.type === 'scrape' ? 'start' : 'center'}; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
-                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text} ${showSummary ? '(Summarized)' : ''}
+                <div class="focus-user" style="align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: center; gap: 5px;">
+                    ${icon} ${text} ${showSummary ? '(Summarized)' : ''}
                 </div>
                 ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>` : ''}
             `;

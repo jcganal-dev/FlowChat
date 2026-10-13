@@ -494,6 +494,13 @@ window.changeGroupColor = function (groupId, color, save = true) {
                 if (nodeIdEl) {
                     nodeIdEl.style.color = color;
                 }
+                const nodeIcon = el.querySelector('.node-icon');
+                if (nodeIcon) {
+                    if (n.type === 'document') nodeIcon.innerHTML = documentIcon(color) 
+                    if (n.type === 'image') nodeIcon.innerHTML = imageIcon(color) 
+                    if (n.type === 'chat') nodeIcon.innerHTML = chatIcon(color) 
+                    if (n.type === 'scrape') nodeIcon.innerHTML = scrapeIcon(color) 
+                }
             }
         });
 
@@ -846,6 +853,7 @@ window.addEventListener('mousedown', (e) => {
         if (!nodeEl) return;
         const nodeId = nodeEl.id;
         const node = nodes.find(n => n.id === nodeId);
+
         if (!node) return;
 
         if (e.target.classList.contains('handle-out')) {
@@ -857,6 +865,8 @@ window.addEventListener('mousedown', (e) => {
                 isDraggingEdge = true;
                 dragEdgeStartNodeId = node.parentId;
                 dragEdgeType = 'out';
+                const parentIndex = nodes.findIndex(n => n.id === node.parentId);
+                nodes[parentIndex].hasChild = false
                 node.parentId = null;
                 if (typeof drawEdges === 'function') drawEdges();
             } else {
@@ -905,20 +915,26 @@ window.addEventListener('mouseup', (e) => {
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
                         const targetNode = nodes.find(n => n.id === targetNodeId);
+                        const nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
                         if (targetNode) {
                             targetNode.parentId = dragEdgeStartNodeId;
+                            console.log()
+                            nodes[nodeIndex].hasChild = true
                         }
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
-                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        const nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+                        const startNode = nodes[nodeIndex]
                         if (startNode) {
                             startNode.parentId = targetNodeId;
+                            nodes[nodeIndex].hasChild = true
                         }
                     }
                 }
             }
         }
+
         if (typeof drawEdges === 'function') drawEdges();
         if (typeof saveState === 'function') saveState();
     }

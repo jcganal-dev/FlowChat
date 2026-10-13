@@ -319,6 +319,17 @@ window.addEventListener('keydown', (e) => {
     } else if (e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         if (typeof toggleFocusMode === 'function') toggleFocusMode();
+    } else if(e.shiftKey && e.key === 'Delete') {
+        const shiftClickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            shiftKey: true
+        });
+        document.getElementById(activeNodeId).querySelector('.delete-btn').dispatchEvent(shiftClickEvent)
+        e.preventDefault()
+    } else if (e.key === 'Delete') {
+        document.getElementById(activeNodeId).querySelector('.delete-btn').click()
+        e.preventDefault();
     }
 });
 
@@ -637,6 +648,14 @@ $('menu-ungroup').addEventListener('click', () => {
 
                 const nodeIdEl = el.querySelector('.node-id');
                 if (nodeIdEl) nodeIdEl.style.color = '';
+
+                const nodeIcon = el.querySelector('.node-icon');
+                if (nodeIcon) {
+                    if (n.type === 'document') nodeIcon.innerHTML = documentIcon() 
+                    if (n.type === 'image') nodeIcon.innerHTML = imageIcon() 
+                    if (n.type === 'chat') nodeIcon.innerHTML = chatIcon() 
+                    if (n.type === 'scrape') nodeIcon.innerHTML = scrapeIcon() 
+                }
             }
         }
     });

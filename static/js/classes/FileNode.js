@@ -6,7 +6,9 @@ class FileNode extends BaseNode {
             <div class="handle handle-in"></div>
             <div class="node-header">
                 <div class="header-name">
-                    <img src="/static/icons/${this.nodeData.type === 'image'? 'image' : 'file'}.svg" class="file-icon" />
+                    <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
+                        ${chatIcon()}
+                    </span>
                     <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 </div>
                 <div>

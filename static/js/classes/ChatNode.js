@@ -9,7 +9,9 @@ class ChatNode extends BaseNode {
             <div class="handle handle-in"></div>
             <div class="node-header">
                 <div class="header-name">
-                    <img src="/static/icons/node.svg" class="file-icon" />
+                    <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
+                        ${this.nodeData.type === 'image'? imageIcon() : documentIcon()}
+                    </span>
                     <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 </div>
                 <div>
@@ -284,7 +286,7 @@ class ChatNode extends BaseNode {
                     if (this.nodeData.aiThinking) Prism.highlightAllUnder(aiThinkEl);
                 }
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
-                this.el.querySelector('.add-child-btn').click();
+                if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
             }

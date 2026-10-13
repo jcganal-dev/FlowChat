@@ -586,6 +586,11 @@ body.shift-pressed.input-focused .node-id {
     overflow-wrap: break-word;
 }
 
+.node-input[contenteditable="true"] {
+    line-height: 1.25;
+    padding: 8px 8px;
+}
+
 .button-row {
     display: flex;
     justify-content: flex-end;
@@ -1088,6 +1093,7 @@ div[contentEditable='true'].scrape-node-input,
 
 .file-icon {
     width: 14px;
+    height: 14px;
     /* margin-left: 5px; */
     aspect-ratio: 1/1;
 }
