@@ -87,7 +87,8 @@ html {
     left: 100px;
     width: 300px;
     min-height: 450px;
-    max-height: 500px;
+    max-height: 750px;
+    max-width: 500px;
     background-color: var(--bg-surface);
     border: 1px solid var(--transparent-light);
     border-radius: 8px;
@@ -96,6 +97,16 @@ html {
     flex-direction: column;
     z-index: 10000;
     line-height: 1;
+}
+
+.sandbox-palette .resize-handle {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 14px;
+    height: 14px;
+    cursor: nwse-resize;
+    z-index: 10001;
 }
 
 .palette-header {
