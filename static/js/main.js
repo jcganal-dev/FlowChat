@@ -606,7 +606,7 @@ $('menu-group').addEventListener('click', async () => {
             });
         }
     } else {
-        const groupResult = await window.customGroupPrompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
+        const groupResult = await window.customGroupPrompt("Enter a name for this group:", "Group");
         if (!groupResult || !groupResult.name) return;
 
         const groupName = groupResult.name;
