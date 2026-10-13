@@ -84,34 +84,36 @@
             <a class="tab-btn" onclick="showSidebar('focus-chat-selection');updateChatHistory()" title="Chat History"><img src="/static/icons/chatnode.svg" class="tab-icon"/></a>
             <a class="tab-btn" onclick="showSidebar('focus-project-files')" title="Sandbox"><img src="/static/icons/sandbox.svg" class="tab-icon"/></a>
         </div>
-        <div id="focus-chat-selection" style="display: flex;" class="focus-chat-selection">
-            <div class="focus-sidebar-header">
-                <span><img src="/static/icons/chatnode.svg" class="file-icon"> Chat History</span>
-            </div>
-            <div id="chat-selection">
-
-            </div>
-        </div>
-        <div id="focus-project-files" class="focus-project-files">
-            <div class="focus-sidebar-header">
-                <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
-                <div class="header-actions">
-                    <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
-                            src="/static/icons/create-folder.svg" class="file-icon"></a>
-                    <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
-                        title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
-                    <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
-                        title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
-                    <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory
-                        multiple onchange="uploadSandboxFiles(event)">
-                    <input type="file" id="sidebar-file-input" style="display: none;" multiple
-                        onchange="uploadSandboxFiles(event)">
-                    <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
-                        <img src="/static/icons/refresh.svg" class="file-icon">
-                    </a>
+        <div class="focus-sidebar">
+            <div id="focus-chat-selection" style="display: flex;" class="focus-chat-selection">
+                <div class="focus-sidebar-header">
+                    <span><img src="/static/icons/chatnode.svg" class="file-icon"> Chat History</span>
+                </div>
+                <div id="chat-selection">
+    
                 </div>
             </div>
-            <div id="focus-file-tree" class="focus-file-tree"></div>
+            <div id="focus-project-files" class="focus-project-files">
+                <div class="focus-sidebar-header">
+                    <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
+                    <div class="header-actions">
+                        <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
+                                src="/static/icons/create-folder.svg" class="file-icon"></a>
+                        <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
+                            title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
+                        <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
+                            title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
+                        <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory
+                            multiple onchange="uploadSandboxFiles(event)">
+                        <input type="file" id="sidebar-file-input" style="display: none;" multiple
+                            onchange="uploadSandboxFiles(event)">
+                        <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
+                            <img src="/static/icons/refresh.svg" class="file-icon">
+                        </a>
+                    </div>
+                </div>
+                <div id="focus-file-tree" class="focus-file-tree"></div>
+            </div>
         </div>
         <div id="focus-main-container" class="focus-main-container">
             <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
@@ -162,7 +164,6 @@
             if (parent) {
                 textDisplay = parent.htmlText
                 if (parent.type=='document' || parent.type =='image') {
-                    // textDisplay = `<img src="/static/icons/${parent.type=='document'?'file':'image'}.svg" class="file-icon" style="margin-bottom: -2px;"/> ${parent.type=='document'?'Document':'Image'} attached: `
                     textDisplay = `${parent.type=='document'?'Document':'Image'} attached: `
                     parent.files.forEach(file => {
                         textDisplay += `${file.name}, `
@@ -170,7 +171,6 @@
                     textDisplay = textDisplay.slice(0, textDisplay.length-2)
                 }
                 else if (parent.type=='scrape') {
-                    // textDisplay = `<img src="/static/icons/globe.svg" class="file-icon" style="margin-bottom: -2px;"/> Scraped: ${parent.htmlText}`
                     textDisplay = `Scraped: ${parent.htmlText}`
                 }
             }
@@ -198,17 +198,30 @@
             last_active_chat = chatEntry
             $(targetNode.id).click();
             toggleFocusMode(true);
+            centerCanvas();
         })
         $('chat-selection').appendChild(chatEntry)
     }
 
     function updateChatHistory() {
         $('chat-selection').innerHTML = ''
+        const newChatBtn = document.createElement('div')
+        newChatBtn.classList.add('chat-entry')
+        newChatBtn.style.marginTop = '10px'
+        newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
+        $('chat-selection').appendChild(newChatBtn)
         nodes.forEach(node => {
             if (node.type == 'chat' && node.aiText == '' && node.aiThinking == '' && node.hasChild == false) {
                 if (typeof addToChatHistory == "function") {addToChatHistory(node)}
             }
         });
+
+        newChatBtn.addEventListener('click', () => {
+            updateChatHistory()
+            toggleFocusMode(true)
+            autoLayout()
+            centerCanvas()
+        })
     }
 </script>
 
