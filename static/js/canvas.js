@@ -911,11 +911,17 @@ window.addEventListener('mouseup', (e) => {
             const targetNodeEl = dropTarget.closest('.node');
             if (targetNodeEl) {
                 const targetNodeId = targetNodeEl.id;
+                nodes.findIndex(n => n.id === targetNodeId)
 
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
+                        
                         const targetNode = nodes.find(n => n.id === targetNodeId);
                         let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+
+                        if ((targetNode.type === 'chat' || targetNode.type === 'scrape') && targetNode.aiText.trim()=='') {
+                            return
+                        }
 
                         let parentNodes = new Set()
                         while (nodes[nodeIndex].parentId) {
@@ -931,9 +937,14 @@ window.addEventListener('mouseup', (e) => {
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
-                        let nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
                         const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
-
+                        const targetNode = nodes.find(n => n.id === targetNodeId);
+                        
+                        if ((targetNode.type === 'chat' || targetNode.type === 'scrape') && targetNode.aiText.trim()=='') {
+                            return
+                        }
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
                         let parentNodes = new Set()
                         while (nodes[nodeIndex].parentId) {
                             parentNodes.add(nodes[nodeIndex].parentId)
