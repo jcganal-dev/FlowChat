@@ -915,21 +915,35 @@ window.addEventListener('mouseup', (e) => {
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
                         const targetNode = nodes.find(n => n.id === targetNodeId);
-                        const nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
-                        if (nodes[nodeIndex].parentId == targetNodeId) return;
+                        let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+
+                        if (parentNodes.has(targetNodeId)) return;
                         if (targetNode) {
                             targetNode.parentId = dragEdgeStartNodeId;
-                            nodes[nodeIndex].hasChild = true
+                            nodes.find(n => n.id === dragEdgeStartNodeId).hasChild = true
                         }
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
-                        const nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
+                        let nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
                         const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
-                        if (dragEdgeStartNodeId.parentId == targetNodeId) return;
+
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+
+                        if (parentNodes.has(dragEdgeStartNodeId)) return;
                         if (startNode) {
                             startNode.parentId = targetNodeId;
-                            nodes[nodeIndex].hasChild = true
+                            nodes.find(n => n.id === targetNodeId).hasChild = true
                         }
                     }
                 }
