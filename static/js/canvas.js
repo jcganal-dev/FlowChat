@@ -915,17 +915,18 @@ window.addEventListener('mouseup', (e) => {
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
                         const targetNode = nodes.find(n => n.id === targetNodeId);
-                        const nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
+                        const nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+                        if (nodes[nodeIndex].parentId == targetNodeId) return;
                         if (targetNode) {
                             targetNode.parentId = dragEdgeStartNodeId;
-                            console.log()
                             nodes[nodeIndex].hasChild = true
                         }
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
-                        const nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
-                        const startNode = nodes[nodeIndex]
+                        const nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
+                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        if (dragEdgeStartNodeId.parentId == targetNodeId) return;
                         if (startNode) {
                             startNode.parentId = targetNodeId;
                             nodes[nodeIndex].hasChild = true
