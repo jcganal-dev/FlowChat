@@ -893,6 +893,111 @@ window.addEventListener('mousemove', (e) => {
     }
 });
 
+window.addEventListener('mousemove', (e) => {
+    if (isDraggingEdge) {
+
+        let dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+        const nodeEl = dropTarget.closest('.node');
+        let addNodeBtn = ''
+        if (dropTarget && dropTarget.classList.contains('add-child-btn')) {
+            addNodeBtn = dropTarget
+            if (nodeEl) dropTarget = nodeEl.querySelector('.handle-out');
+        } else {
+            addNodeBtn = ''
+        }
+
+        if (dropTarget && dropTarget.classList.contains('handle')) {
+            const targetNodeEl = dropTarget.closest('.node');
+            if (targetNodeEl) {
+                const targetNodeId = targetNodeEl.id;
+
+                if (dragEdgeType === 'out') {
+                    if (dropTarget.classList.contains('handle-out') || targetNodeId === dragEdgeStartNodeId || addNodeBtn) {
+                        dropTarget.classList.remove('handle-active')
+                        dropTarget.classList.add('handle-inactive')
+                        if (addNodeBtn) {
+                            addNodeBtn.classList.remove('add-child-btn-active')
+                            addNodeBtn.classList.add('add-child-btn-inactive')
+                        }
+                        return
+                    }
+                    if (targetNodeId !== dragEdgeStartNodeId) {
+
+
+                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+                        
+                        if ((startNode.type === 'chat' || startNode.type === 'scrape') && startNode.aiText.trim()=='') {
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+
+                        if (parentNodes.has(targetNodeId)) {
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+                        dropTarget.classList.add('handle-active')
+                    }
+                } 
+                else if (dragEdgeType === 'in') {
+                    
+                    if (dropTarget.classList.contains('handle-in') || targetNodeId === dragEdgeStartNodeId) {
+                        dropTarget.classList.remove('handle-active')
+                        dropTarget.classList.add('handle-inactive')
+                        if (addNodeBtn) {
+                            addNodeBtn.classList.remove('add-child-btn-active')
+                            addNodeBtn.classList.add('add-child-btn-inactive')
+                        }
+                        return
+                    }
+                    if (targetNodeId !== dragEdgeStartNodeId) {
+                        const targetNode = nodes.find(n => n.id === targetNodeId);
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+                        
+                        if ((targetNode.type === 'chat' || targetNode.type === 'scrape') && targetNode.aiText.trim()=='') {
+                            if (addNodeBtn) {
+                                addNodeBtn.classList.remove('add-child-btn-active')
+                                addNodeBtn.classList.add('add-child-btn-inactive')
+                            }
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+
+                        if (parentNodes.has(dragEdgeStartNodeId)) {
+                            if (addNodeBtn) {
+                                addNodeBtn.classList.remove('add-child-btn-active')
+                                addNodeBtn.classList.add('add-child-btn-inactive')
+                            }
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+                        if (addNodeBtn) {
+                            addNodeBtn.classList.add('add-child-btn-active')
+                        }
+                        dropTarget.classList.add('handle-active')
+                    }
+                }
+            }
+        }
+    }
+})
+
 window.addEventListener('mouseup', (e) => {
     if (isDraggingEdge) {
         isDraggingEdge = false;
@@ -911,18 +1016,18 @@ window.addEventListener('mouseup', (e) => {
             const targetNodeEl = dropTarget.closest('.node');
             if (targetNodeEl) {
                 const targetNodeId = targetNodeEl.id;
-                nodes.findIndex(n => n.id === targetNodeId)
 
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
-                        
-                        const targetNode = nodes.find(n => n.id === targetNodeId);
-                        let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
 
-                        if ((targetNode.type === 'chat' || targetNode.type === 'scrape') && targetNode.aiText.trim()=='') {
+                        const targetNode = nodes.find(n => n.id === targetNodeId);
+                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        
+                        if ((startNode.type === 'chat' || startNode.type === 'scrape') && startNode.aiText.trim()=='') {
                             return
                         }
-
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
                         let parentNodes = new Set()
                         while (nodes[nodeIndex].parentId) {
                             parentNodes.add(nodes[nodeIndex].parentId)
@@ -932,7 +1037,7 @@ window.addEventListener('mouseup', (e) => {
                         if (parentNodes.has(targetNodeId)) return;
                         if (targetNode) {
                             targetNode.parentId = dragEdgeStartNodeId;
-                            nodes.find(n => n.id === dragEdgeStartNodeId).hasChild = true
+                            startNode.hasChild = true
                         }
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {

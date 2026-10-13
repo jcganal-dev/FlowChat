@@ -523,6 +523,15 @@ body.shift-pressed.input-focused .node-id {
     transform: translate(-50%, -50%) scale(1.2);
 }
 
+.handle-active {
+    background: var(--accent-success);
+    transform: translate(-50%, -50%) scale(1.2);
+}
+.handle-inactive {
+    background: var(--border-base) !important;
+    transform: translate(-50%, -50%) !important;
+}
+
 .handle-in {
     top: 0;
 }
@@ -653,6 +662,16 @@ body.shift-pressed.input-focused .node-id {
 .add-child-btn:hover {
     background: var(--accent-info);
     color: var(--text-inverse);
+}
+
+.add-child-btn-active {
+    background: var(--accent-info);
+    color: var(--text-inverse);
+}
+
+.add-child-btn-inactive {
+    background: var(--border-base) !important;
+    color: var(--text-primary) !important;
 }
 
 .duplicate-btn {

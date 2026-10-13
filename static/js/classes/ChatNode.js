@@ -42,6 +42,20 @@ class ChatNode extends BaseNode {
         this.dupBtn = this.el.querySelector('.duplicate-btn');
         this.stopBtn = this.el.querySelector('.stop-btn');
         this.deleteBtn = this.el.querySelector('.delete-btn');
+        this.handleIn = this.el.querySelector('.handle-in');
+        this.handleOut = this.el.querySelector('.handle-out');
+        this.handleIn.addEventListener('mouseout', () => {
+            this.handleIn.classList.remove('handle-active')
+            this.handleIn.classList.remove('handle-inactive')
+        })
+        this.handleOut.addEventListener('mouseout', () => {
+            this.handleOut.classList.remove('handle-active')
+            this.handleOut.classList.remove('handle-inactive')
+        })
+        this.addBtn.addEventListener('mouseout', () => {
+            this.addBtn.classList.remove('add-child-btn-active')
+            this.addBtn.classList.remove('add-child-btn-inactive')
+        })
         this.stopBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();

@@ -42,6 +42,20 @@ class ScrapeNode extends BaseNode {
             this.runBtn.addEventListener('click', this.run.bind(this));
             this.addBtn.addEventListener('click', this.onFork.bind(this));
             this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
+            this.handleIn = this.el.querySelector('.handle-in');
+            this.handleOut = this.el.querySelector('.handle-out');
+            this.handleIn.addEventListener('mouseout', () => {
+                this.handleIn.classList.remove('handle-active')
+                this.handleIn.classList.remove('handle-inactive')
+            })
+            this.handleOut.addEventListener('mouseout', () => {
+                this.handleOut.classList.remove('handle-active')
+                this.handleOut.classList.remove('handle-inactive')
+            })
+            this.addBtn.addEventListener('mouseout', () => {
+                this.addBtn.classList.remove('add-child-btn-active')
+                this.addBtn.classList.remove('add-child-btn-inactive')
+            })
             this.el.addEventListener('click', (e) => {
                 if (this.el.dataset.dragged) return;
                 if (!e.target.closest('button') && !e.target.closest('textarea') && !e.target.closest('input')) {

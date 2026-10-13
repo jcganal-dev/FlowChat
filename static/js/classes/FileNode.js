@@ -32,6 +32,20 @@ class FileNode extends BaseNode {
             this.addBtn.addEventListener('click', this.onFork.bind(this));
             this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
             this.dropzone.addEventListener('click', () => this.fileInput.click());
+            this.handleIn = this.el.querySelector('.handle-in');
+            this.handleOut = this.el.querySelector('.handle-out');
+            this.handleIn.addEventListener('mouseout', () => {
+                this.handleIn.classList.remove('handle-active')
+                this.handleIn.classList.remove('handle-inactive')
+            })
+            this.handleOut.addEventListener('mouseout', () => {
+                this.handleOut.classList.remove('handle-active')
+                this.handleOut.classList.remove('handle-inactive')
+            })
+            this.addBtn.addEventListener('mouseout', () => {
+                this.addBtn.classList.remove('add-child-btn-active')
+                this.addBtn.classList.remove('add-child-btn-inactive')
+            })
             this.fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length) this.processMultipleFiles(e.target.files);
             });
