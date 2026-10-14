@@ -1,3 +1,40 @@
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toolArgsPreview(argsJson) {
+    try {
+        const args = JSON.parse(argsJson || '{}');
+        const first = Object.values(args)[0];
+        const s = typeof first === 'string' ? first : JSON.stringify(first) || '';
+        return s.length > 60 ? s.slice(0, 60) + '…' : s;
+    } catch { return (argsJson || '').slice(0, 60); }
+}
+
+// Answer = text segments only. Never contains reasoning or chips.
+function renderAnswerHtml(node) {
+    let text = node.aiText || '';
+    if (Array.isArray(node.aiSegments) && node.aiSegments.length) {
+        text = node.aiSegments.filter(s => s.type === 'text').map(s => s.text).join('\n\n');
+    }
+    return (typeof renderMarkdown === 'function') ? renderMarkdown(text) : escapeHtml(text);
+}
+
+// Chips render separately, into the think box's tools sub-div.
+function renderToolChipsHtml(node) {
+    const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
+    return segs.filter(s => s.type === 'tool_call').map(seg => {
+        const preview = escapeHtml(seg.argsPreview || '');
+        if (seg.status === 'running') {
+            return `<div class="tool-chip" data-seg-id="${escapeHtml(seg.id)}">` +
+                `Running:<b>${escapeHtml(seg.name)}</b>(${preview})</div>`;
+        }
+        return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
+            `<summary>Done: <b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
+            `<pre class="tool-result">${escapeHtml(seg.result || '')}</pre></details>`;
+    }).join('');
+}
+
 class ChatNode extends BaseNode {
     constructor(config) {
         config.type = 'chat';
@@ -28,8 +65,13 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="ai-section">
-                <div class="think-content" style="${this.nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${this.nodeData.aiThinking.trim() == '' ? `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...` : this.nodeData.aiThinking}</div>
-                <div class="ai-content">${this.nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.aiText) : this.nodeData.aiText) : ''}</div>
+                <div class="think-content" style="display:none">
+                    <div class="think-text">
+                        ${this.nodeData.aiThinking || ''}
+                    </div>
+                    <div class="think-tools"></div>
+                </div>
+                <div class="ai-content">${this.nodeData.aiText ? renderAnswerHtml(this.nodeData) : ''}</div>
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
             <div class="handle handle-out"></div>
@@ -153,6 +195,11 @@ class ChatNode extends BaseNode {
             if (typeof drawEdges === 'function') drawEdges();
         });
         this.addBtn.addEventListener('click', this.onFork.bind(this));
+        this.addBtn.addEventListener('click', () => {
+            this.onFork.bind(this)
+            autoLayout(true, this.nodeData.id)
+            centerCanvas()
+        });
         this.dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
@@ -185,13 +232,23 @@ class ChatNode extends BaseNode {
         this.nodeData.userText = usertext;
         this.nodeData.aiText = "";
         this.nodeData.aiThinking = "";
+        this.nodeData.aiSegments = [{ type: 'text', text: '' }];   // was missing — stale segments leaked between runs
         this.nodeData.abortController = new AbortController();
         const signal = this.nodeData.abortController.signal;
         const aiContentEl = this.el.querySelector('.ai-content');
         const aiThinkEl = this.el.querySelector('.think-content');
         this.el.style.width = '';
         aiContentEl.innerHTML = '';
-        aiThinkEl.innerHTML = `<div style="display:flex;flex-direction:row;"><img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>`;
+        // Stable sub-containers: reasoning text nodes and chips live in separate divs,
+        // so updating one never destroys the other.
+        aiThinkEl.innerHTML =
+            `<div class="think-placeholder" style="display:flex;flex-direction:row;align-items:center;">` +
+            `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>` +
+            `<div class="think-text"></div>` +
+            `<div class="think-tools"></div>`;
+        const thinkTextEl = aiThinkEl.querySelector('.think-text');
+        const thinkToolsEl = aiThinkEl.querySelector('.think-tools');
+        const thinkPlaceholder = aiThinkEl.querySelector('.think-placeholder');
         aiThinkEl.style.display = "flex";
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
@@ -248,38 +305,89 @@ class ChatNode extends BaseNode {
             }
         }
         const payload = { messages: history, max_tokens: 1000 };
+
+        let uiDirty = false;
+        const syncThinkVisibility = () => {
+            const hasReasoning = this.nodeData.aiThinking.trim() !== '';
+            const hasChips = (this.nodeData.aiSegments || []).some(s => s.type === 'tool_call');
+            aiThinkEl.style.display = (hasReasoning || hasChips) ? 'flex' : 'none';
+        };
+        const flushUi = () => {
+            uiDirty = false;
+            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here
+            if (aiThinkEl.isConnected) {
+                const CAP = 20000;
+                if (thinkTextEl.textContent.length > CAP) {
+                    thinkTextEl.textContent = thinkTextEl.textContent.slice(-CAP);
+                }
+                aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
+            }
+            if (typeof drawEdges === 'function') drawEdges();
+            updateThermometer(this.id);
+        };
+        const requestUiFlush = () => {
+            if (uiDirty) return;
+            uiDirty = true;
+            requestAnimationFrame(flushUi);
+        };
+
         await streamChatApi(payload, signal, {
             onContent: (content) => {
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 if (!erased_thoughts) {
-                    if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
-                        aiThinkEl.innerHTML = '';
-                        this.nodeData.aiThinking = '';
-                        aiThinkEl.style.display = "none";
-                    } else if (this.nodeData.aiThinking.trim() === '') {
-                        aiThinkEl.innerHTML = '';
-                        aiThinkEl.style.display = "none";
-                    }
                     erased_thoughts = true;
+                    if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
+                        thinkTextEl.textContent = '';
+                        this.nodeData.aiThinking = '';
+                    }
                 }
                 this.nodeData.aiText += content;
-                if (typeof renderMarkdown === 'function') {
-                    aiContentEl.innerHTML = renderMarkdown(this.nodeData.aiText);
-                } else aiContentEl.innerHTML += content;
-                if (typeof drawEdges === 'function') drawEdges();
-                updateThermometer(this.id);
+                const segs = this.nodeData.aiSegments;
+                let last = segs[segs.length - 1];
+                if (!last || last.type !== 'text') {
+                    last = { type: 'text', text: '' };
+                    segs.push(last);
+                }
+                last.text += content;
+                syncThinkVisibility();   // hides think box only when it truly has nothing to show
+                requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'content', this.nodeData.aiText);
             },
+            onToolCall: (tc) => {
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                this.nodeData.aiSegments.push({
+                    type: 'tool_call',
+                    id: tc.id || '',
+                    name: tc.name || 'tool',
+                    argsPreview: toolArgsPreview(tc.arguments),
+                    rawArgs: tc.arguments || '',
+                    status: 'running',
+                    result: ''
+                });
+                thinkToolsEl.innerHTML = renderToolChipsHtml(this.nodeData);   // chips only — reasoning text untouched
+                syncThinkVisibility();
+                requestUiFlush();
+            },
+            onToolResult: (tr) => {
+                const segs = this.nodeData.aiSegments || [];
+                for (let i = segs.length - 1; i >= 0; i--) {
+                    const s = segs[i];
+                    if (s.type === 'tool_call' && s.status === 'running' &&
+                        (tr.id ? s.id === tr.id : s.name === tr.name)) {
+                        s.status = 'done';
+                        s.result = tr.result || '';
+                        break;
+                    }
+                }
+                thinkToolsEl.innerHTML = renderToolChipsHtml(this.nodeData);
+                requestUiFlush();
+            },
             onReasoning: (reasoning) => {
-                aiThinkEl.style.display = "flex";
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 this.nodeData.aiThinking += reasoning;
-                // if (typeof renderMarkdown === 'function') {
-                //     aiThinkEl.innerHTML = renderMarkdown(this.nodeData.aiThinking);
-                // } else aiThinkEl.innerHTML += reasoning;
-                aiThinkEl.innerHTML += reasoning;
-                aiThinkEl.innerHTML = aiThinkEl.innerHTML.slice(Math.max(0, aiThinkEl.innerHTML.length-1500), aiThinkEl.innerHTML.length)
-                aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
-                if (typeof drawEdges === 'function') drawEdges();
-                updateThermometer(this.id);
+                thinkTextEl.appendChild(document.createTextNode(reasoning));
+                syncThinkVisibility();
+                requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'reasoning', this.nodeData.aiThinking);
             },
             onError: (error) => {
@@ -297,9 +405,11 @@ class ChatNode extends BaseNode {
             onComplete: () => {
                 if (window.Prism) {
                     Prism.highlightAllUnder(aiContentEl);
-                    if (this.nodeData.aiThinking) Prism.highlightAllUnder(aiThinkEl);
+                    // if (this.nodeData.aiThinking) Prism.highlightAllUnder(aiThinkEl);
                 }
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
+                this.el.querySelector('.think-content').innerHTML = '';
+                this.nodeData.aiThinking = ''
                 if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');

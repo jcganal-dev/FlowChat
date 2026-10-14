@@ -146,9 +146,61 @@ class Tools:
 
         return JSONResponse(content={"content": combined_markdown})
 
+    async def scrape(self, url: str) -> str:
+        """Fetch the full content of a specific webpage as markdown.
+
+        Args:
+            url: The URL of the page to fetch.
+        """
+        loop = asyncio.get_running_loop()
+        target_url = url if url.startswith("http") else "https://" + url
+        md = await loop.run_in_executor(None, self.run_crawl_sync, target_url)
+        if not md:
+            md = await loop.run_in_executor(None, self.run_jina_sync, target_url)
+        return md or f"Could not retrieve content from {target_url}"
+
     class ScrapeRequest(BaseModel):
         url: str
-    @tool
-    async def we_search(self, url: ScrapeRequest):
-        """Search the web for real-time information."""
-        return await self.scrape_with_jina(url)
+
+    async def web_search(self, query: str, max_results: int = 3) -> str:
+        """Search the web for real-time information. Use for anything recent, factual, or uncertain.
+
+        Args:
+            query: The search query or topic to look up.
+            max_results: Number of top results to fetch content from.
+        """
+        loop = asyncio.get_running_loop()
+
+        # If the "query" is actually a URL, scrape it directly
+        is_url = query.startswith("http://") or query.startswith("https://") or ("." in query and " " not in query)
+        if is_url:
+            target_url = query if query.startswith("http") else "https://" + query
+            md = await loop.run_in_executor(None, self.run_crawl_sync, target_url)
+            if not md:
+                md = await loop.run_in_executor(None, self.run_jina_sync, target_url)
+            return md or f"Could not retrieve content from {target_url}"
+
+        # Otherwise treat it as a search query
+        def _search():
+            with DDGS(timeout=20) as ddgs:
+                return list(ddgs.text(query, max_results=max_results, backend="lite"))
+
+        try:
+            results = await loop.run_in_executor(None, _search)
+            links = [r.get("href") for r in results if r.get("href")]
+        except Exception as e:
+            return f"Search failed: {e}"
+
+        if not links:
+            return "No search results found."
+
+        combined = f"# Search results for: {query}\n\n"
+        try:
+            crawled = await loop.run_in_executor(None, self.run_crawl_multi_sync, links)
+            for i, (link, md, err) in enumerate(crawled):
+                combined += f"## Source {i+1}: {link}\n\n"
+                combined += ((md[:4000] if md else f"Failed to scrape: {err}")) + "\n\n---\n\n"
+        except Exception as e:
+            return f"Search succeeded but crawling failed: {e}"
+
+        return combined

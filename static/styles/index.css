@@ -564,7 +564,7 @@ body.shift-pressed.input-focused .node-id {
     padding-left: 8px;
     margin: 8px 12px;
     white-space: pre-wrap;
-    max-height: 100px;
+    max-height: 200px;
     min-height: 0px;
     display: flex;
     flex-direction: column;
@@ -1249,10 +1249,10 @@ div[contentEditable='true'].scrape-node-input,
     background: var(--bg-surface-hover);
 }
 
-.ai-content pre,
-.focus-ai pre {
+.ai-content > pre,
+.focus-ai > pre {
     overflow: auto !important;
-    scrollbar-width: none !important;
+    /* scrollbar-width: none !important; */
 }
 
 h1,
@@ -1509,3 +1509,19 @@ h6 {
 .chat-entry-text:hover {
     background-color: var(--bg-surface-hover);
 }
+
+.tool-chip {
+    margin: 8px 0; 
+    padding: 4px 12px;
+    /* background: rgba(98, 114, 164, 0.15); */
+    /* border: 1px solid rgba(139, 233, 253, 0.3); */
+    /* border-radius: 8px;  */
+    font-size: 12px;
+}
+.tool-chip summary { cursor: pointer; }
+.tool-chip pre {
+    max-height: 200px; overflow: auto; margin: 6px 0 2px;
+    font-size: 11px; white-space: pre-wrap; word-break: break-word;
+    opacity: 0.85;
+}
+@keyframes toolspin { to { transform: rotate(360deg); } }

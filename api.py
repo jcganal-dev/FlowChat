@@ -12,16 +12,64 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
 from ddgs import DDGS
-import asyncio
 from dotenv import load_dotenv
 import os
 from tools import Tools
-from langchain.agents import create_agent
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
-from pydantic import SecretStr
+import asyncio
 
 agent_tools = Tools()
+
+TOOL_REGISTRY = {
+    "web_search": agent_tools.web_search,
+    "scrape": agent_tools.scrape,
+}
+
+TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web for current information. Use for anything recent, factual, or uncertain.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"},
+                    "max_results": {"type": "integer", "description": "Number of results to fetch (default 3)"}
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scrape",
+            "description": "Fetch the full content of a specific webpage as markdown.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The URL to fetch"}
+                },
+                "required": ["url"],
+            },
+        },
+    },
+]
+
+MAX_TOOL_ROUNDS = 6
+
+async def execute_tool(name: str, args: dict) -> str:
+    fn = TOOL_REGISTRY.get(name)
+    if fn is None:
+        return f"Error: unknown tool '{name}'"
+    try:
+        if asyncio.iscoroutinefunction(fn):
+            result = await fn(**args)
+        else:  # sync tools (e.g. DDGS) run in a thread so they don't block the loop
+            result = await asyncio.to_thread(fn, **args)
+        return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return f"Error running tool '{name}': {e}"
 
 DB_PATH = "flowchat.db"
 def init_db():
@@ -169,7 +217,7 @@ async def scrapeTool(url: ScrapeRequest):
 
 load_dotenv() 
 API_KEY = os.getenv("API_KEY")
-SERVER_URL = os.getenv("SERVER_URL")
+SERVER_URL: str = os.getenv("SERVER_URL", "")
 MODEL = os.getenv("MODEL")
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file")
@@ -178,7 +226,21 @@ if not SERVER_URL:
 if not MODEL:
     raise ValueError("MODEL not found in .env file")
 
-SYSTEM_INSTRUCTIONS = []
+tool_list = []
+
+for key in TOOL_REGISTRY:
+    tool_list.append(key)
+
+from datetime import date
+
+SYSTEM_INSTRUCTIONS = [
+    f"You have access to tools ({', '.join(tool_list)}).",
+    f"For you reference, today is {date.today()}",
+    "Use web_search whenever the question involves current events, recent data, or facts you're unsure about.",
+    "Prefer one focused search over many broad ones. Summarize results in your answer instead of dumping raw tool output.",
+    "If a search fails, tell the user rather than retrying indefinitely.",
+    "Once you arrive at an answer, give the answer to the user. Do not overthink."
+]
 
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
 
@@ -189,65 +251,119 @@ class ChatPayload(BaseModel):
 @app.post("/api/chat")
 async def chat_endpoint(user_data: ChatPayload):
     messages = user_data.messages
-    
+
     if len(messages) > 0 and messages[0].get("role") == "system":
-        original_content = messages[0].get("content", "")
-        messages[0]["content"] = f"{BASE_SYSTEM_PROMPT}\n\n{original_content}"
+        messages[0]["content"] = f"{BASE_SYSTEM_PROMPT}\n\n{messages[0].get('content', '')}"
     else:
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
-
-    payload = {
-        "model": MODEL,
-        "messages": user_data.messages,
-        "include_reasoning": True,
-        "stream": True
-    }
 
     async def stream_generator():
         async with httpx.AsyncClient(timeout=None) as client:
             headers = {
                 "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
             }
-            async with client.stream("POST", SERVER_URL, json=payload, headers=headers) as response:  # type: ignore
-                if response.status_code != 200:
-                    error_body = await response.aread()
-                    try:
-                        err_json = json.loads(error_body.decode())
-                        err_msg = err_json.get('error', {}).get('message', 'Unknown API Error')
-                    except Exception:
-                        err_msg = error_body.decode()
-                        
-                    yield json.dumps({"content": f"\n\n[API ERROR: HTTP {response.status_code} - {err_msg}]"}) + "\n"
-                    return
-                
-                async for line in response.aiter_lines():
-                    if line and line.startswith("data: "):
-                        data_str = line[6:]
 
+            for _round in range(MAX_TOOL_ROUNDS):
+                payload = {
+                    "model": MODEL,
+                    "messages": messages,
+                    "tools": TOOLS_SCHEMA,
+                    "include_reasoning": True,
+                    "stream": True,
+                }
+
+                assistant_content = ""
+                streamed_calls: Dict[int, dict] = {}  # index -> accumulated call
+                had_error = False
+
+                async with client.stream("POST", SERVER_URL, json=payload, headers=headers) as response:
+                    if response.status_code != 200:
+                        error_body = await response.aread()
+                        try:
+                            err_msg = json.loads(error_body.decode()).get("error", {}).get("message", "Unknown API Error")
+                        except Exception:
+                            err_msg = error_body.decode()
+                        yield json.dumps({"content": f"\n\n[API ERROR: HTTP {response.status_code} - {err_msg}]"}) + "\n"
+                        return
+
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
                         if data_str == "[DONE]":
                             break
-
                         try:
                             chunk = json.loads(data_str)
-                            
-                            if 'error' in chunk:
-                                yield json.dumps({"content": f"\n\n[API ERROR: {chunk['error'].get('message', 'Unknown error')}]"}) + "\n"
-                                break
-                                
-                            if 'choices' not in chunk or len(chunk['choices']) == 0:
-                                continue
-                                
-                            delta = chunk['choices'][0]['delta']
-                            
-                            # OpenRouter uses 'reasoning', frontend expects 'reasoning_content'
-                            if 'reasoning' in delta:
-                                delta['reasoning_content'] = delta.pop('reasoning')
-                                
-                            yield json.dumps(delta) + "\n"
-                        except (json.JSONDecodeError, KeyError, IndexError) as e:
+                        except json.JSONDecodeError:
                             continue
-    
+
+                        if "error" in chunk:
+                            yield json.dumps({"content": f"\n\n[API ERROR: {chunk['error'].get('message', 'Unknown error')}]"}) + "\n"
+                            had_error = True
+                            break
+
+                        if not chunk.get("choices"):
+                            continue
+                        delta = chunk["choices"][0].get("delta", {})
+
+                        if "reasoning" in delta:
+                            print(delta["reasoning"])
+                            yield json.dumps({"reasoning_content": delta["reasoning"]}) + "\n"
+
+                        if delta.get("content"):
+                            assistant_content += delta["content"]
+                            print(delta["content"])
+                            yield json.dumps({"content": delta["content"]}) + "\n"
+
+                        # tool call arguments arrive in pieces — merge by index
+                        if delta.get("tool_calls"):
+                            for tc in delta["tool_calls"]:
+                                idx = tc.get("index", 0)
+                                entry = streamed_calls.setdefault(idx, {"id": None, "name": "", "arguments": ""})
+                                if tc.get("id"):
+                                    entry["id"] = tc["id"]
+                                fn = tc.get("function") or {}
+                                if fn.get("name"):
+                                    entry["name"] = fn["name"]
+                                if fn.get("arguments"):
+                                    entry["arguments"] += fn["arguments"]
+
+                if had_error or not streamed_calls:
+                    return  # final answer finished (or error)
+
+                # Build the assistant message with tool_calls and execute them
+                calls = [streamed_calls[i] for i in sorted(streamed_calls)]
+                messages.append({
+                    "role": "assistant",
+                    "content": assistant_content or None,
+                    "tool_calls": [
+                        {
+                            "id": c["id"] or f"call_{i}",
+                            "type": "function",
+                            "function": {"name": c["name"], "arguments": c["arguments"] or "{}"},
+                        }
+                        for i, c in enumerate(calls)
+                    ],
+                })
+
+                for i, c in enumerate(calls):
+                    call_id = c["id"] or f"call_{i}"
+                    yield json.dumps({"tool_call": {"id": call_id, "name": c["name"], "arguments": c["arguments"]}}) + "\n"
+                    try:
+                        args = json.loads(c["arguments"] or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    result = await execute_tool(c["name"], args)
+                    yield json.dumps({"tool_result": {"id": call_id, "name": c["name"], "result": result}}) + "\n"
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": result[:8000],
+                    })
+
+            yield json.dumps({"content": "\n\n[Stopped: max tool rounds reached]"}) + "\n"
+
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
 class SavePayload(BaseModel):

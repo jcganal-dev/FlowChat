@@ -154,6 +154,8 @@ function deleteNode(nodeId, deleteBranch) {
         }, 20);
     }
 
+    centerCanvas()
+
     if (typeof saveState === 'function') saveState();
 }
 
@@ -492,6 +494,7 @@ function exitFocusMode() {
             if (typeof updateCanvas === 'function') updateCanvas();
         }
         document.getElementById(activeNodeId).querySelector('.node-input').innerHTML = document.getElementById('focus-chat-input').innerHTML;
+        document.getElementById(activeNodeId).querySelector('.node-input').focus()
     }
 
     if (typeof drawEdges === 'function') drawEdges();
