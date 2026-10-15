@@ -191,6 +191,10 @@
         if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
 
         chatEntry.addEventListener('click', () => {
+            // Prevent switching away from an in-progress streaming response
+            if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
+                return;
+            }
             if (last_active_chat) {
                 last_active_chat.querySelector('.chat-entry-text').style.backgroundColor = 'transparent'
             }
@@ -217,6 +221,10 @@
         });
 
         newChatBtn.addEventListener('click', () => {
+            // Prevent creating new chat while streaming
+            if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
+                return;
+            }
             createNode()
             updateChatHistory()
             toggleFocusMode(true)
