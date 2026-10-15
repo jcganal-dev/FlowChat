@@ -488,6 +488,22 @@ function toggleFocusMode(stayFocused = false) {
         chatInput.focus();
         moveContentEditableCaretToEnd(chatInput);
         lastFocusedInput = chatInput;
+
+        // P1 Fix: Real-time sync focus input → canvas input
+        // Remove any existing sync listener first
+        if (chatInput._syncListener) {
+            chatInput.removeEventListener('input', chatInput._syncListener);
+        }
+        chatInput._syncListener = () => {
+            const canvasInput = document.getElementById(activeNodeId)?.querySelector('.node-input');
+            if (canvasInput && !isFocusModeStreaming) {
+                canvasInput.innerHTML = chatInput.innerHTML;
+                // Update nodeData for saveState
+                const nodeData = nodes.find(n => n.id === activeNodeId);
+                if (nodeData) nodeData.htmlText = chatInput.innerHTML;
+            }
+        };
+        chatInput.addEventListener('input', chatInput._syncListener);
     }
 
     // Ensure button state is correct on entry
@@ -522,6 +538,13 @@ function exitFocusMode(abortStreaming = false) {
         focusModeStreamingNodeId = null;
     }
     // If streaming but not aborting, keep streaming state so we can restore view on re-entry
+
+    // P1 Fix: Clean up real-time sync listener
+    const focusInput = document.getElementById('focus-chat-input');
+    if (focusInput && focusInput._syncListener) {
+        focusInput.removeEventListener('input', focusInput._syncListener);
+        focusInput._syncListener = null;
+    }
 
     if (lastFocusedInput && lastFocusedInput.id === 'focus-chat-input') {
         lastFocusedInput = null;
