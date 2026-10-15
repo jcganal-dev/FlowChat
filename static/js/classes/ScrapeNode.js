@@ -8,7 +8,12 @@ class ScrapeNode extends BaseNode {
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
             <div class="node-header">
-                <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                <div class="header-name">
+                    <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
+                        ${scrapeIcon()}
+                    </span>
+                    <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                </div>
                 <div>
                     <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${this.nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${this.id}')">${this.nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
                     <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
@@ -37,6 +42,20 @@ class ScrapeNode extends BaseNode {
             this.runBtn.addEventListener('click', this.run.bind(this));
             this.addBtn.addEventListener('click', this.onFork.bind(this));
             this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
+            this.handleIn = this.el.querySelector('.handle-in');
+            this.handleOut = this.el.querySelector('.handle-out');
+            this.handleIn.addEventListener('mouseout', () => {
+                this.handleIn.classList.remove('handle-active')
+                this.handleIn.classList.remove('handle-inactive')
+            })
+            this.handleOut.addEventListener('mouseout', () => {
+                this.handleOut.classList.remove('handle-active')
+                this.handleOut.classList.remove('handle-inactive')
+            })
+            this.addBtn.addEventListener('mouseout', () => {
+                this.addBtn.classList.remove('add-child-btn-active')
+                this.addBtn.classList.remove('add-child-btn-inactive')
+            })
             this.el.addEventListener('click', (e) => {
                 if (this.el.dataset.dragged) return;
                 if (!e.target.closest('button') && !e.target.closest('textarea') && !e.target.closest('input')) {
@@ -168,15 +187,13 @@ class ScrapeNode extends BaseNode {
         const isSuccess = !this.nodeData.aiText.startsWith("Error:") && !this.nodeData.aiText.startsWith("Failed") && this.nodeData.aiText !== "No content returned.";
 
         if (isSuccess) {
-            // let nodeData = nodes.find(n => n.id === virtualId);
-            // if ()
             this.el.querySelector('.add-child-btn').classList.remove('hidden');
-            // Spawn a child ChatNode automatically
-            const newNodeId = createNode(this.id, this.nodeData.x, this.nodeData.y + this.el.offsetHeight + GRID_SIZE * 3, '', this.nodeData.turn + 1, 0, this.nodeData.name, null, 'chat');
+            if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
             if (typeof drawEdges === 'function') drawEdges();
             if (typeof saveState === 'function') saveState();
-            if (typeof selectNode === 'function') selectNode(newNodeId);
             if (typeof centerCanvas === 'function') centerCanvas();
+            const aiSection = this.el.querySelector('.ai-section')
+            aiSection.scrollTo({ top: aiSection.scrollHeight, behavior: 'smooth' });
         } else {
             this.textarea.contentEditable = true;
             this.runBtn.style.display = 'inline-flex';

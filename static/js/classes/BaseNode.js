@@ -1,6 +1,6 @@
 class BaseNode {
     constructor(config) {
-        const { parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat" } = config;
+        const { parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat" } = config;
         this.config = config;
 
         if (restoreData) {
@@ -34,6 +34,8 @@ class BaseNode {
         if (this.nodeData.muted) this.el.classList.add('muted-node');
         this.el.id = this.id;
         this.el.style.transform = `translate(${this.nodeData.x}px, ${this.nodeData.y}px)`;
+        this.el.style.width = `336px`;
+        this.el.style.minWidth = `336px`;
         if (this.nodeData.nodeWidth) this.el.style.width = `${this.nodeData.nodeWidth}px`;
         this.el.style.zIndex = highestZIndex++;
 
@@ -164,7 +166,7 @@ class BaseNode {
 
     onResizeMove(moveEvent) {
         const deltaX = (moveEvent.clientX - this.resizeStartMouseX) / camera.zoom;
-        const isSymmetrical = moveEvent.ctrlKey || moveEvent.metaKey;
+        const isSymmetrical = !(moveEvent.ctrlKey || moveEvent.metaKey);
         let diff = isSymmetrical ? deltaX * 2 : deltaX;
         if (moveEvent.altKey) diff = Math.round(diff / (isSymmetrical ? GRID_SIZE * 2 : GRID_SIZE)) * (isSymmetrical ? GRID_SIZE * 2 : GRID_SIZE);
         const snappedWidth = Math.min(Math.max(NODE_WIDTH.min, this.resizeTargetStartWidth + diff), NODE_WIDTH.max);
@@ -224,6 +226,41 @@ class BaseNode {
             selectedNodes.clear();
         } else {
             deleteNode(this.el.id, e.shiftKey);
+        }
+    }
+
+    /**
+     * Clean up all event listeners attached to this node.
+     * Called when node is deleted to prevent memory leaks.
+     */
+    cleanup() {
+        // Remove drag listeners
+        if (this.boundOnMouseMove) {
+            window.removeEventListener('mousemove', this.boundOnMouseMove);
+        }
+        if (this.boundOnMouseUp) {
+            window.removeEventListener('mouseup', this.boundOnMouseUp);
+        }
+        // Remove resize listeners
+        if (this.boundOnResizeMove) {
+            window.removeEventListener('mousemove', this.boundOnResizeMove);
+        }
+        if (this.boundOnResizeUp) {
+            window.removeEventListener('mouseup', this.boundOnResizeUp);
+        }
+        // Remove header mousedown (added in attachBaseListeners)
+        const header = this.el.querySelector('.node-header');
+        if (header && this.onDragStart) {
+            header.removeEventListener('mousedown', this.onDragStart.bind(this));
+        }
+        // Remove resize handle listener
+        const resizer = this.el.querySelector('.resize-handle');
+        if (resizer && this.onResizeStart) {
+            resizer.removeEventListener('mousedown', this.onResizeStart.bind(this));
+        }
+        // Stop observing for resize
+        if (typeof nodeResizeObserver !== 'undefined' && this.el) {
+            nodeResizeObserver.unobserve(this.el);
         }
     }
 }

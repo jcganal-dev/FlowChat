@@ -98,12 +98,11 @@ function areNodesInSameLineage(nodeIds) {
     return hitCount === nodeIds.size;
 }
 
-function createNode(parentId = null, x = 408, y = 216, initialUserText = "", turn = 1, branch = 0, name = "Master_Node", restoreData = null, type = "chat") {
+function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat") {
     if (restoreData) type = restoreData.type || 'chat';
     const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
     let nodeInstance;
     if (type === 'image' || type === 'document') nodeInstance = new FileNode(config);
-    else if (type === 'tool') nodeInstance = new ToolNode(config);
     else if (type === 'scrape') nodeInstance = new ScrapeNode(config);
     else nodeInstance = new ChatNode(config);
     return nodeInstance.id;
@@ -129,6 +128,20 @@ function deleteNode(nodeId, deleteBranch) {
         });
     }
 
+    // P0 Fix: Abort any in-flight requests for nodes being deleted
+    idsToRemove.forEach(id => {
+        const nodeToDelete = nodes.find(n => n.id === id);
+        if (nodeToDelete && nodeToDelete.abortController) {
+            nodeToDelete.abortController.abort();
+            nodeToDelete.abortController = null;
+        }
+        // P0 Fix: Call cleanup on node instance to remove event listeners
+        const el = document.getElementById(id);
+        if (el && el.__nodeInstance && typeof el.__nodeInstance.cleanup === 'function') {
+            el.__nodeInstance.cleanup();
+        }
+    });
+
     idsToRemove.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
@@ -150,7 +163,7 @@ function deleteNode(nodeId, deleteBranch) {
     }
     if (nodes.length === 0) {
         setTimeout(() => {
-            createNode();
+            createNode(null, 0,0);
         }, 20);
     }
 
@@ -260,14 +273,14 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         const gNodes = nodes.filter(n => n.groupId === refId);
 
         if (groupObj.isCollapsed) {
-            chipLabel = `Summary of ${groupObj.name}`;
+            chipLabel = `Summary of <span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
             gNodes.forEach((n, idx) => {
                 if (n.summaryText && n.summaryText !== "Summary unavailable.") {
                     refText += `[NODE_${idx}] SUMMARY: ${n.summaryText}\n\n`;
                 }
             });
         } else {
-            chipLabel = `${groupObj.name}`;
+            chipLabel = `<span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
             gNodes.forEach((n, idx) => {
                 if (n.aiText && n.aiText.trim() !== '') {
                     refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${n.aiText}\n\n`;
@@ -281,27 +294,28 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (!refData) return false;
 
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
+            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refId}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
+            chipLabel = `<img src="/static/icons/document.svg" class="file-icon"> ${refId}`;
             if (refId.endsWith('/*')) {
                 const folderName = refId.split('/').slice(1, -1).join('/');
-                chipLabel = `<img src="/static/icons/folder.svg" class="file-icon"> ${folderName}/*`;
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
                     refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
                 });
             } else {
-                let src = getIconpath(refData.files[0].name.split('.').pop().toLowerCase())
-                src = refData.files.length > 1 ? getIconpath('') : src;
-                chipLabel = `<img src="${src}" class="file-icon"> ${refData.files.map(f => f.name).join(', ')}`;
                 refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             }
             isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
             chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
+        } else if (refData.type === 'scrape') {
+            if (!refData.aiText || refData.aiText.trim() === '') return false;
+            chipLabel = `<img src="/static/icons/globe.svg" class="file-icon"> ${refId}`;
+            refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
             chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> ${refId}`;
@@ -357,6 +371,13 @@ function handleIdClick(event, id, isGroup = false) {
     if (event.shiftKey) {
         let inserted = false;
         if (lastFocusedInput && lastSelectionRange) {
+            // Defensive: re-capture the live cursor position right before inserting.
+            // The stored range can go stale (e.g., the user moved the cursor or typing
+            // advanced the selection), which would drop the chip at a wrong spot.
+            const sel = window.getSelection();
+            if (sel.rangeCount && lastFocusedInput.contains(sel.anchorNode)) {
+                lastSelectionRange = sel.getRangeAt(0).cloneRange();
+            }
             inserted = insertChipAtRange(lastFocusedInput, lastSelectionRange, id, isGroup);
         }
 
@@ -384,22 +405,32 @@ document.addEventListener('selectionchange', () => {
    ========================================================================= */
 
 let isFocusModeActive = false;
+let isFocusModeStreaming = false; // Tracks if we're currently streaming a response
+let focusModeStreamingNodeId = null; // The nodeId currently being streamed
 
 /**
  * Toggles the linear chat Focus Mode on or off for the current active branch lineage.
  */
-function toggleFocusMode() {
+function toggleFocusMode(stayFocused = false) {
     const focusBg = document.getElementById('focus-bg');
     if (!focusBg) return;
 
     const activeData = nodes.find(n => n.id === activeNodeId);
-    if (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat') {
-        return
+
+    // If already in focus mode and not stayFocused, exit
+    if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
+        if (!stayFocused) {
+            exitFocusMode();
+            return;
+        }
     }
 
-    if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
-        exitFocusMode();
-        return;
+    // If not in focus mode but streaming, allow re-entry to restore streaming view
+    // Otherwise, apply normal entry restrictions
+    if (!isFocusModeActive && !isFocusModeStreaming) {
+        if (activeData && (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat' || activeData.aiThinking.trim() != '')) {
+            return
+        }
     }
 
     if (!activeNodeId) {
@@ -410,18 +441,16 @@ function toggleFocusMode() {
         }
     }
 
+    updateChatHistory()
+
 
     isFocusModeActive = true;
     focusBg.style.display = 'flex';
     document.body.classList.add('focus-mode-active');
 
     // Update header info
-    const titleEl = document.getElementById('focus-lineage-title');
     const badgeEl = document.getElementById('focus-node-count-badge');
 
-    if (titleEl) {
-        titleEl.textContent = activeData ? `${activeData.name || 'Branch'}` : 'Branch Chat';
-    }
     if (badgeEl) {
         badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
     }
@@ -452,23 +481,70 @@ function toggleFocusMode() {
     // Focus input
     const chatInput = document.getElementById('focus-chat-input');
     if (chatInput) {
-        chatInput.innerHTML = document.getElementById(activeNodeId).querySelector('.node-input').innerHTML;
+        // Don't overwrite input if we're streaming (preserve in-progress content)
+        if (!isFocusModeStreaming) {
+            chatInput.innerHTML = document.getElementById(activeNodeId).querySelector('.node-input').innerHTML;
+        }
         chatInput.focus();
         moveContentEditableCaretToEnd(chatInput);
         lastFocusedInput = chatInput;
+
+        // P1 Fix: Real-time sync focus input → canvas input
+        // Remove any existing sync listener first
+        if (chatInput._syncListener) {
+            chatInput.removeEventListener('input', chatInput._syncListener);
+        }
+        chatInput._syncListener = () => {
+            const canvasInput = document.getElementById(activeNodeId)?.querySelector('.node-input');
+            if (canvasInput && !isFocusModeStreaming) {
+                canvasInput.innerHTML = chatInput.innerHTML;
+                // Update nodeData for saveState
+                const nodeData = nodes.find(n => n.id === activeNodeId);
+                if (nodeData) nodeData.htmlText = chatInput.innerHTML;
+            }
+        };
+        chatInput.addEventListener('input', chatInput._syncListener);
+    }
+
+    // Ensure button state is correct on entry
+    if (isFocusModeStreaming && focusModeStreamingNodeId) {
+        updateFocusModeButtonState('streaming', focusModeStreamingNodeId);
+    } else {
+        updateFocusModeButtonState();
     }
 }
 
 /**
  * Exits Focus Mode and synchronizes the canvas camera and state.
+ * Does NOT abort streaming - generation continues on the canvas node.
+ * @param {boolean} abortStreaming - If true, abort the generation (e.g., user clicked Stop). Default false.
  */
-function exitFocusMode() {
+function exitFocusMode(abortStreaming = false) {
     const focusBg = document.getElementById('focus-bg');
     if (focusBg) focusBg.style.display = 'none';
     isFocusModeActive = false;
     document.body.classList.remove('focus-mode-active');
     const sandboxMenu = document.getElementById('sandbox-context-menu');
     if (sandboxMenu) sandboxMenu.style.display = 'none';
+
+    // If we were streaming and explicitly asked to abort (e.g., Stop button), abort it
+    if (abortStreaming && isFocusModeStreaming && focusModeStreamingNodeId) {
+        const nodeData = nodes.find(n => n.id === focusModeStreamingNodeId);
+        if (nodeData && nodeData.abortController) {
+            nodeData.abortController.abort();
+        }
+        // Reset streaming state
+        isFocusModeStreaming = false;
+        focusModeStreamingNodeId = null;
+    }
+    // If streaming but not aborting, keep streaming state so we can restore view on re-entry
+
+    // P1 Fix: Clean up real-time sync listener
+    const focusInput = document.getElementById('focus-chat-input');
+    if (focusInput && focusInput._syncListener) {
+        focusInput.removeEventListener('input', focusInput._syncListener);
+        focusInput._syncListener = null;
+    }
 
     if (lastFocusedInput && lastFocusedInput.id === 'focus-chat-input') {
         lastFocusedInput = null;
@@ -483,7 +559,15 @@ function exitFocusMode() {
             camera.y = (window.innerHeight / 2) - activeData.y - (activeEl.offsetHeight / 2);
             if (typeof updateCanvas === 'function') updateCanvas();
         }
-        document.getElementById(activeNodeId).querySelector('.node-input').innerHTML = document.getElementById('focus-chat-input').innerHTML;
+        // Sync focus input back to canvas node (only if not streaming, as streaming node updates itself)
+        if (!isFocusModeStreaming) {
+            const focusInput = document.getElementById('focus-chat-input');
+            const canvasInput = document.getElementById(activeNodeId)?.querySelector('.node-input');
+            if (focusInput && canvasInput) {
+                canvasInput.innerHTML = focusInput.innerHTML.trim() || activeData.htmlText;
+                canvasInput.focus();
+            }
+        }
     }
 
     if (typeof drawEdges === 'function') drawEdges();
@@ -491,6 +575,31 @@ function exitFocusMode() {
     if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
     centerCanvas();
+}
+
+/**
+ * Centralized function to update focus mode button and input state.
+ * @param {string} state - 'idle' | 'streaming' | 'error' | 'complete'
+ * @param {string} [nodeId] - The nodeId being streamed (required for 'streaming')
+ */
+function updateFocusModeButtonState(state = 'idle', nodeId = null) {
+    const chatInput = document.getElementById('focus-chat-input');
+    const sendBtn = document.getElementById('focus-send-btn');
+    const stopBtn = document.getElementById('focus-stop-btn');
+
+    if (state === 'streaming') {
+        isFocusModeStreaming = true;
+        focusModeStreamingNodeId = nodeId;
+        if (chatInput) chatInput.contentEditable = false;
+        if (sendBtn) sendBtn.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'flex';
+    } else {
+        isFocusModeStreaming = false;
+        focusModeStreamingNodeId = null;
+        if (chatInput) chatInput.contentEditable = true;
+        if (sendBtn) sendBtn.style.display = 'flex';
+        if (stopBtn) stopBtn.style.display = 'none';
+    }
 }
 
 /**
@@ -794,10 +903,21 @@ async function renderFocusProjectFiles() {
 
 /**
  * Renders the linear message lineage history in the main chat layer.
+ * Preserves the currently streaming node (if any) to avoid wiping in-progress content.
  */
 function renderFocusLineage() {
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
     if (!focusNodesLayer) return;
+
+    // Save the streaming node element if it exists, so we can restore it after re-render
+    let streamingNodeEl = null;
+    if (isFocusModeStreaming && focusModeStreamingNodeId) {
+        streamingNodeEl = document.getElementById(`focus-turn-${focusModeStreamingNodeId}`);
+        if (streamingNodeEl) {
+            // Detach it temporarily to preserve its state
+            streamingNodeEl = streamingNodeEl.cloneNode(true);
+        }
+    }
 
     focusNodesLayer.innerHTML = '';
 
@@ -805,7 +925,8 @@ function renderFocusLineage() {
         const nodeData = nodes.find(n => n.id === nodeId);
         if (!nodeData) return;
 
-        // Skip the last node
+        // Skip the last node (the active/input node) - it's rendered separately by sendFocusMessage()
+        // and preserved via cloning when streaming. The loop only renders completed ancestor turns.
         if (nodeId === activeNodeId) return;
 
         const nodeEl = document.getElementById(nodeId);
@@ -813,16 +934,16 @@ function renderFocusLineage() {
         // Document or Image node attached in lineage
         if (nodeData.type === 'document' || nodeData.type === 'image' || nodeData.type === 'scrape') {
             const files = nodeData.files || [];
-            const fileList = files.map(f => f.name).join(', ') || nodeData.id;
+            const fileList = files.map(f => f.name).join(', ') || 'None';
             const icon = {
-                'document': '/static/icons/file.svg',
-                'image': '/static/icons/image.svg',
-                'scrape': '/static/icons/globe.svg'
+                'document': documentIcon(),
+                'image': imageIcon(),
+                'scrape': scrapeIcon()
             }[nodeData.type];
             const text = {
                 'document': `Document attached: ${fileList}`,
                 'image': `Image attached: ${fileList}`,
-                'scrape': `Scraped: <span style="text-decoration:underline;">${nodeData.htmlText}</span>`,
+                'scrape': `Scraped: <span style="text-decoration:${nodeData.htmlText? 'underline': 'none'};">${nodeData.htmlText || 'None'}</span>`,
             }[nodeData.type];
             const showSummary = nodeData.summaryText && nodeData.isCollapsed;
             let aiHtml = nodeData.aiText;
@@ -837,8 +958,8 @@ function renderFocusLineage() {
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="align-self: ${nodeData.type === 'scrape' ? 'start' : 'center'}; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px;">
-                    <img src="${icon}" class="file-icon" style="vertical-align: middle; margin-top: -3px;"> ${text} ${showSummary ? '(Summarized)' : ''}
+                <div class="focus-user" style="align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: center; gap: 5px;">
+                    ${icon} ${text} ${showSummary ? '(Summarized)' : ''}
                 </div>
                 ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>` : ''}
             `;
@@ -906,6 +1027,11 @@ function renderFocusLineage() {
         focusNodesLayer.appendChild(turnDiv);
     });
 
+    // Restore the streaming node if we saved it (append at the end since it's the active node)
+    if (streamingNodeEl) {
+        focusNodesLayer.appendChild(streamingNodeEl);
+    }
+
     focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
 }
 
@@ -917,14 +1043,17 @@ async function sendFocusMessage() {
     const chatInput = document.getElementById('focus-chat-input');
     if (!chatInput) return;
 
+    // P0 Fix: Prevent double-send while already streaming
+    if (isFocusModeStreaming) {
+        return;
+    }
+
     const userHtml = chatInput.innerHTML.trim();
     const userText = chatInput.textContent.trim();
     if (!userText) return;
 
-    const sendBtn = document.getElementById('focus-send-btn');
-    const stopBtn = document.getElementById('focus-stop-btn');
-    if (sendBtn) sendBtn.style.display = 'none';
-    if (stopBtn) stopBtn.style.display = 'flex';
+    // Use centralized state management
+    updateFocusModeButtonState('streaming'); // nodeId will be set after we determine targetNodeId
 
     chatInput.innerHTML = '';
 
@@ -972,10 +1101,12 @@ async function sendFocusMessage() {
     // Set input content in canvas node instance
     const targetEl = document.getElementById(targetNodeId);
     if (!targetEl || !targetEl.__nodeInstance) {
-        if (sendBtn) sendBtn.style.display = 'flex';
-        if (stopBtn) stopBtn.style.display = 'none';
+        updateFocusModeButtonState('idle');
         return;
     }
+
+    // Now that we have targetNodeId, update streaming state with the correct nodeId
+    updateFocusModeButtonState('streaming', targetNodeId);
 
     const nodeInstance = targetEl.__nodeInstance;
     const inputEl = (nodeInstance && nodeInstance.textarea) ? nodeInstance.textarea : targetEl.querySelector('.node-input');
@@ -1023,35 +1154,30 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
 
     const thinkEl = turnEl.querySelector('.focus-think');
     const aiEl = turnEl.querySelector('.focus-ai');
-    const stopBtn = document.getElementById('focus-stop-btn');
-    const sendBtn = document.getElementById('focus-send-btn');
     const nodesLayer = document.getElementById('focus-nodes-layer');
 
     if (type === 'reasoning') {
         if (thinkEl) {
+            const truncData = data.slice(Math.max(0,data.length-1000),data.length)
             thinkEl.style.display = 'block';
-            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${typeof renderMarkdown === 'function' ? renderMarkdown(data) : data}</div>`;
+            thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${truncData}</div>`;
         }
-        if (stopBtn) stopBtn.style.display = 'flex';
-        if (sendBtn) sendBtn.style.display = 'none';
+        updateFocusModeButtonState('streaming', nodeId);
     } else if (type === 'content') {
         if (thinkEl) thinkEl.remove();
         if (aiEl) {
             aiEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(data) : data;
         }
-        if (stopBtn) stopBtn.style.display = 'flex';
-        if (sendBtn) sendBtn.style.display = 'none';
+        updateFocusModeButtonState('streaming', nodeId);
     } else if (type === 'error') {
         if (isAborted) {
             if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
         } else {
             if (aiEl) aiEl.innerHTML = `<span style="color: #ff5555;">Error: ${data ? (data.message || data) : 'Unknown error'}</span>`;
         }
-        if (stopBtn) stopBtn.style.display = 'none';
-        if (sendBtn) sendBtn.style.display = 'flex';
+        updateFocusModeButtonState('idle');
     } else if (type === 'complete') {
-        if (stopBtn) stopBtn.style.display = 'none';
-        if (sendBtn) sendBtn.style.display = 'flex';
+        updateFocusModeButtonState('idle');
         if (window.Prism && aiEl) {
             Prism.highlightAllUnder(aiEl);
             if (thinkEl) Prism.highlightAllUnder(thinkEl);
@@ -1062,6 +1188,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
             lastFocusedInput = inputEl;
         }
         autoLayout();
+        updateChatHistory();
     }
 
     if (nodesLayer) {
@@ -1096,8 +1223,10 @@ function setupFocusInputListeners() {
 
     if (stopBtn) {
         stopBtn.addEventListener('click', () => {
-            if (activeNodeId) {
-                const nodeData = nodes.find(n => n.id === activeNodeId);
+            // Use the streaming node ID if available, otherwise fall back to activeNodeId
+            const nodeIdToAbort = focusModeStreamingNodeId || activeNodeId;
+            if (nodeIdToAbort) {
+                const nodeData = nodes.find(n => n.id === nodeIdToAbort);
                 if (nodeData && nodeData.abortController) {
                     nodeData.abortController.abort();
                 }
@@ -1200,12 +1329,12 @@ function setupFocusInputListeners() {
         });
     }
 
-    // ESC key to exit Focus Mode
+    // ESC key to exit Focus Mode (does not abort streaming)
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             const focusBg = document.getElementById('focus-bg');
             if (focusBg && focusBg.style.display !== 'none' && focusBg.style.display !== '') {
-                exitFocusMode();
+                exitFocusMode(false); // Don't abort generation on Escape
             }
         }
     });

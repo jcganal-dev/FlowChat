@@ -91,8 +91,10 @@ async function triggerSummarize(groupId) {
         summarizableNodes.push(n);
     });
 
-    const btn = document.querySelector(`#box_${groupId} .summarize-btn`);
+    // P1 Fix: Helper to get current button (re-query each time to avoid stale reference)
+    const getBtn = () => document.querySelector(`#box_${groupId} .summarize-btn`);
 
+    let btn = getBtn();
     if (summarizableNodes.length === 0) {
         if (btn) btn.innerHTML = `<img src='/static/icons/bulb.svg' class="file-icon" style='margin-bottom: -2px;'> Summarize`
         group.isSummarized = true;
@@ -116,13 +118,20 @@ async function triggerSummarize(groupId) {
             summary += content;
         },
         onReasoning: (reasoning) => {
+            btn = getBtn(); // Re-query
             if (btn && summary === "") btn.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Summarize failed:", error);
+            btn = getBtn(); // Re-query
             if (btn) btn.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
+            // P1 Fix: Validate group still exists
+            const currentGroup = groups[groupId];
+            if (!currentGroup) return;
+
+            btn = getBtn(); // Re-query
             groupNodes.forEach((n, idx) => {
                 if (n.type === 'document' || n.type === 'image') return;
                 const uText = n.userText || "";
@@ -182,14 +191,20 @@ async function triggerSingleSummarize(nodeId) {
         ? `Source URL: ${uText}\n\nScraped Content:\n${aText}`
         : `User: ${uText}\nAI: ${aText}`;
 
-    const el = document.getElementById(node.id);
-    let sumEl = null;
+    // P1 Fix: Re-query DOM elements in callbacks to avoid stale references
+    const getEl = () => document.getElementById(nodeId);
+    const getSumEl = () => {
+        const el = getEl();
+        return el ? el.querySelector('.node-summary-display') : null;
+    };
+
+    let el = getEl();
+    let sumEl = getSumEl();
     let oldHeight = 0;
     if (el) {
         oldHeight = el.offsetHeight;
-        sumEl = el.querySelector('.node-summary-display');
         if (sumEl) {
-            sumEl.style.display = 'block';
+            // Let CSS handle visibility via .collapsed-node class
             sumEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
         }
     }
@@ -206,23 +221,32 @@ async function triggerSingleSummarize(nodeId) {
     await streamChatApi(payload, null, {
         onContent: (content) => {
             summary += content;
+            sumEl = getSumEl(); // Re-query
             if (sumEl) sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(summary) : summary;
         },
         onReasoning: (reasoning) => {
+            sumEl = getSumEl(); // Re-query
             if (sumEl && summary === "") sumEl.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Thinking...";
         },
         onError: (error) => {
             console.error("Single Summarize failed:", error);
+            sumEl = getSumEl(); // Re-query
             if (sumEl) sumEl.innerHTML = "<img src='/static/icons/error.svg' class='file-icon' style='margin-bottom: -2px;'> Error";
         },
         onComplete: () => {
-            node.summaryText = summary.trim() || "Summary unavailable.";
-            node.isCollapsed = true;
+            // P1 Fix: Validate node still exists
+            const currentNode = nodes.find(n => n.id === nodeId);
+            if (!currentNode) return;
 
+            currentNode.summaryText = summary.trim() || "Summary unavailable.";
+            currentNode.isCollapsed = true;
+
+            el = getEl(); // Re-query
+            sumEl = getSumEl(); // Re-query
             if (el) {
                 el.classList.add('collapsed-node');
                 if (sumEl) {
-                    sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(node.summaryText) : node.summaryText;
+                    sumEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(currentNode.summaryText) : currentNode.summaryText;
                 }
                 const toggleBtn = el.querySelector('.toggle-btn');
                 if (toggleBtn) {
@@ -233,7 +257,7 @@ async function triggerSingleSummarize(nodeId) {
                 const newHeight = el.offsetHeight;
                 const deltaY = newHeight - oldHeight;
                 if (deltaY !== 0) {
-                    if (typeof shiftChildrenXY === 'function') shiftChildrenXY(node.id, 0, deltaY);
+                    if (typeof shiftChildrenXY === 'function') shiftChildrenXY(nodeId, 0, deltaY);
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();

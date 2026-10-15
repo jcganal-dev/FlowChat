@@ -1,3 +1,111 @@
+function escapeHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function toolArgsPreview(argsJson) {
+    try {
+        const args = JSON.parse(argsJson || '{}');
+        const first = Object.values(args)[0];
+        const s = typeof first === 'string' ? first : JSON.stringify(first) || '';
+        return s.length > 60 ? s.slice(0, 60) + '…' : s;
+    } catch { return (argsJson || '').slice(0, 60); }
+}
+
+// One chip, either state. Used by both the streaming renderer and restore.
+function renderToolChipHtml(seg) {
+    const preview = escapeHtml(seg.argsPreview || '');
+    if (seg.status === 'running') {
+        return `<div class="tool-chip" data-seg-id="${escapeHtml(seg.id)}">` +
+            `Running:<b>${escapeHtml(seg.name)}</b>(${preview})</div>`;
+    }
+    return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
+        `<summary>Done: <b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
+        `<pre class="tool-result">${escapeHtml(seg.result || '')}</pre></details>`;
+}
+
+// Kept for any external callers.
+function renderToolChipsHtml(node) {
+    const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
+    return segs.filter(s => s.type === 'tool_call').map(renderToolChipHtml).join('');
+}
+
+// Static one-shot think-stream HTML (restore / first paint).
+function renderThinkStreamHtml(node) {
+    const segs = (Array.isArray(node.aiSegments) ? node.aiSegments : [])
+        .filter(s => s.type === 'reasoning' || s.type === 'tool_call');
+    if (!segs.length) {
+        return node.aiThinking ? `<div class="think-text">${escapeHtml(node.aiThinking)}</div>` : '';
+    }
+    return segs.map(seg => seg.type === 'reasoning'
+        ? `<div class="think-text">${escapeHtml(seg.text || '')}</div>`
+        : renderToolChipHtml(seg)
+    ).join('');
+}
+
+const THINK_CAP = 20000;
+
+// Diffs text into el with minimal DOM churn.
+function updateThinkTextEl(el, text) {
+    const shown = el._shown || '';
+    if (text.length > THINK_CAP) {
+        const target = '…' + text.slice(-THINK_CAP);   // sliding window — full reset is fine at this size
+        if (target !== shown) el.textContent = target;
+        el._shown = target;
+    } else if (text.startsWith(shown)) {
+        if (text.length > shown.length) el.appendChild(document.createTextNode(text.slice(shown.length)));
+        el._shown = text;
+    } else {
+        el.textContent = text;
+        el._shown = text;
+    }
+}
+
+// Incrementally reconciles container children with the node's reasoning +
+// tool_call segments, in stream order. Text is appended as text nodes; chips
+// are only re-rendered when their own HTML changes, so a chip's <details>
+// open state survives later updates to other segments.
+function renderThinkStream(container, node) {
+    if (!container) return;
+    const segs = (node.aiSegments || []).filter(s => s.type === 'reasoning' || s.type === 'tool_call');
+    while (container.childElementCount > segs.length) container.lastElementChild.remove();
+    for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        let el = container.children[i] || null;
+        if (seg.type === 'reasoning') {
+            if (!el || el.dataset.segType !== 'reasoning') {
+                if (el) el.remove();
+                el = document.createElement('div');
+                el.className = 'think-text';
+                el.dataset.segType = 'reasoning';
+                el._shown = '';
+                container.appendChild(el);
+            }
+            updateThinkTextEl(el, seg.text || '');
+        } else {
+            if (!el || el.dataset.segType !== 'tool_call') {
+                if (el) el.remove();
+                el = document.createElement('div');
+                el.dataset.segType = 'tool_call';
+                container.appendChild(el);
+            }
+            const html = renderToolChipHtml(seg);
+            if (el._chipHtml !== html) {
+                el.innerHTML = html;
+                el._chipHtml = html;
+            }
+        }
+    }
+}
+
+// Answer = text segments only. Never contains reasoning or chips.
+function renderAnswerHtml(node) {
+    let text = node.aiText || '';
+    if (Array.isArray(node.aiSegments) && node.aiSegments.length) {
+        text = node.aiSegments.filter(s => s.type === 'text').map(s => s.text).join('\n\n');
+    }
+    return (typeof renderMarkdown === 'function') ? renderMarkdown(text) : escapeHtml(text);
+}
+
 class ChatNode extends BaseNode {
     constructor(config) {
         config.type = 'chat';
@@ -5,10 +113,16 @@ class ChatNode extends BaseNode {
         const runStyle = this.nodeData.aiText || this.nodeData.aiThinking ? 'display: none;' : '';
         const inputContent = this.config.restoreData ? (this.nodeData.htmlText || this.nodeData.userText) : this.config.initialUserText;
         const isEditable = this.config.restoreData && this.nodeData.aiText ? 'false' : 'true';
+        const thinkHtml = renderThinkStreamHtml(this.nodeData);
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
             <div class="node-header">
-                <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                <div class="header-name">
+                    <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
+                        ${this.nodeData.type === 'image'? imageIcon() : documentIcon()}
+                    </span>
+                    <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                </div>
                 <div>
                     <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${this.nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${this.id}')">${this.nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
                     <a class="duplicate-btn" title="Duplicate Branch"><img src="/static/icons/file.svg" class="file-icon"></a>
@@ -23,8 +137,10 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="ai-section">
-                <div class="think-content" style="${this.nodeData.aiThinking ? 'display:flex;' : 'display:none;'}">${this.nodeData.aiThinking.trim() == '' ? `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...` : this.nodeData.aiThinking}</div>
-                <div class="ai-content">${this.nodeData.aiText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.aiText) : this.nodeData.aiText) : ''}</div>
+                <div class="think-content" style="${thinkHtml ? 'display:flex;overflow:auto;' : 'display:none'}">
+                    <div class="think-stream">${thinkHtml}</div>
+                </div>
+                <div class="ai-content">${this.nodeData.aiText ? renderAnswerHtml(this.nodeData) : ''}</div>
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
             <div class="handle handle-out"></div>
@@ -37,6 +153,20 @@ class ChatNode extends BaseNode {
         this.dupBtn = this.el.querySelector('.duplicate-btn');
         this.stopBtn = this.el.querySelector('.stop-btn');
         this.deleteBtn = this.el.querySelector('.delete-btn');
+        this.handleIn = this.el.querySelector('.handle-in');
+        this.handleOut = this.el.querySelector('.handle-out');
+        this.handleIn.addEventListener('mouseout', () => {
+            this.handleIn.classList.remove('handle-active')
+            this.handleIn.classList.remove('handle-inactive')
+        })
+        this.handleOut.addEventListener('mouseout', () => {
+            this.handleOut.classList.remove('handle-active')
+            this.handleOut.classList.remove('handle-inactive')
+        })
+        this.addBtn.addEventListener('mouseout', () => {
+            this.addBtn.classList.remove('add-child-btn-active')
+            this.addBtn.classList.remove('add-child-btn-inactive')
+        })
         this.stopBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
@@ -134,11 +264,15 @@ class ChatNode extends BaseNode {
             if (typeof drawEdges === 'function') drawEdges();
         });
         this.addBtn.addEventListener('click', this.onFork.bind(this));
+        this.addBtn.addEventListener('click', () => {
+            this.onFork.bind(this)
+            autoLayout(true, this.nodeData.id)
+        });
         this.dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;
             const data = nodes.find(n => n.id === this.el.id);
-            const forkX = data.x + 360;
+            const forkX = data.x + 336;
             const newId = createNode(data.parentId, forkX, data.y, this.textarea.innerHTML, data.turn, data.branch, data.name);
             const newEl = document.getElementById(newId);
             const newData = nodes.find(n => n.id === newId);
@@ -158,6 +292,10 @@ class ChatNode extends BaseNode {
     }
 
     async run() {
+        // P0 Fix: Prevent re-entry if already streaming
+        if (this.nodeData.abortController) {
+            return;
+        }
         const usertext = this.textarea.textContent.trim();
         if (!usertext) return;
         const chips = Array.from(this.el.querySelectorAll('.reference-node'));
@@ -166,12 +304,26 @@ class ChatNode extends BaseNode {
         this.nodeData.userText = usertext;
         this.nodeData.aiText = "";
         this.nodeData.aiThinking = "";
+        this.nodeData.aiSegments = [{ type: 'text', text: '' }];
         this.nodeData.abortController = new AbortController();
         const signal = this.nodeData.abortController.signal;
         const aiContentEl = this.el.querySelector('.ai-content');
         const aiThinkEl = this.el.querySelector('.think-content');
         aiContentEl.innerHTML = '';
-        aiThinkEl.innerHTML = `<div style="display:flex;flex-direction:row;"><img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>`;
+        // One streaming container: reasoning text and tool chips interleave in order.
+        aiThinkEl.innerHTML =
+            `<div class="think-placeholder" style="display:flex;flex-direction:row;align-items:center;">` +
+            `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>` +
+            `<div class="think-stream"></div>`;
+        const thinkStreamEl = aiThinkEl.querySelector('.think-stream');
+        const thinkPlaceholder = aiThinkEl.querySelector('.think-placeholder');
+        // Persist <details> open state back into the segment (toggle doesn't bubble -> capture).
+        thinkStreamEl.addEventListener('toggle', (e) => {
+            const chip = e.target;
+            const id = chip.getAttribute && chip.getAttribute('data-seg-id');
+            const seg = (this.nodeData.aiSegments || []).find(s => s.type === 'tool_call' && s.id === id);
+            if (seg) seg.open = chip.open;
+        }, true);
         aiThinkEl.style.display = "flex";
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
@@ -228,38 +380,101 @@ class ChatNode extends BaseNode {
             }
         }
         const payload = { messages: history, max_tokens: 1000 };
+
+        let uiDirty = false;
+        const syncThinkVisibility = () => {
+            const segs = this.nodeData.aiSegments || [];
+            const hasReasoning = segs.some(s => s.type === 'reasoning' && s.text && s.text.trim() !== '');
+            const hasChips = segs.some(s => s.type === 'tool_call');
+            aiThinkEl.style.display = (hasReasoning || hasChips) ? 'flex' : 'none';
+        };
+        const flushUi = () => {
+            uiDirty = false;
+            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here -- PROBABLLY HERE
+            if (aiThinkEl.isConnected) {
+                renderThinkStream(thinkStreamEl, this.nodeData);       // reasoning + chips, in stream order
+                // Only auto-scroll if user is already near the bottom (within 100px)
+                const isNearBottom = thinkStreamEl.scrollTop + thinkStreamEl.clientHeight >= thinkStreamEl.scrollHeight - 100;
+                if (isNearBottom) {
+                    thinkStreamEl.scrollTop = thinkStreamEl.scrollHeight;
+                }
+            }
+            if (typeof drawEdges === 'function') drawEdges();
+            updateThermometer(this.id);
+        };
+        const requestUiFlush = () => {
+            if (uiDirty) return;
+            uiDirty = true;
+            requestAnimationFrame(flushUi);
+        };
+
         await streamChatApi(payload, signal, {
             onContent: (content) => {
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 if (!erased_thoughts) {
-                    if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
-                        aiThinkEl.innerHTML = '';
-                        this.nodeData.aiThinking = '';
-                        aiThinkEl.style.display = "none";
-                    } else if (this.nodeData.aiThinking.trim() === '') {
-                        aiThinkEl.innerHTML = '';
-                        aiThinkEl.style.display = "none";
-                    }
                     erased_thoughts = true;
+                    if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
+                        this.nodeData.aiThinking = '';
+                        this.nodeData.aiSegments = this.nodeData.aiSegments.filter(s => s.type !== 'reasoning');
+                    }
                 }
                 this.nodeData.aiText += content;
-                if (typeof renderMarkdown === 'function') {
-                    aiContentEl.innerHTML = renderMarkdown(this.nodeData.aiText);
-                } else aiContentEl.innerHTML += content;
-                if (typeof drawEdges === 'function') drawEdges();
-                updateThermometer(this.id);
+                const segs = this.nodeData.aiSegments;
+                let last = segs[segs.length - 1];
+                if (!last || last.type !== 'text') {
+                    last = { type: 'text', text: '' };
+                    segs.push(last);
+                }
+                last.text += content;
+                syncThinkVisibility();
+                requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'content', this.nodeData.aiText);
             },
+            onToolCall: (tc) => {
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                this.nodeData.aiSegments.push({
+                    type: 'tool_call',
+                    id: tc.id || '',
+                    name: tc.name || 'tool',
+                    argsPreview: toolArgsPreview(tc.arguments),
+                    rawArgs: tc.arguments || '',
+                    status: 'running',
+                    result: ''
+                });
+                syncThinkVisibility();
+                requestUiFlush();   // chip appears right after the reasoning that led to it
+            },
+            onToolResult: (tr) => {
+                const segs = this.nodeData.aiSegments || [];
+                for (let i = segs.length - 1; i >= 0; i--) {
+                    const s = segs[i];
+                    if (s.type === 'tool_call' && s.status === 'running' &&
+                        (tr.id ? s.id === tr.id : s.name === tr.name)) {
+                        s.status = 'done';
+                        s.result = tr.result || '';
+                        break;
+                    }
+                }
+                requestUiFlush();   // chip flips to Done in place — nothing around it re-renders
+
+                // Refresh sandbox UI if a file-modifying tool was used
+                if (['write_file', 'edit_file', 'delete_file'].includes(tr.name)) {
+                    if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
+                    if (typeof renderFocusProjectFiles === 'function') renderFocusProjectFiles();
+                }
+            },
             onReasoning: (reasoning) => {
-                aiThinkEl.style.display = "flex";
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 this.nodeData.aiThinking += reasoning;
-                // if (typeof renderMarkdown === 'function') {
-                //     aiThinkEl.innerHTML = renderMarkdown(this.nodeData.aiThinking);
-                // } else aiThinkEl.innerHTML += reasoning;
-                aiThinkEl.innerHTML += reasoning;
-                aiThinkEl.innerHTML = aiThinkEl.innerHTML.slice(Math.max(0, aiThinkEl.innerHTML.length-1500), aiThinkEl.innerHTML.length)
-                aiThinkEl.scrollTop = aiThinkEl.scrollHeight;
-                if (typeof drawEdges === 'function') drawEdges();
-                updateThermometer(this.id);
+                const segs = this.nodeData.aiSegments;
+                let last = segs[segs.length - 1];
+                if (!last || last.type !== 'reasoning') {
+                    last = { type: 'reasoning', text: '' };
+                    segs.push(last);
+                }
+                last.text += reasoning;
+                syncThinkVisibility();
+                requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'reasoning', this.nodeData.aiThinking);
             },
             onError: (error) => {
@@ -275,14 +490,19 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'error', error, aborted);
             },
             onComplete: () => {
-                if (window.Prism) {
-                    Prism.highlightAllUnder(aiContentEl);
-                    if (this.nodeData.aiThinking) Prism.highlightAllUnder(aiThinkEl);
-                }
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                syncThinkVisibility();
+                if (window.Prism) Prism.highlightAllUnder(aiContentEl);
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
-                this.el.querySelector('.add-child-btn').click();
+                // Stream stays visible after completion: reasoning + Done chips remain inspectable.
+                // If you want the old wipe-on-finish behavior, uncomment:
+                // this.el.querySelector('.think-content').innerHTML = '';
+                // this.nodeData.aiThinking = '';
+                this.nodeData.aiSegments = [];
+                if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
+                autoLayout(true, this.nodeData.id);
             }
         });
         if (!aborted) {

@@ -43,6 +43,7 @@
             </div>
         </div>
         <div id="file-tree" class="file-tree"></div>
+        <div class="resize-handle" title="Drag to resize"></div>
     </div>
 
     <div id="viewport">
@@ -52,6 +53,12 @@
                 style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none;"></svg>
             <!-- We removed the dummy node. They will generate dynamically now. -->
         </div>
+    </div>
+
+    <div class="hint-overlay">
+        <span class="circle" title="">
+
+        </span>
     </div>
 
     <!-- Custom Popup Modal -->
@@ -73,34 +80,45 @@
         </div>
     </div>
     <div id="focus-bg" class="focus-bg" style="display: none;">
-        <div id="focus-project-files" class="focus-project-files">
-            <div class="focus-sidebar-header">
-                <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
-                <div class="header-actions">
-                    <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
-                            src="/static/icons/create-folder.svg" class="file-icon"></a>
-                    <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
-                        title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
-                    <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
-                        title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
-                    <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory
-                        multiple onchange="uploadSandboxFiles(event)">
-                    <input type="file" id="sidebar-file-input" style="display: none;" multiple
-                        onchange="uploadSandboxFiles(event)">
-                    <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
-                        <img src="/static/icons/refresh.svg" class="file-icon">
-                    </a>
+        <div id="focus-tab-selection" class="focus-tab-selection">
+            <a class="tab-btn" onclick="showSidebar('focus-chat-selection');updateChatHistory()" title="Chat History"><img src="/static/icons/chatnode.svg" class="tab-icon"/></a>
+            <a class="tab-btn" onclick="showSidebar('focus-project-files')" title="Sandbox"><img src="/static/icons/sandbox.svg" class="tab-icon"/></a>
+        </div>
+        <div class="focus-sidebar">
+            <div id="focus-chat-selection" style="display: flex;" class="focus-chat-selection">
+                <div class="focus-sidebar-header">
+                    <span><img src="/static/icons/chatnode.svg" class="file-icon"> Chat History</span>
+                </div>
+                <div id="chat-selection">
+    
                 </div>
             </div>
-            <div id="focus-file-tree" class="focus-file-tree"></div>
+            <div id="focus-project-files" class="focus-project-files">
+                <div class="focus-sidebar-header">
+                    <span><img src="/static/icons/sandbox.svg" class="file-icon"> Sandbox Files</span>
+                    <div class="header-actions">
+                        <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
+                                src="/static/icons/create-folder.svg" class="file-icon"></a>
+                        <a id="upload-folder-btn" onclick="document.getElementById('sidebar-folder-input').click()"
+                            title="Upload Folder"><img src="/static/icons/upload-folder.svg" class="file-icon"></a>
+                        <a id="upload-file-btn" onclick="document.getElementById('sidebar-file-input').click()"
+                            title="Upload File"><img src="/static/icons/upload-file.svg" class="file-icon"></a>
+                        <input type="file" id="sidebar-folder-input" style="display: none;" webkitdirectory directory
+                            multiple onchange="uploadSandboxFiles(event)">
+                        <input type="file" id="sidebar-file-input" style="display: none;" multiple
+                            onchange="uploadSandboxFiles(event)">
+                        <a id="focus-refresh-files-btn" title="Refresh files" style="cursor: pointer;">
+                            <img src="/static/icons/refresh.svg" class="file-icon">
+                        </a>
+                    </div>
+                </div>
+                <div id="focus-file-tree" class="focus-file-tree"></div>
+            </div>
         </div>
         <div id="focus-main-container" class="focus-main-container">
-            <div id="focus-header" class="focus-header">
-                <span id="focus-lineage-title" class="focus-lineage-title">Branch Chat</span>
-                <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
-                    <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
-                </button>
-            </div>
+            <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
+                <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
+            </button>
             <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
             <div id="focus-input-area" class="focus-input-area">
                 <div class="focus-chat-input-wrapper">
@@ -123,6 +141,111 @@
 
 </html>
 
+<script>
+    let lastOpenedTab = 'focus-chat-selection'
+    function showSidebar(target) {
+        if (lastOpenedTab == target) {
+            $(target).style.display = 'none'
+            lastOpenedTab = ''
+            return
+        }
+        $(target).style.display = 'flex'
+        if(lastOpenedTab) $(lastOpenedTab).style.display = 'none'
+        lastOpenedTab = target
+        return
+    }
+
+    let last_active_chat = ''
+
+    function addToChatHistory(targetNode) {
+        let textDisplay = ''
+        let isThinking = false
+        if (targetNode.parentId) {
+            const parent = nodes.find(n => n.id === targetNode.parentId);
+            if (parent) {
+                textDisplay = parent.htmlText
+                if (parent.type=='document' || parent.type =='image') {
+                    textDisplay = `${parent.type=='document'?'Document':'Image'} attached: `
+                    parent.files.forEach(file => {
+                        textDisplay += `${file.name}, `
+                    });
+                    textDisplay = textDisplay.slice(0, textDisplay.length-2)
+                }
+                else if (parent.type=='scrape') {
+                    textDisplay = `Scraped: ${parent.htmlText}`
+                }
+                // Check if parent is currently thinking (has reasoning but no final answer yet)
+                if (parent.aiThinking && parent.aiThinking.trim() !== '' && (!parent.aiText || parent.aiText.trim() === '')) {
+                    isThinking = true
+                }
+            }
+        } else {
+            textDisplay = targetNode.id
+        }
+
+        const chatEntry = document.createElement('div')
+
+        if (activeNodeId == targetNode.id) {
+            last_active_chat = chatEntry
+        }
+
+        chatEntry.classList.add('chat-entry')
+
+        // Show thinking indicator if node is streaming reasoning
+        let displayText = textDisplay
+        if (isThinking) {
+            displayText = `<span style="opacity:0.7;font-style:italic;">${textDisplay} <img src="/static/icons/hourglass.svg" class="file-icon" style="width:12px;height:12px;vertical-align:middle;margin-left:4px;"> Thinking…</span>`
+        }
+        chatEntry.innerHTML = `<div class='chat-entry-text' style='overflow:hidden;'>${displayText}</div>`
+
+        if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
+
+        chatEntry.addEventListener('click', () => {
+            // Prevent switching away from an in-progress streaming response
+            if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
+                return;
+            }
+            if (last_active_chat) {
+                last_active_chat.querySelector('.chat-entry-text').style.backgroundColor = 'transparent'
+            }
+            chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
+            last_active_chat = chatEntry
+            $(targetNode.id).click();
+            toggleFocusMode(true);
+            centerCanvas();
+        })
+        $('chat-selection').appendChild(chatEntry)
+    }
+
+    function updateChatHistory() {
+        $('chat-selection').innerHTML = ''
+        const newChatBtn = document.createElement('div')
+        newChatBtn.classList.add('chat-entry')
+        newChatBtn.style.marginTop = '10px'
+        newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
+        $('chat-selection').appendChild(newChatBtn)
+        nodes.forEach(node => {
+            // P2 Fix: Include nodes that are thinking (have aiThinking but no aiText yet)
+            // Show them with a "Thinking..." indicator instead of hiding them
+            if (node.type == 'chat' && node.aiText == '' && node.hasChild == false) {
+                if (typeof addToChatHistory == "function") {addToChatHistory(node)}
+            }
+        });
+
+        newChatBtn.addEventListener('click', () => {
+            // Prevent creating new chat while streaming
+            if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
+                return;
+            }
+            createNode()
+            updateChatHistory()
+            toggleFocusMode(true)
+            autoLayout()
+            centerCanvas()
+        })
+    }
+</script>
+
 <!-- Dependencies for Markdown, Math, and Highlighting -->
 <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
@@ -137,7 +260,6 @@
 <script src="/static/js/classes/BaseNode.js"></script>
 <script src="/static/js/classes/ChatNode.js"></script>
 <script src="/static/js/classes/FileNode.js"></script>
-<script src="/static/js/classes/ToolNode.js"></script>
 <script src="/static/js/classes/ScrapeNode.js"></script>
 <script src="/static/js/nodes.js"></script>
 <script src="/static/js/chat.js"></script>

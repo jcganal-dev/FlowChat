@@ -30,9 +30,15 @@ function updateCanvas() {
 
         const isOffscreen = (screenX + w < 0) || (screenY + h < 0) || (screenX > vw) || (screenY > vh);
 
+        // Never cul the node that currently has an input focused — the user is typing in it,
+        // and hiding it would make the browser move focus away (to <body>), which breaks
+        // shift+click reference insertion (lastFocusedInput gets cleared by the textarea's blur).
+        const inputEl = el.querySelector('.node-input');
+        const isFocusedInputNode = inputEl && lastFocusedInput && inputEl.contains(lastFocusedInput);
+
         const edgeEl = document.getElementById('edge_' + node.id);
 
-        if (isOffscreen) {
+        if (isOffscreen && !isFocusedInputNode) {
             if (el.style.display !== 'none') el.style.display = 'none';
             if (edgeEl && edgeEl.style.display !== 'none') edgeEl.style.display = 'none';
         } else {
@@ -174,7 +180,7 @@ viewport.addEventListener('drop', async (e) => {
 
         const isImage = filepath.match(imageWhitelist);
         const isText = filepath.match(textWhitelist) || filepath.match(exactNameWhitelist);
-
+        
         if (!isImage && !isText) {
             skippedFiles.push(filepath);
             continue;
@@ -233,15 +239,34 @@ viewport.addEventListener('drop', async (e) => {
                     }
                 }
             } else {
+                const isImageNode = targetNodeData.type === 'image';
+                const acceptedFiles = filesData.filter(fd => {
+                    if (isImageNode) {
+                        return !!fd.name.match(imageWhitelist);
+                    }
+                    return textWhitelist.test(fd.name) || exactNameWhitelist.test(fd.name);
+                });
+                const mismatchedCount = filesData.length - acceptedFiles.length;
+
+                if (acceptedFiles.length === 0) {
+                    window.customAlert(isImageNode
+                        ? 'Unsupported file type for this node. Please drop an image file.'
+                        : 'Unsupported file type for this node. Please drop a text-based file.');
+                    return;
+                }
+                if (mismatchedCount > 0) {
+                    window.customAlert(`${mismatchedCount} file${mismatchedCount > 1 ? 's' : ''} were dropped but could not be added to a ${targetNodeData.type} node (only ${isImageNode ? 'image' : 'text-based'} files are accepted).`);
+                }
+
                 if (!targetNodeData.files) targetNodeData.files = [];
-                filesData.forEach(fd => targetNodeData.files.push(fd));
+                acceptedFiles.forEach(fd => targetNodeData.files.push(fd));
                 if (typeof targetNodeEl.renderFiles === 'function') targetNodeEl.renderFiles();
             }
             if (typeof saveState === 'function') saveState();
         }
     } else {
-        const imageFiles = filesData.filter(fd => fd.name.match(/\.(png|jpg|jpeg|gif|webp)$/i));
-        const documentFiles = filesData.filter(fd => !fd.name.match(/\.(png|jpg|jpeg|gif|webp)$/i));
+        const imageFiles = filesData.filter(fd => fd.name.match(imageWhitelist));
+        const documentFiles = filesData.filter(fd => !fd.name.match(imageWhitelist));
 
         const baseTitle = originalFilepaths.length === 1 ? originalFilepaths[0].split('/').pop() : `${filesData.length} items`;
 
@@ -270,15 +295,28 @@ viewport.addEventListener('drop', async (e) => {
 
 viewport.addEventListener('wheel', (e) => {
     const targetElement = e.target.closest('.node')
+    const targetElementPre = e.target.closest('pre')
     if (targetElement && targetElement.querySelector('.ai-section')) {
         const aiSection = targetElement.querySelector('.ai-section');
         if (targetElement && !e.ctrlKey && aiSection.scrollHeight > aiSection.clientHeight) {
             // do normal scrolling
             return;
+        } else if (targetElementPre && !e.ctrlKey && targetElementPre.scrollHeight > targetElementPre.clientHeight) {
+            return;
         }
     }
     const targetPre = e.target.closest('pre');
-    if (targetPre && e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+    if (targetPre && !e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+        // do normal scrolling
+        return;
+    }
+    const thinkStream = e.target.closest('.think-stream');
+    if (thinkStream && !e.ctrlKey && thinkStream.scrollHeight > thinkStream.clientHeight) {
+        // do normal scrolling
+        return;
+    }
+    const userSection = e.target.closest('.user-section');
+    if (userSection && !e.ctrlKey && userSection.scrollHeight > userSection.clientHeight) {
         // do normal scrolling
         return;
     }
@@ -469,6 +507,13 @@ window.changeGroupColor = function (groupId, color, save = true) {
                 if (nodeIdEl) {
                     nodeIdEl.style.color = color;
                 }
+                const nodeIcon = el.querySelector('.node-icon');
+                if (nodeIcon) {
+                    if (n.type === 'document') nodeIcon.innerHTML = documentIcon(color) 
+                    if (n.type === 'image') nodeIcon.innerHTML = imageIcon(color) 
+                    if (n.type === 'chat') nodeIcon.innerHTML = chatIcon(color) 
+                    if (n.type === 'scrape') nodeIcon.innerHTML = scrapeIcon(color) 
+                }
             }
         });
 
@@ -480,9 +525,356 @@ window.changeGroupColor = function (groupId, color, save = true) {
  * Automatically organizes the conversation tree into a structured vertical/horizontal layout.
  * Groups nodes logically, resolves overlapping branches, and animates them into their new positions.
  */
-function autoLayout(preserveRoots = true) {
-    // Unhide all nodes temporarily for accurate layout measurement
-    nodes.filter(n => !n.isVirtual).forEach(n => {
+// function autoLayout(preserveRoots = true) {
+//     // Unhide all nodes temporarily for accurate layout measurement
+//     nodes.filter(n => !n.isVirtual).forEach(n => {
+//         const el = document.getElementById(n.id);
+//         if (el && el.style.display === 'none') {
+//             el.style.display = '';
+//         }
+//     });
+
+//     const HORIZONTAL_GAP = GRID_SIZE * 4;
+//     let currentRootX = 400;
+//     const childrenMap = {};
+//     const roots = [];
+
+//     nodes.filter(n => !n.isVirtual).forEach(n => {
+//         if (n.parentId && nodes.some(p => p.id === n.parentId && !p.isVirtual)) {
+//             if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
+//             childrenMap[n.parentId].push(n);
+//         } else {
+//             roots.push(n);
+//         }
+//     });
+
+//     function calculateSubtreeMetrics(nodeData) {
+//         const children = childrenMap[nodeData.id] || [];
+//         const el = document.getElementById(nodeData.id);
+
+//         const nodeWidth = el ? el.offsetWidth : 380;
+//         const nodeHeight = el ? el.offsetHeight : 200;
+
+//         nodeData.nodeWidth = nodeWidth;
+//         nodeData.nodeHeight = nodeHeight;
+
+//         let groupedChildren = children.filter(c => nodeData.groupId && c.groupId === nodeData.groupId);
+//         let otherChildren = children.filter(c => !(nodeData.groupId && c.groupId === nodeData.groupId));
+
+//         if (children.length === 0) {
+//             nodeData.subtreeWidth = nodeWidth;
+//             return nodeData.subtreeWidth;
+//         }
+
+//         if (groupedChildren.length === 1) {
+//             let child = groupedChildren[0];
+//             calculateSubtreeMetrics(child);
+
+//             let otherWidth = 0;
+//             otherChildren.forEach((c, index) => {
+//                 otherWidth += calculateSubtreeMetrics(c);
+//                 if (index < otherChildren.length - 1) otherWidth += HORIZONTAL_GAP;
+//             });
+
+//             let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
+//             let mainColumnWidth = Math.max(nodeWidth, childMainWidth);
+//             nodeData.mainColumnWidth = mainColumnWidth;
+
+//             let offset = (mainColumnWidth - childMainWidth) / 2;
+//             nodeData.fullGroupedWidth = Math.max(mainColumnWidth, offset + child.subtreeWidth);
+
+//             nodeData.subtreeWidth = nodeData.fullGroupedWidth + (otherWidth > 0 ? HORIZONTAL_GAP + otherWidth : 0);
+//             nodeData.isGroupColumn = true;
+//         } else {
+//             let childrenTotalWidth = 0;
+//             children.forEach((child, index) => {
+//                 childrenTotalWidth += calculateSubtreeMetrics(child);
+//                 if (index < children.length - 1) childrenTotalWidth += HORIZONTAL_GAP;
+//             });
+
+//             nodeData.mainColumnWidth = nodeWidth;
+//             nodeData.fullGroupedWidth = Math.max(nodeWidth, childrenTotalWidth);
+//             nodeData.subtreeWidth = Math.max(nodeWidth, childrenTotalWidth);
+//             nodeData.isGroupColumn = false;
+//         }
+
+//         return nodeData.subtreeWidth;
+//     }
+
+//     function placeSubtree(nodeData, startX, currentY) {
+//         const children = childrenMap[nodeData.id] || [];
+
+//         if (nodeData.isGroupColumn) {
+//             nodeData.x = startX + (nodeData.mainColumnWidth / 2) - (nodeData.nodeWidth / 2);
+//             nodeData.y = currentY;
+
+//             let groupedChildren = children.filter(c => nodeData.groupId && c.groupId === nodeData.groupId);
+//             let otherChildren = children.filter(c => !(nodeData.groupId && c.groupId === nodeData.groupId));
+
+//             if (groupedChildren.length === 1) {
+//                 let child = groupedChildren[0];
+//                 let tightDrop = nodeData.nodeHeight + (GRID_SIZE * 2);
+//                 let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
+//                 let offset = (nodeData.mainColumnWidth - childMainWidth) / 2;
+//                 placeSubtree(child, startX + offset, currentY + tightDrop);
+//             }
+
+//             let currentOtherX = startX + nodeData.fullGroupedWidth + HORIZONTAL_GAP;
+//             otherChildren.forEach(child => {
+//                 let standardDrop = nodeData.nodeHeight + (GRID_SIZE * 3);
+//                 placeSubtree(child, currentOtherX, currentY + standardDrop);
+//                 currentOtherX += child.subtreeWidth + HORIZONTAL_GAP;
+//             });
+
+//         } else {
+//             let childrenTotalWidth = 0;
+//             children.forEach((c, index) => {
+//                 childrenTotalWidth += c.subtreeWidth;
+//                 if (index < children.length - 1) childrenTotalWidth += HORIZONTAL_GAP;
+//             });
+
+//             let currentChildX = startX + (nodeData.subtreeWidth / 2) - (childrenTotalWidth / 2);
+
+//             children.forEach(child => {
+//                 let standardDrop = nodeData.nodeHeight + (GRID_SIZE * 3);
+//                 placeSubtree(child, currentChildX, currentY + standardDrop);
+//                 currentChildX += child.subtreeWidth + HORIZONTAL_GAP;
+//             });
+
+//             if (children.length > 0) {
+//                 let firstChild = children[0];
+//                 let lastChild = children[children.length - 1];
+//                 let centerOfChildren = (firstChild.x + (firstChild.nodeWidth / 2) + lastChild.x + (lastChild.nodeWidth / 2)) / 2;
+
+//                 let desiredX = centerOfChildren - (nodeData.nodeWidth / 2);
+
+//                 if (desiredX < startX) desiredX = startX;
+//                 if (desiredX + nodeData.nodeWidth > startX + nodeData.subtreeWidth) {
+//                     desiredX = startX + nodeData.subtreeWidth - nodeData.nodeWidth;
+//                 }
+
+//                 nodeData.x = desiredX;
+//             } else {
+//                 nodeData.x = startX + (nodeData.subtreeWidth / 2) - (nodeData.nodeWidth / 2);
+//             }
+//             nodeData.y = currentY;
+//         }
+//     }
+
+//     nodes.filter(n => !n.isVirtual).forEach(n => {
+//         const el = document.getElementById(n.id);
+//         if (el) {
+//             if (n.isCollapsed) {
+//                 el.classList.add('collapsed-node');
+//             } else {
+//                 el.classList.remove('collapsed-node');
+//             }
+
+//             if (!n.isCollapsed && (!n.groupId || groups[n.groupId]?.isCollapsed !== true)) {
+
+//                 let iterations = 0;
+//                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
+//                 const maxW = 1200;
+
+//                 while (iterations < 4) {
+//                     const w = el.offsetWidth;
+//                     const h = el.offsetHeight;
+//                     const currentRatio = w / h;
+
+//                     if (Math.abs(currentRatio - 1.25) < 0.05) break;
+
+//                     const area = w * h;
+//                     let targetW = Math.sqrt(area * 1.25);
+//                     targetW = Math.max(minW, Math.min(targetW, maxW));
+
+//                     el.style.width = `${targetW}px`;
+
+//                     // Force reflow
+//                     document.body.offsetHeight;
+//                     iterations++;
+//                 }
+
+//                 let q = Math.round(el.offsetWidth / GRID_SIZE);
+//                 let minQ = Math.ceil(minW / GRID_SIZE);
+//                 let maxQ = Math.floor(maxW / GRID_SIZE);
+
+//                 q = Math.max(minQ, Math.min(q, maxQ));
+//                 let finalW = q * GRID_SIZE;
+
+//                 el.style.width = `${finalW}px`;
+//                 n.nodeWidth = finalW;
+//             }
+//         }
+//     });
+
+//     document.body.offsetHeight;
+
+//     let placedBounds = [];
+
+//     function shiftSubtree(nodeData, deltaX, deltaY) {
+//         nodeData.x += deltaX;
+//         nodeData.y += deltaY;
+//         const children = childrenMap[nodeData.id] || [];
+//         children.forEach(c => shiftSubtree(c, deltaX, deltaY));
+//     }
+
+//     function getSubtreeBounds(nodeData) {
+//         let bounds = {
+//             minX: nodeData.x,
+//             maxX: nodeData.x + nodeData.nodeWidth,
+//             minY: nodeData.y,
+//             maxY: nodeData.y + nodeData.nodeHeight
+//         };
+//         const children = childrenMap[nodeData.id] || [];
+//         children.forEach(c => {
+//             let cb = getSubtreeBounds(c);
+//             bounds.minX = Math.min(bounds.minX, cb.minX);
+//             bounds.maxX = Math.max(bounds.maxX, cb.maxX);
+//             bounds.minY = Math.min(bounds.minY, cb.minY);
+//             bounds.maxY = Math.max(bounds.maxY, cb.maxY);
+//         });
+//         return bounds;
+//     }
+
+//     roots.forEach(root => {
+//         calculateSubtreeMetrics(root);
+
+//         if (preserveRoots) {
+//             const originalX = root.x;
+//             const originalY = root.y;
+
+//             placeSubtree(root, 0, 0);
+
+//             let deltaX = originalX - root.x;
+//             let deltaY = originalY - root.y;
+//             shiftSubtree(root, deltaX, deltaY);
+
+//             let bounds = getSubtreeBounds(root);
+//             let hasOverlap = true;
+//             let safety = 0;
+//             while (hasOverlap && safety < 100) {
+//                 hasOverlap = false;
+//                 for (let pb of placedBounds) {
+//                     const pad = GRID_SIZE * 4;
+//                     if (
+//                         bounds.minX < pb.maxX + pad &&
+//                         bounds.maxX + pad > pb.minX &&
+//                         bounds.minY < pb.maxY + pad &&
+//                         bounds.maxY + pad > pb.minY
+//                     ) {
+//                         hasOverlap = true;
+//                         let shiftAmount = (pb.maxX + pad) - bounds.minX;
+//                         shiftSubtree(root, shiftAmount, 0);
+//                         bounds = getSubtreeBounds(root);
+//                         break;
+//                     }
+//                 }
+//                 safety++;
+//             }
+//             placedBounds.push(bounds);
+//         } else {
+//             placeSubtree(root, currentRootX, 200);
+//             currentRootX += root.subtreeWidth + HORIZONTAL_GAP;
+//         }
+//     });
+
+//     if (!preserveRoots && roots.length > 0) {
+//         const primaryRoot = roots[0];
+//         const deltaX = -primaryRoot.x;
+//         const deltaY = -primaryRoot.y;
+//         nodes.filter(n => !n.isVirtual).forEach(n => {
+//             n.x += deltaX;
+//             n.y += deltaY;
+//         });
+//     }
+
+//     nodes.filter(n => !n.isVirtual).forEach(nodeData => {
+//         const el = document.getElementById(nodeData.id);
+//         if (el) {
+//             nodeData.y = Math.round(nodeData.y / GRID_SIZE) * GRID_SIZE;
+
+//             el.style.zIndex = '10';
+//             el.style.transition = 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+//             el.style.opacity = '1';
+//             el.style.pointerEvents = 'auto';
+//             el.style.transform = `translate(${nodeData.x}px, ${nodeData.y}px)`;
+//             setTimeout(() => el.style.transition = 'none', 400);
+//         }
+//     });
+
+//     let startTimestamp = null;
+//     function animateEdges(timestamp) {
+//         if (!startTimestamp) startTimestamp = timestamp;
+//         const progress = timestamp - startTimestamp;
+
+//         drawEdges();
+//         drawGroups();
+
+//         if (progress < 400) {
+//             requestAnimationFrame(animateEdges);
+//         } else {
+//             drawEdges();
+//             drawGroups();
+//         }
+//     }
+//     requestAnimationFrame(animateEdges);
+//     updateCanvas();
+//     if (typeof saveState === 'function') saveState();
+// }
+
+// --- Edge Dragging Logic ---
+
+/**
+ * Automatically organizes the conversation tree into a structured vertical/horizontal layout.
+ * Groups nodes logically, resolves overlapping branches, and animates them into their new positions.
+ *
+ * @param {boolean} preserveRoots - Full-layout mode: if true, top-level roots stay anchored in place.
+ * @param {string|null} [targetNodeId=null] - NEW: if set to a node id, ONLY that node and all of
+ *   its descendants are measured, resized, and repositioned. The target node is anchored at its
+ *   current position (preserveRoots is implied), and every other node acts as a static obstacle.
+ */
+function autoLayout(preserveRoots = true, targetNodeId = null) {
+    const isTargeted = typeof targetNodeId === 'string' && targetNodeId.length > 0;
+
+    // ------------------------------------------------------------------
+    // NEW: determine which nodes are affected by this layout pass
+    // ------------------------------------------------------------------
+    let targetNode = null;
+    let affectedNodes;
+
+    if (isTargeted) {
+        targetNode = nodes.find(n => n.id === targetNodeId && !n.isVirtual);
+        if (!targetNode) {
+            console.warn(`autoLayout: targetNodeId "${targetNodeId}" not found (or is virtual) — aborting layout.`);
+            return;
+        }
+
+        // Temporary full children map, used only to walk down from the target
+        const fullChildrenMap = {};
+        nodes.filter(n => !n.isVirtual).forEach(n => {
+            if (n.parentId && nodes.some(p => p.id === n.parentId && !p.isVirtual)) {
+                if (!fullChildrenMap[n.parentId]) fullChildrenMap[n.parentId] = [];
+                fullChildrenMap[n.parentId].push(n);
+            }
+        });
+
+        // Target node + every descendant (breadth-first, cycle-safe)
+        affectedNodes = [];
+        const queue = [targetNode];
+        const visited = new Set();
+        while (queue.length > 0) {
+            const current = queue.shift();
+            if (visited.has(current.id)) continue;
+            visited.add(current.id);
+            affectedNodes.push(current);
+            (fullChildrenMap[current.id] || []).forEach(child => queue.push(child));
+        }
+    } else {
+        affectedNodes = nodes.filter(n => !n.isVirtual);
+    }
+
+    // Unhide affected nodes temporarily for accurate layout measurement
+    affectedNodes.forEach(n => {
         const el = document.getElementById(n.id);
         if (el && el.style.display === 'none') {
             el.style.display = '';
@@ -494,8 +886,12 @@ function autoLayout(preserveRoots = true) {
     const childrenMap = {};
     const roots = [];
 
-    nodes.filter(n => !n.isVirtual).forEach(n => {
-        if (n.parentId && nodes.some(p => p.id === n.parentId && !p.isVirtual)) {
+    affectedNodes.forEach(n => {
+        const hasLayoutableParent = n.parentId && nodes.some(p => p.id === n.parentId && !p.isVirtual);
+
+        // NEW: in targeted mode the target itself is the layout root,
+        // even though it still has a (non-affected) parent.
+        if (hasLayoutableParent && n !== targetNode) {
             if (!childrenMap[n.parentId]) childrenMap[n.parentId] = [];
             childrenMap[n.parentId].push(n);
         } else {
@@ -616,7 +1012,8 @@ function autoLayout(preserveRoots = true) {
         }
     }
 
-    nodes.filter(n => !n.isVirtual).forEach(n => {
+    // CHANGED: width normalization / aspect-ratio fix only touches affected nodes
+    affectedNodes.forEach(n => {
         const el = document.getElementById(n.id);
         if (el) {
             if (n.isCollapsed) {
@@ -631,6 +1028,22 @@ function autoLayout(preserveRoots = true) {
                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
                 const maxW = 1200;
 
+                // NEW: sets width while keeping the node's horizontal center fixed —
+                // half the delta extends left, half extends right
+                function setWidthCentered(newW) {
+                    const oldW = el.offsetWidth;
+                    const deltaW = newW - oldW;
+                    if (deltaW === 0) return;
+
+                    el.style.width = `${newW}px`;
+                    n.x -= deltaW / 2;
+
+                    // Apply the compensating shift immediately (no transition) so the
+                    // node visually grows/shrinks around its center, not its left edge
+                    el.style.transition = 'none';
+                    el.style.transform = `translate(${n.x}px, ${n.y}px)`;
+                }
+
                 while (iterations < 4) {
                     const w = el.offsetWidth;
                     const h = el.offsetHeight;
@@ -642,7 +1055,7 @@ function autoLayout(preserveRoots = true) {
                     let targetW = Math.sqrt(area * 1.25);
                     targetW = Math.max(minW, Math.min(targetW, maxW));
 
-                    el.style.width = `${targetW}px`;
+                    setWidthCentered(targetW);
 
                     // Force reflow
                     document.body.offsetHeight;
@@ -656,7 +1069,7 @@ function autoLayout(preserveRoots = true) {
                 q = Math.max(minQ, Math.min(q, maxQ));
                 let finalW = q * GRID_SIZE;
 
-                el.style.width = `${finalW}px`;
+                setWidthCentered(finalW);   // CHANGED: was el.style.width = `${finalW}px`
                 n.nodeWidth = finalW;
             }
         }
@@ -665,6 +1078,35 @@ function autoLayout(preserveRoots = true) {
     document.body.offsetHeight;
 
     let placedBounds = [];
+
+    // NEW: in targeted mode, every node OUTSIDE the subtree is a static obstacle.
+    // The target's own ancestors are excluded — the subtree is supposed to sit below them.
+    let staticObstacles = [];
+    if (isTargeted) {
+        const affectedIds = new Set(affectedNodes.map(n => n.id));
+        const ancestorIds = new Set();
+        let cursor = targetNode;
+        while (cursor && cursor.parentId && !ancestorIds.has(cursor.parentId)) {
+            ancestorIds.add(cursor.parentId);
+            cursor = nodes.find(n => n.id === cursor.parentId);
+        }
+
+        nodes.filter(n => !n.isVirtual && !affectedIds.has(n.id) && !ancestorIds.has(n.id)).forEach(n => {
+            const el = document.getElementById(n.id);
+            let w = n.nodeWidth || 380;
+            let h = n.nodeHeight || 200;
+            if (el && el.style.display !== 'none') {
+                w = el.offsetWidth || w;
+                h = el.offsetHeight || h;
+            }
+            staticObstacles.push({
+                minX: n.x,
+                maxX: n.x + w,
+                minY: n.y,
+                maxY: n.y + h
+            });
+        });
+    }
 
     function shiftSubtree(nodeData, deltaX, deltaY) {
         nodeData.x += deltaX;
@@ -694,7 +1136,8 @@ function autoLayout(preserveRoots = true) {
     roots.forEach(root => {
         calculateSubtreeMetrics(root);
 
-        if (preserveRoots) {
+        // CHANGED: targeted mode always anchors the subtree, regardless of preserveRoots
+        if (preserveRoots || isTargeted) {
             const originalX = root.x;
             const originalY = root.y;
 
@@ -705,11 +1148,14 @@ function autoLayout(preserveRoots = true) {
             shiftSubtree(root, deltaX, deltaY);
 
             let bounds = getSubtreeBounds(root);
+            // CHANGED: obstacles are previously-placed roots (full layout)
+            // or every static node outside the subtree (targeted layout)
+            const obstacles = isTargeted ? staticObstacles : placedBounds;
             let hasOverlap = true;
             let safety = 0;
             while (hasOverlap && safety < 100) {
                 hasOverlap = false;
-                for (let pb of placedBounds) {
+                for (let pb of obstacles) {
                     const pad = GRID_SIZE * 4;
                     if (
                         bounds.minX < pb.maxX + pad &&
@@ -733,7 +1179,8 @@ function autoLayout(preserveRoots = true) {
         }
     });
 
-    if (!preserveRoots && roots.length > 0) {
+    // CHANGED: global recentering must never run in targeted mode
+    if (!preserveRoots && !isTargeted && roots.length > 0) {
         const primaryRoot = roots[0];
         const deltaX = -primaryRoot.x;
         const deltaY = -primaryRoot.y;
@@ -743,7 +1190,8 @@ function autoLayout(preserveRoots = true) {
         });
     }
 
-    nodes.filter(n => !n.isVirtual).forEach(nodeData => {
+    // CHANGED: only affected nodes are animated into position
+    affectedNodes.forEach(nodeData => {
         const el = document.getElementById(nodeData.id);
         if (el) {
             nodeData.y = Math.round(nodeData.y / GRID_SIZE) * GRID_SIZE;
@@ -777,7 +1225,6 @@ function autoLayout(preserveRoots = true) {
     if (typeof saveState === 'function') saveState();
 }
 
-// --- Edge Dragging Logic ---
 let isDraggingEdge = false;
 let dragEdgeStartNodeId = null;
 let dragEdgeType = null; // 'out' or 'in'
@@ -821,6 +1268,7 @@ window.addEventListener('mousedown', (e) => {
         if (!nodeEl) return;
         const nodeId = nodeEl.id;
         const node = nodes.find(n => n.id === nodeId);
+
         if (!node) return;
 
         if (e.target.classList.contains('handle-out')) {
@@ -832,6 +1280,8 @@ window.addEventListener('mousedown', (e) => {
                 isDraggingEdge = true;
                 dragEdgeStartNodeId = node.parentId;
                 dragEdgeType = 'out';
+                const parentIndex = nodes.findIndex(n => n.id === node.parentId);
+                nodes[parentIndex].hasChild = false
                 node.parentId = null;
                 if (typeof drawEdges === 'function') drawEdges();
             } else {
@@ -858,6 +1308,111 @@ window.addEventListener('mousemove', (e) => {
     }
 });
 
+window.addEventListener('mousemove', (e) => {
+    if (isDraggingEdge) {
+
+        let dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+        const nodeEl = dropTarget.closest('.node');
+        let addNodeBtn = ''
+        if (dropTarget && dropTarget.classList.contains('add-child-btn')) {
+            addNodeBtn = dropTarget
+            if (nodeEl) dropTarget = nodeEl.querySelector('.handle-out');
+        } else {
+            addNodeBtn = ''
+        }
+
+        if (dropTarget && dropTarget.classList.contains('handle')) {
+            const targetNodeEl = dropTarget.closest('.node');
+            if (targetNodeEl) {
+                const targetNodeId = targetNodeEl.id;
+
+                if (dragEdgeType === 'out') {
+                    if (dropTarget.classList.contains('handle-out') || targetNodeId === dragEdgeStartNodeId || addNodeBtn) {
+                        dropTarget.classList.remove('handle-active')
+                        dropTarget.classList.add('handle-inactive')
+                        if (addNodeBtn) {
+                            addNodeBtn.classList.remove('add-child-btn-active')
+                            addNodeBtn.classList.add('add-child-btn-inactive')
+                        }
+                        return
+                    }
+                    if (targetNodeId !== dragEdgeStartNodeId) {
+
+
+                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+                        
+                        if ((startNode.type === 'chat' || startNode.type === 'scrape') && startNode.aiText.trim()=='') {
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+
+                        if (parentNodes.has(targetNodeId)) {
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+                        dropTarget.classList.add('handle-active')
+                    }
+                } 
+                else if (dragEdgeType === 'in') {
+                    
+                    if (dropTarget.classList.contains('handle-in') || targetNodeId === dragEdgeStartNodeId) {
+                        dropTarget.classList.remove('handle-active')
+                        dropTarget.classList.add('handle-inactive')
+                        if (addNodeBtn) {
+                            addNodeBtn.classList.remove('add-child-btn-active')
+                            addNodeBtn.classList.add('add-child-btn-inactive')
+                        }
+                        return
+                    }
+                    if (targetNodeId !== dragEdgeStartNodeId) {
+                        const targetNode = nodes.find(n => n.id === targetNodeId);
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+                        
+                        if ((targetNode.type === 'chat' || targetNode.type === 'scrape') && targetNode.aiText.trim()=='') {
+                            if (addNodeBtn) {
+                                addNodeBtn.classList.remove('add-child-btn-active')
+                                addNodeBtn.classList.add('add-child-btn-inactive')
+                            }
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+
+                        if (parentNodes.has(dragEdgeStartNodeId)) {
+                            if (addNodeBtn) {
+                                addNodeBtn.classList.remove('add-child-btn-active')
+                                addNodeBtn.classList.add('add-child-btn-inactive')
+                            }
+                            dropTarget.classList.remove('handle-active')
+                            dropTarget.classList.add('handle-inactive')
+                            return
+                        }
+                        if (addNodeBtn) {
+                            addNodeBtn.classList.add('add-child-btn-active')
+                        }
+                        dropTarget.classList.add('handle-active')
+                    }
+                }
+            }
+        }
+    }
+})
+
 window.addEventListener('mouseup', (e) => {
     if (isDraggingEdge) {
         isDraggingEdge = false;
@@ -879,21 +1434,53 @@ window.addEventListener('mouseup', (e) => {
 
                 if (dragEdgeType === 'out' && dropTarget.classList.contains('handle-in')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
+
                         const targetNode = nodes.find(n => n.id === targetNodeId);
+                        const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        
+                        if ((startNode.type === 'chat' || startNode.type === 'scrape') && startNode.aiText.trim()=='') {
+                            return
+                        }
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === dragEdgeStartNodeId);
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+
+                        if (parentNodes.has(targetNodeId)) return;
                         if (targetNode) {
                             targetNode.parentId = dragEdgeStartNodeId;
+                            startNode.hasChild = true
                         }
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
                     if (targetNodeId !== dragEdgeStartNodeId) {
                         const startNode = nodes.find(n => n.id === dragEdgeStartNodeId);
+                        const targetNode = nodes.find(n => n.id === targetNodeId);
+                        
+                        if ((targetNode.type === 'chat' || targetNode.type === 'scrape') && targetNode.aiText.trim()=='') {
+                            return
+                        }
+                        
+                        let nodeIndex = nodes.findIndex(n => n.id === targetNodeId);
+                        let parentNodes = new Set()
+                        while (nodes[nodeIndex].parentId) {
+                            parentNodes.add(nodes[nodeIndex].parentId)
+                            nodeIndex = nodes.findIndex(n => n.id === nodes[nodeIndex].parentId)
+                        }
+
+                        if (parentNodes.has(dragEdgeStartNodeId)) return;
                         if (startNode) {
                             startNode.parentId = targetNodeId;
+                            nodes.find(n => n.id === targetNodeId).hasChild = true
                         }
                     }
                 }
             }
         }
+
         if (typeof drawEdges === 'function') drawEdges();
         if (typeof saveState === 'function') saveState();
     }
@@ -922,6 +1509,8 @@ function centerCanvas() {
     camera.zoom = 1;
     camera.x = vWidth / 2 - (nX + nWidth / 2) * camera.zoom;
     camera.y = vHeight / 2 - (nY + nHeight / 2) * camera.zoom;
+
+    document.getElementById(activeNodeId).querySelector('.node-input').focus()
 
     updateCanvas();
 

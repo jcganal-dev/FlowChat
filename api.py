@@ -11,41 +11,147 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
 from typing import List, Any, Dict
-from keys.apikeys import APIKeys
-from crawl4ai import AsyncWebCrawler
 from ddgs import DDGS
-import sys
+from dotenv import load_dotenv
+import os
+from tools import Tools
 import asyncio
-# from concurrent.futures import ThreadPoolExecutor
+import stat
+import sys
 
-# Helper to run Crawl4AI in an isolated thread with correct event loop policy on Windows
-def run_crawl_sync(url: str):
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    async def _crawl():
-        from crawl4ai import AsyncWebCrawler
-        async with AsyncWebCrawler(verbose=False) as crawler:
-            result = await crawler.arun(url=url)
-            return result.markdown if result else None
-    return asyncio.run(_crawl())
+agent_tools = Tools()
 
-def run_crawl_multi_sync(links: list):
-    if sys.platform == 'win32':
-        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-    async def _crawl():
-        from crawl4ai import AsyncWebCrawler
-        res = []
-        async with AsyncWebCrawler(verbose=False) as crawler:
-            for link in links:
-                try:
-                    result = await crawler.arun(url=link)
-                    res.append((link, result.markdown if result else None, None))
-                except Exception as e:
-                    res.append((link, None, str(e)))
-        return res
-    return asyncio.run(_crawl())
+TOOL_REGISTRY = {
+    "web_search": agent_tools.web_search,
+    "scrape": agent_tools.scrape,
+    "read_file": agent_tools.read_file,
+    "write_file": agent_tools.write_file,
+    "write_file": agent_tools.write_file,
+    "list_sandbox_files": agent_tools.list_sandbox_files,
+    "edit_file": agent_tools.edit_file,
+    "delete_file": agent_tools.delete_file
+}
 
-# Initialize SQLite database
+TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web for current information. Use for anything recent, factual, or uncertain.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "The search query"},
+                    "max_results": {"type": "integer", "description": "Number of results to fetch (default 3)"}
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "scrape",
+            "description": "Fetch the full content of a specific webpage as markdown. Only allows valid url. Does not allow file:/// format.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "The URL to fetch"}
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read the contents of a file in the sandbox directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file you want to read."},
+                    "offset": {"type": "integer", "description": "The offset to which you start reading the file's content"},
+                    "length": {"type": "integer", "description": "The lenght of content you want to read."},
+                },
+                "required": ["file_path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write the contents of a file in the sandbox directory. Warning: this will overwrite the whole content of the target file",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file you want to write to."},
+                    "content": {"type": "string", "description": "The content you want to write into the file."}
+                },
+                "required": ["file_path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_sandbox_files",
+            "description": "Get the list of all files in the sandbox",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Edit a file in the sandbox by replacing exact string matches. Not a regex — provide the literal text to find and replace.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file you want to edit."},
+                    "old_string": {"type": "string", "description": "The exact text to find and replace."},
+                    "new_string": {"type": "string", "description": "The text to replace it with."}
+                },
+                "required": ["file_path", "old_string", "new_string"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": "Delete a file or folder from the sandbox directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file or folder to delete."}
+                },
+                "required": ["file_path"],
+            },
+        },
+    },
+]
+
+MAX_TOOL_ROUNDS = 200
+
+async def execute_tool(name: str, args: dict) -> str:
+    fn = TOOL_REGISTRY.get(name)
+    if fn is None:
+        return f"Error: unknown tool '{name}'"
+    try:
+        if asyncio.iscoroutinefunction(fn):
+            result = await fn(**args)
+        else:  # sync tools (e.g. DDGS) run in a thread so they don't block the loop
+            result = await asyncio.to_thread(fn, **args)
+        return result if isinstance(result, str) else json.dumps(result, ensure_ascii=False, default=str)
+    except Exception as e:
+        return f"Error running tool '{name}': {e}"
+
 DB_PATH = "flowchat.db"
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -119,6 +225,11 @@ async def upload_file(files: List[UploadFile] = File(...)):
         saved.append(file.filename)
     return JSONResponse(content={"message": "Uploaded successfully", "files": saved})
 
+def remove_readonly(func, path, _):
+    """Clear the read-only bit and retry (Windows)."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 @app.delete("/api/sandbox/delete/{filename:path}")
 async def delete_sandbox_file(filename: str):
     file_path = os.path.join("sandbox", filename)
@@ -126,7 +237,11 @@ async def delete_sandbox_file(filename: str):
         return JSONResponse(content={"message": "File/Folder already deleted"})
     try:
         if os.path.isdir(file_path):
-            shutil.rmtree(file_path)
+            # Handle long paths on Windows (.git has deeply nested dirs)
+            target = os.path.abspath(file_path)
+            if sys.platform == "win32":
+                target = "\\\\?\\" + target
+            shutil.rmtree(target, onerror=remove_readonly)
         else:
             os.remove(file_path)
         return JSONResponse(content={"message": "File/Folder deleted successfully"})
@@ -187,70 +302,37 @@ class ScrapeRequest(BaseModel):
     url: str
 
 @app.post("/api/scrape")
-async def scrape_with_jina(req: ScrapeRequest):
-    """
-    Scrapes a webpage using Jina Reader.
-    
-    Args:
-        req.url (str): The URL of the webpage to scrape.
-    """
-    target = req.url
-    
-    # Check if it looks like a URL
-    is_url = target.startswith("http://") or target.startswith("https://") or ("." in target and " " not in target)
-    target_url = target
-    if is_url and not target.startswith("http"):
-        target_url = "https://" + target
-    
-    markdown_content = None
-    loop = asyncio.get_running_loop()
-    if is_url:
-        try:
-            markdown_content = await loop.run_in_executor(None, run_crawl_sync, target_url)
-        except Exception as e:
-            print(f"Direct crawl failed: {e}")
+async def scrapeTool(url: ScrapeRequest):
+    return await agent_tools.scrape_with_jina(url)
 
-    if markdown_content:
-        return JSONResponse(content={"content": markdown_content})
+load_dotenv() 
+API_KEY = os.getenv("API_KEY")
+SERVER_URL: str = os.getenv("SERVER_URL", "")
+MODEL = os.getenv("MODEL")
+if not API_KEY:
+    raise ValueError("API_KEY not found in .env file")
+if not SERVER_URL:
+    raise ValueError("SERVER_URL not found in .env file")
+if not MODEL:
+    raise ValueError("MODEL not found in .env file")
 
-    # If we are here, it failed or wasn't a URL. Send to ddgs
-    links = []
-    try:
-        with DDGS(timeout=20) as ddgs:
-            results = ddgs.text(target, max_results=2, backend="lite")
-            for r in results:
-                links.append(r.get("href"))
-    except Exception as e:
-        return JSONResponse(content={"error": f"DDGS failed: {e}", "content": None}, status_code=500)
+tool_list = []
 
-    if not links:
-        return JSONResponse(content={"error": "No results found on DDGS", "content": None}, status_code=404)
+for key in TOOL_REGISTRY:
+    tool_list.append(key)
 
-    # Crawl the links
-    combined_markdown = f"# Search Results for: {target}\n\n"
-    try:
-        results = await loop.run_in_executor(None, run_crawl_multi_sync, links)
-        for i, (link, md, err) in enumerate(results):
-            if md:
-                combined_markdown += f"## Source {i+1}: {link}\n\n{md}\n\n---\n\n"
-            else:
-                combined_markdown += f"## Source {i+1}: {link}\n\nFailed to scrape: {err}\n\n---\n\n"
-    except Exception as e:
-        return JSONResponse(content={"error": f"Crawler failed on links: {e}", "content": None}, status_code=500)
+from datetime import date
 
-    return JSONResponse(content={"content": combined_markdown})
+SYSTEM_INSTRUCTIONS = [
+    f"You have access to tools ({', '.join(tool_list)}).",
+    f"For you reference, today is {date.today()}",
+    "Use web_search whenever the question involves current events, recent data, or facts you're unsure about.",
+    "Prefer one focused search over many broad ones. Summarize results in your answer instead of dumping raw tool output.",
+    "If a search fails, tell the user rather than retrying indefinitely.",
+    "Once you arrive at an answer, give the answer to the user. Do not overthink.",
+    "You are already inside the sandbox directory. If you want to access a file, ommit /sandbox from your path."
+]
 
-OPENROUTER_SERVER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "apodex/apodex-1.1-mini:free"
-# OPENROUTER_SERVER_URL = "http://127.0.0.1:8000/v1/chat/completions"
-# MODEL = "minicpm"
-
-OPENROUTER_API_KEY = APIKeys().get_key()
-
-# Define your base rules
-SYSTEM_INSTRUCTIONS = []
-
-# Combine them into a single string with newlines
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
 
 class ChatPayload(BaseModel):
@@ -260,65 +342,119 @@ class ChatPayload(BaseModel):
 @app.post("/api/chat")
 async def chat_endpoint(user_data: ChatPayload):
     messages = user_data.messages
-    
+
     if len(messages) > 0 and messages[0].get("role") == "system":
-        original_content = messages[0].get("content", "")
-        messages[0]["content"] = f"{BASE_SYSTEM_PROMPT}\n\n{original_content}"
+        messages[0]["content"] = f"{BASE_SYSTEM_PROMPT}\n\n{messages[0].get('content', '')}"
     else:
         messages.insert(0, {"role": "system", "content": BASE_SYSTEM_PROMPT})
-
-    payload = {
-        "model": MODEL,
-        "messages": user_data.messages,
-        "include_reasoning": True,
-        "stream": True
-    }
 
     async def stream_generator():
         async with httpx.AsyncClient(timeout=None) as client:
             headers = {
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json"
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json",
             }
-            async with client.stream("POST", OPENROUTER_SERVER_URL, json=payload, headers=headers) as response:
-                if response.status_code != 200:
-                    error_body = await response.aread()
-                    try:
-                        err_json = json.loads(error_body.decode())
-                        err_msg = err_json.get('error', {}).get('message', 'Unknown API Error')
-                    except Exception:
-                        err_msg = error_body.decode()
-                        
-                    yield json.dumps({"content": f"\n\n[API ERROR: HTTP {response.status_code} - {err_msg}]"}) + "\n"
-                    return
-                
-                async for line in response.aiter_lines():
-                    if line and line.startswith("data: "):
-                        data_str = line[6:]
 
+            for _round in range(MAX_TOOL_ROUNDS):
+                payload = {
+                    "model": MODEL,
+                    "messages": messages,
+                    "tools": TOOLS_SCHEMA,
+                    "include_reasoning": True,
+                    "stream": True,
+                }
+
+                assistant_content = ""
+                streamed_calls: Dict[int, dict] = {}  # index -> accumulated call
+                had_error = False
+
+                async with client.stream("POST", SERVER_URL, json=payload, headers=headers) as response:
+                    if response.status_code != 200:
+                        error_body = await response.aread()
+                        try:
+                            err_msg = json.loads(error_body.decode()).get("error", {}).get("message", "Unknown API Error")
+                        except Exception:
+                            err_msg = error_body.decode()
+                        yield json.dumps({"content": f"\n\n[API ERROR: HTTP {response.status_code} - {err_msg}]"}) + "\n"
+                        return
+
+                    async for line in response.aiter_lines():
+                        if not line.startswith("data: "):
+                            continue
+                        data_str = line[6:]
                         if data_str == "[DONE]":
                             break
-
                         try:
                             chunk = json.loads(data_str)
-                            
-                            if 'error' in chunk:
-                                yield json.dumps({"content": f"\n\n[API ERROR: {chunk['error'].get('message', 'Unknown error')}]"}) + "\n"
-                                break
-                                
-                            if 'choices' not in chunk or len(chunk['choices']) == 0:
-                                continue
-                                
-                            delta = chunk['choices'][0]['delta']
-                            
-                            # OpenRouter uses 'reasoning', frontend expects 'reasoning_content'
-                            if 'reasoning' in delta:
-                                delta['reasoning_content'] = delta.pop('reasoning')
-                                
-                            yield json.dumps(delta) + "\n"
-                        except (json.JSONDecodeError, KeyError, IndexError) as e:
+                        except json.JSONDecodeError:
                             continue
-    
+
+                        if "error" in chunk:
+                            yield json.dumps({"content": f"\n\n[API ERROR: {chunk['error'].get('message', 'Unknown error')}]"}) + "\n"
+                            had_error = True
+                            break
+
+                        if not chunk.get("choices"):
+                            continue
+                        delta = chunk["choices"][0].get("delta", {})
+
+                        if "reasoning" in delta:
+                            # print(delta["reasoning"])
+                            yield json.dumps({"reasoning_content": delta["reasoning"]}) + "\n"
+
+                        if delta.get("content"):
+                            assistant_content += delta["content"]
+                            # print(delta["content"])
+                            yield json.dumps({"content": delta["content"]}) + "\n"
+
+                        # tool call arguments arrive in pieces — merge by index
+                        if delta.get("tool_calls"):
+                            for tc in delta["tool_calls"]:
+                                idx = tc.get("index", 0)
+                                entry = streamed_calls.setdefault(idx, {"id": None, "name": "", "arguments": ""})
+                                if tc.get("id"):
+                                    entry["id"] = tc["id"]
+                                fn = tc.get("function") or {}
+                                if fn.get("name"):
+                                    entry["name"] = fn["name"]
+                                if fn.get("arguments"):
+                                    entry["arguments"] += fn["arguments"]
+
+                if had_error or not streamed_calls:
+                    return  # final answer finished (or error)
+
+                # Build the assistant message with tool_calls and execute them
+                calls = [streamed_calls[i] for i in sorted(streamed_calls)]
+                messages.append({
+                    "role": "assistant",
+                    "content": assistant_content or None,
+                    "tool_calls": [
+                        {
+                            "id": c["id"] or f"call_{i}",
+                            "type": "function",
+                            "function": {"name": c["name"], "arguments": c["arguments"] or "{}"},
+                        }
+                        for i, c in enumerate(calls)
+                    ],
+                })
+
+                for i, c in enumerate(calls):
+                    call_id = c["id"] or f"call_{i}"
+                    yield json.dumps({"tool_call": {"id": call_id, "name": c["name"], "arguments": c["arguments"]}}) + "\n"
+                    try:
+                        args = json.loads(c["arguments"] or "{}")
+                    except json.JSONDecodeError:
+                        args = {}
+                    result = await execute_tool(c["name"], args)
+                    yield json.dumps({"tool_result": {"id": call_id, "name": c["name"], "result": result}}) + "\n"
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": result[:8000],
+                    })
+
+            yield json.dumps({"content": "\n\n[Stopped: max tool rounds reached]"}) + "\n"
+
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
 
 class SavePayload(BaseModel):

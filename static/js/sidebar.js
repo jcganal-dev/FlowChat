@@ -504,14 +504,19 @@ async function handleSandboxFileShiftClick(filepath) {
                 const virtualId = 'sandbox/' + filepath + '/*';
                 if (!virtualFileNodes[virtualId]) {
                     let folderFiles = [];
+                    let skippedCount = 0;
                     for (const fp of expanded) {
-                        const isImg = fp.match(/\.(png|jpg|jpeg|gif|webp)$/i);
-                        if (isImg) continue;
+                        const isImg = fp.match(imageWhitelist);
+                        const isText = textWhitelist.test(fp) || exactNameWhitelist.test(fp);
+                        if (isImg || !isText) {
+                            skippedCount++;
+                            continue;
+                        }
                         const r = await apiFetchSandboxFile(fp);
                         if (r) folderFiles.push({ name: fp, payload: await r.text() });
                     }
                     if (folderFiles.length === 0) {
-                        window.customAlert('No valid text documents found in folder.');
+                        window.customAlert(skippedCount > 0 ? `No valid text documents found in this folder (${skippedCount} non-text files skipped).` : 'No valid text documents found in folder.');
                         return;
                     }
                     const nodeData = {
@@ -536,13 +541,19 @@ async function handleSandboxFileShiftClick(filepath) {
         }
     }
 
-    const isImage = filepath.match(/\.(png|jpg|jpeg|gif|webp)$/i);
+    const isImage = filepath.match(imageWhitelist);
+    const isText = textWhitelist.test(filepath) || exactNameWhitelist.test(filepath);
     const virtualId = 'sandbox/' + filepath;
 
     if (!virtualFileNodes[virtualId]) {
         const res = await apiFetchSandboxFile(filepath);
         if (!res) {
             window.customAlert('Failed to load file content.');
+            return;
+        }
+
+        if (!isImage && !isText) {
+            window.customAlert('Unsupported file type. Please select a text-based file or an image.');
             return;
         }
 
@@ -592,8 +603,34 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!palette || !header) return;
 
     let isDragging = false;
-    let offsetX = 0;
-    let offsetY = 0;
+    let isResizing = false;
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let resizeStartX = 0;
+    let resizeStartY = 0;
+
+    // Restore saved size from localStorage
+    const savedSize = localStorage.getItem('sandboxPaletteSize');
+    if (savedSize) {
+        try {
+            const { w, h } = JSON.parse(savedSize);
+            const minW = 200;
+            const minH = 200;
+            const maxW = 500;
+            const maxH = 750;
+            palette.style.width = `${Math.max(minW, Math.min(w, maxW))}px`;
+            palette.style.height = `${Math.max(minH, Math.min(h, maxH))}px`;
+        } catch (e) {
+            // ignore invalid stored size
+        }
+    }
+
+    const saveSize = () => {
+        localStorage.setItem('sandboxPaletteSize', JSON.stringify({
+            w: palette.offsetWidth,
+            h: palette.offsetHeight
+        }));
+    };
 
     header.addEventListener('mousedown', (e) => {
         // Prevent drag when clicking buttons inside header
@@ -601,17 +638,45 @@ window.addEventListener('DOMContentLoaded', () => {
 
         isDragging = true;
         const rect = palette.getBoundingClientRect();
-        offsetX = e.clientX - rect.left;
-        offsetY = e.clientY - rect.top;
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+    });
+
+    const handle = palette.querySelector('.resize-handle');
+    handle.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        isResizing = true;
+        // Anchor to the current right/bottom edges so the resize is strictly 1:1
+        resizeStartX = e.clientX - palette.offsetWidth;
+        resizeStartY = e.clientY - palette.offsetHeight;
     });
 
     window.addEventListener('mousemove', (e) => {
-        if (!isDragging) return;
-        palette.style.left = `${e.clientX - offsetX}px`;
-        palette.style.top = `${e.clientY - offsetY}px`;
+        if (isDragging) {
+            let newLeft = e.clientX - dragOffsetX;
+            let newTop = e.clientY - dragOffsetY;
+            // Right and bottom bounds: right edge and bottom edge must stay inside the viewport
+            newLeft = Math.min(newLeft, window.innerWidth - palette.offsetWidth);
+            newTop = Math.min(newTop, window.innerHeight - palette.offsetHeight);
+            palette.style.left = `${Math.max(0, newLeft)}px`;
+            palette.style.top = `${Math.max(0, newTop)}px`;
+        } else if (isResizing) {
+            const minW = 200;
+            const minH = 200;
+            const maxW = Math.min(e.clientX - resizeStartX, window.innerWidth - 40);
+            const maxH = Math.min(e.clientY - resizeStartY, window.innerHeight - 40);
+            const newW = Math.max(minW, e.clientX - resizeStartX);
+            const newH = Math.max(minH, e.clientY - resizeStartY);
+            palette.style.width = `${newW}px`;
+            palette.style.height = `${newH}px`;
+        }
     });
 
     window.addEventListener('mouseup', () => {
         isDragging = false;
+        isResizing = false;
+        if (palette.offsetParent !== null) {
+            saveSize();
+        }
     });
 });

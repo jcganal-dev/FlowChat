@@ -5,7 +5,12 @@ class FileNode extends BaseNode {
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
             <div class="node-header">
-                <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                <div class="header-name">
+                    <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
+                        ${chatIcon()}
+                    </span>
+                    <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
+                </div>
                 <div>
                     <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>
@@ -13,7 +18,7 @@ class FileNode extends BaseNode {
             <div class="files-container" id="files_${this.id}"></div>
             <div class="file-dropzone" id="drop_${this.id}">
                 <div class="drop-text">Drag ${this.nodeData.type === 'image' ? 'Image' : 'Document'}(s) Here<br><small>(or click to browse)</small></div>
-                <input type="file" id="input_${this.id}" style="display: none;" multiple accept="${this.nodeData.type === 'image' ? 'image/*' : '.txt,.js,.py,.html,.css,.json,.md,.csv,.log'}" />
+                <input type="file" id="input_${this.id}" style="display: none;" multiple accept="${this.nodeData.type === 'image' ? 'image/*' : getTextWhitelistExtensions()}">
             </div>
             <div class="handle handle-out"></div>
             <button class="add-child-btn" title="Branch">+</button>
@@ -27,6 +32,20 @@ class FileNode extends BaseNode {
             this.addBtn.addEventListener('click', this.onFork.bind(this));
             this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
             this.dropzone.addEventListener('click', () => this.fileInput.click());
+            this.handleIn = this.el.querySelector('.handle-in');
+            this.handleOut = this.el.querySelector('.handle-out');
+            this.handleIn.addEventListener('mouseout', () => {
+                this.handleIn.classList.remove('handle-active')
+                this.handleIn.classList.remove('handle-inactive')
+            })
+            this.handleOut.addEventListener('mouseout', () => {
+                this.handleOut.classList.remove('handle-active')
+                this.handleOut.classList.remove('handle-inactive')
+            })
+            this.addBtn.addEventListener('mouseout', () => {
+                this.addBtn.classList.remove('add-child-btn-active')
+                this.addBtn.classList.remove('add-child-btn-inactive')
+            })
             this.fileInput.addEventListener('change', (e) => {
                 if (e.target.files.length) this.processMultipleFiles(e.target.files);
             });
@@ -44,7 +63,9 @@ class FileNode extends BaseNode {
             });
             this.el.addEventListener('click', (e) => {
                 if (this.el.dataset.dragged) return;
-                if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) selectNode(this.id, e.shiftKey, e.ctrlKey || e.metaKey);
+                if (!e.target.closest('input') && !e.target.closest('.remove-file-btn')) {
+                    selectNode(this.el.id, e.shiftKey, e.ctrlKey || e.metaKey);
+                }
             });
             this.renderFiles();
         }, 0);
@@ -100,6 +121,11 @@ class FileNode extends BaseNode {
         const isImageNode = this.nodeData.type === 'image';
         if (isImageNode && !file.type.startsWith('image/')) {
             window.customAlert("Please upload an image file for this node.");
+            return;
+        }
+        if (!isImageNode && !textWhitelist.test(file.name) && !exactNameWhitelist.test(file.name)) {
+            const acceptedExts = getTextWhitelistExtensions().split(',').join(', ');
+            window.customAlert(`Document nodes only accept text-based files (${acceptedExts}). Please upload a supported file.`);
             return;
         }
         const reader = new FileReader();

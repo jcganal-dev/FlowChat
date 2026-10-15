@@ -316,10 +316,27 @@ window.addEventListener('keydown', (e) => {
     } else if (e.altKey && e.key.toLowerCase() === 'h') {
         e.preventDefault();
         if (typeof centerCanvas === 'function') centerCanvas();
+    } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (typeof saveState === 'function') saveState();
     } else if (e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         if (typeof toggleFocusMode === 'function') toggleFocusMode();
-    }
+    } 
+    // else if(e.shiftKey && e.key === 'Delete') {
+    //     const shiftClickEvent = new MouseEvent('click', {
+    //         bubbles: true,
+    //         cancelable: true,
+    //         shiftKey: true
+    //     });
+    //     document.getElementById(activeNodeId).querySelector('.delete-btn').dispatchEvent(shiftClickEvent)
+    //     e.preventDefault()
+    //     // centerCanvas()
+    // } else if (e.key === 'Delete') {
+    //     document.getElementById(activeNodeId).querySelector('.delete-btn').click()
+    //     e.preventDefault();
+    //     // centerCanvas()
+    // }
 });
 
 $('menu-summarize').addEventListener('click', () => {
@@ -387,11 +404,11 @@ $('menu-collapse-selected').addEventListener('click', () => {
     }
 });
 
-$('menu-rename-node').addEventListener('click', () => {
+$('menu-rename-node').addEventListener('click', async () => {
     contextMenu.style.display = 'none';
     if (!targetNodeIdForMenu) return;
 
-    const newName = prompt("Enter new base name for this node (e.g., Summary_Node):");
+    const newName = await window.customPrompt(message = 'Enter new base name for this node:', defaultValue = '', title = 'Rename Node');
     if (!newName || newName.trim() === "") return;
 
     const safeName = newName.trim().replace(/\s+/g, '_');
@@ -471,11 +488,11 @@ $('menu-rename-node').addEventListener('click', () => {
     if (typeof saveState === 'function') saveState();
 });
 
-$('menu-rename').addEventListener('click', () => {
+$('menu-rename').addEventListener('click', async () => {
     contextMenu.style.display = 'none';
     if (!targetNodeIdForMenu) return;
 
-    const newName = prompt("Enter new base name for this branch (e.g., Code_Refactor):");
+    const newName = await window.customPrompt(message = 'Enter new base name for this branch:', defaultValue = '', title = 'Rename Branch');
     if (!newName || newName.trim() === "") return;
 
     const safeName = newName.trim().replace(/\s+/g, '_');
@@ -592,7 +609,7 @@ $('menu-group').addEventListener('click', async () => {
             });
         }
     } else {
-        const groupResult = await window.customGroupPrompt("Enter a name for this group (e.g., 'Debugging TTS'):", "Group");
+        const groupResult = await window.customGroupPrompt("Enter a name for this group:", "Group");
         if (!groupResult || !groupResult.name) return;
 
         const groupName = groupResult.name;
@@ -637,6 +654,14 @@ $('menu-ungroup').addEventListener('click', () => {
 
                 const nodeIdEl = el.querySelector('.node-id');
                 if (nodeIdEl) nodeIdEl.style.color = '';
+
+                const nodeIcon = el.querySelector('.node-icon');
+                if (nodeIcon) {
+                    if (n.type === 'document') nodeIcon.innerHTML = documentIcon() 
+                    if (n.type === 'image') nodeIcon.innerHTML = imageIcon() 
+                    if (n.type === 'chat') nodeIcon.innerHTML = chatIcon() 
+                    if (n.type === 'scrape') nodeIcon.innerHTML = scrapeIcon() 
+                }
             }
         }
     });
