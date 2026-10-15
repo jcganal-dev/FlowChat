@@ -292,6 +292,10 @@ class ChatNode extends BaseNode {
     }
 
     async run() {
+        // P0 Fix: Prevent re-entry if already streaming
+        if (this.nodeData.abortController) {
+            return;
+        }
         const usertext = this.textarea.textContent.trim();
         if (!usertext) return;
         const chips = Array.from(this.el.querySelectorAll('.reference-node'));

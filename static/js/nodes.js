@@ -128,6 +128,20 @@ function deleteNode(nodeId, deleteBranch) {
         });
     }
 
+    // P0 Fix: Abort any in-flight requests for nodes being deleted
+    idsToRemove.forEach(id => {
+        const nodeToDelete = nodes.find(n => n.id === id);
+        if (nodeToDelete && nodeToDelete.abortController) {
+            nodeToDelete.abortController.abort();
+            nodeToDelete.abortController = null;
+        }
+        // P0 Fix: Call cleanup on node instance to remove event listeners
+        const el = document.getElementById(id);
+        if (el && el.__nodeInstance && typeof el.__nodeInstance.cleanup === 'function') {
+            el.__nodeInstance.cleanup();
+        }
+    });
+
     idsToRemove.forEach(id => {
         const el = document.getElementById(id);
         if (el) el.remove();
@@ -1005,6 +1019,11 @@ function renderFocusLineage() {
 async function sendFocusMessage() {
     const chatInput = document.getElementById('focus-chat-input');
     if (!chatInput) return;
+
+    // P0 Fix: Prevent double-send while already streaming
+    if (isFocusModeStreaming) {
+        return;
+    }
 
     const userHtml = chatInput.innerHTML.trim();
     const userText = chatInput.textContent.trim();
