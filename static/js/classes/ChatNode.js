@@ -330,7 +330,6 @@ class ChatNode extends BaseNode {
         if (this.stopBtn) this.stopBtn.style.display = 'flex';
         forkOffsetCounter = 0;
         const history = walkContext(this.id);
-        updateThermometer(this.id);
         if (refs.length > 0) {
             let systemDirectives = "STRICT INSTRUCTIONS FROM REFERENCED NODES:\n";
             let hasImageRefs = false;
@@ -400,7 +399,6 @@ class ChatNode extends BaseNode {
                 }
             }
             if (typeof drawEdges === 'function') drawEdges();
-            updateThermometer(this.id);
         };
         const requestUiFlush = () => {
             if (uiDirty) return;
@@ -510,6 +508,5 @@ class ChatNode extends BaseNode {
             if (btnRow) btnRow.style.display = 'none';
         }
         if (!this.textarea.disabled) this.textarea.disabled = false;
-        updateThermometer(this.id);
     }
 }
