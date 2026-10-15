@@ -159,6 +159,7 @@
 
     function addToChatHistory(targetNode) {
         let textDisplay = ''
+        let isThinking = false
         if (targetNode.parentId) {
             const parent = nodes.find(n => n.id === targetNode.parentId);
             if (parent) {
@@ -173,6 +174,10 @@
                 else if (parent.type=='scrape') {
                     textDisplay = `Scraped: ${parent.htmlText}`
                 }
+                // Check if parent is currently thinking (has reasoning but no final answer yet)
+                if (parent.aiThinking && parent.aiThinking.trim() !== '' && (!parent.aiText || parent.aiText.trim() === '')) {
+                    isThinking = true
+                }
             }
         } else {
             textDisplay = targetNode.id
@@ -186,7 +191,12 @@
 
         chatEntry.classList.add('chat-entry')
 
-        chatEntry.innerHTML = `<div class='chat-entry-text' style='overflow:hidden;'>${textDisplay}</div>`
+        // Show thinking indicator if node is streaming reasoning
+        let displayText = textDisplay
+        if (isThinking) {
+            displayText = `<span style="opacity:0.7;font-style:italic;">${textDisplay} <img src="/static/icons/hourglass.svg" class="file-icon" style="width:12px;height:12px;vertical-align:middle;margin-left:4px;"> Thinking…</span>`
+        }
+        chatEntry.innerHTML = `<div class='chat-entry-text' style='overflow:hidden;'>${displayText}</div>`
 
         if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
 
@@ -215,7 +225,9 @@
         newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
         $('chat-selection').appendChild(newChatBtn)
         nodes.forEach(node => {
-            if (node.type == 'chat' && node.aiText == '' && node.aiThinking == '' && node.hasChild == false) {
+            // P2 Fix: Include nodes that are thinking (have aiThinking but no aiText yet)
+            // Show them with a "Thinking..." indicator instead of hiding them
+            if (node.type == 'chat' && node.aiText == '' && node.hasChild == false) {
                 if (typeof addToChatHistory == "function") {addToChatHistory(node)}
             }
         });

@@ -228,13 +228,19 @@ function renderMarkdown(text) {
             marked.configured = true;
         }
 
-        const html = marked.parse(text);
+        try {
+            const html = marked.parse(text);
 
-        // Configure DOMPurify to allow KaTeX attributes and tags
-        return DOMPurify.sanitize(html, {
-            ADD_TAGS: ['math', 'menclose', 'merror', 'mfrac', 'mi', 'mlabeledtr', 'mmultiscripts', 'mn', 'mo', 'mover', 'mpadded', 'mphantom', 'mroot', 'mrow', 'ms', 'mspace', 'msqrt', 'mstyle', 'msub', 'msubsup', 'msup', 'mtable', 'mtd', 'mtext', 'mtr', 'munder', 'semantics', 'annotation', 'annotation-xml'],
-            ADD_ATTR: ['display', 'style', 'target', 'class']
-        });
+            // Configure DOMPurify to allow KaTeX attributes and tags
+            return DOMPurify.sanitize(html, {
+                ADD_TAGS: ['math', 'menclose', 'merror', 'mfrac', 'mi', 'mlabeledtr', 'mmultiscripts', 'mn', 'mo', 'mover', 'mpadded', 'mphantom', 'mroot', 'mrow', 'ms', 'mspace', 'msqrt', 'mstyle', 'msub', 'msubsup', 'msup', 'mtable', 'mtd', 'mtext', 'mtr', 'munder', 'semantics', 'annotation', 'annotation-xml'],
+                ADD_ATTR: ['display', 'style', 'target', 'class']
+            });
+        } catch (e) {
+            console.error('Markdown render error:', e);
+            // Fallback: escape HTML and return as pre
+            return `<pre style="white-space:pre-wrap;color:#ff5555;">[Render error] ${text.replace(/&/g,'&').replace(/</g,'<').replace(/>/g,'>')}</pre>`;
+        }
     }
     return text;
 }
