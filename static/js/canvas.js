@@ -1018,6 +1018,22 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
                 const maxW = 1200;
 
+                // NEW: sets width while keeping the node's horizontal center fixed —
+                // half the delta extends left, half extends right
+                function setWidthCentered(newW) {
+                    const oldW = el.offsetWidth;
+                    const deltaW = newW - oldW;
+                    if (deltaW === 0) return;
+
+                    el.style.width = `${newW}px`;
+                    n.x -= deltaW / 2;
+
+                    // Apply the compensating shift immediately (no transition) so the
+                    // node visually grows/shrinks around its center, not its left edge
+                    el.style.transition = 'none';
+                    el.style.transform = `translate(${n.x}px, ${n.y}px)`;
+                }
+
                 while (iterations < 4) {
                     const w = el.offsetWidth;
                     const h = el.offsetHeight;
@@ -1029,7 +1045,7 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                     let targetW = Math.sqrt(area * 1.25);
                     targetW = Math.max(minW, Math.min(targetW, maxW));
 
-                    el.style.width = `${targetW}px`;
+                    setWidthCentered(targetW);
 
                     // Force reflow
                     document.body.offsetHeight;
@@ -1043,7 +1059,7 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                 q = Math.max(minQ, Math.min(q, maxQ));
                 let finalW = q * GRID_SIZE;
 
-                el.style.width = `${finalW}px`;
+                setWidthCentered(finalW);   // CHANGED: was el.style.width = `${finalW}px`
                 n.nodeWidth = finalW;
             }
         }

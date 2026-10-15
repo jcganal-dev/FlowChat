@@ -16,12 +16,19 @@ from dotenv import load_dotenv
 import os
 from tools import Tools
 import asyncio
+import stat
+import sys
 
 agent_tools = Tools()
 
 TOOL_REGISTRY = {
     "web_search": agent_tools.web_search,
     "scrape": agent_tools.scrape,
+    "read_file": agent_tools.read_file,
+    "write_file": agent_tools.write_file,
+    "write_file": agent_tools.write_file,
+    "list_sandbox_files": agent_tools.list_sandbox_files,
+    "edit_file": agent_tools.edit_file
 }
 
 TOOLS_SCHEMA = [
@@ -54,9 +61,69 @@ TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "Read the contents of a file in the sandbox directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file you want to read."},
+                    "offset": {"type": "integer", "description": "The offset to which you start reading the file's content"},
+                    "length": {"type": "integer", "description": "The lenght of content you want to read."},
+                },
+                "required": ["file_path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "Write the contents of a file in the sandbox directory. Warning: this will overwrite the whole content of the target file",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file you want to write to."},
+                    "content": {"type": "string", "description": "The content you want to write into the file."}
+                },
+                "required": ["file_path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_sandbox_files",
+            "description": "Get the list of all files in the sandbox",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "Edit specific parts of a file in the sandbox directory using regex.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file you want to write to."},
+                    "pattern": {"type": "string", "description": "The regex pattern"},
+                    "replacement": {"type": "string", "description": "The content you want to edit into the file."},
+                    "flags": {"type": "integer", "description": "Regex flag(s) to modify pattern matching (e.g., 0 for default, re.I for case‑insensitive)."}
+                },
+                "required": ["file_path", "pattern", "replacement"],
+            },
+        },
+    },
 ]
 
-MAX_TOOL_ROUNDS = 6
+MAX_TOOL_ROUNDS = 50
 
 async def execute_tool(name: str, args: dict) -> str:
     fn = TOOL_REGISTRY.get(name)
@@ -144,6 +211,11 @@ async def upload_file(files: List[UploadFile] = File(...)):
         saved.append(file.filename)
     return JSONResponse(content={"message": "Uploaded successfully", "files": saved})
 
+def remove_readonly(func, path, _):
+    """Clear the read-only bit and retry (Windows)."""
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 @app.delete("/api/sandbox/delete/{filename:path}")
 async def delete_sandbox_file(filename: str):
     file_path = os.path.join("sandbox", filename)
@@ -151,7 +223,11 @@ async def delete_sandbox_file(filename: str):
         return JSONResponse(content={"message": "File/Folder already deleted"})
     try:
         if os.path.isdir(file_path):
-            shutil.rmtree(file_path)
+            # Handle long paths on Windows (.git has deeply nested dirs)
+            target = os.path.abspath(file_path)
+            if sys.platform == "win32":
+                target = "\\\\?\\" + target
+            shutil.rmtree(target, onerror=remove_readonly)
         else:
             os.remove(file_path)
         return JSONResponse(content={"message": "File/Folder deleted successfully"})
@@ -308,12 +384,12 @@ async def chat_endpoint(user_data: ChatPayload):
                         delta = chunk["choices"][0].get("delta", {})
 
                         if "reasoning" in delta:
-                            print(delta["reasoning"])
+                            # print(delta["reasoning"])
                             yield json.dumps({"reasoning_content": delta["reasoning"]}) + "\n"
 
                         if delta.get("content"):
                             assistant_content += delta["content"]
-                            print(delta["content"])
+                            # print(delta["content"])
                             yield json.dumps({"content": delta["content"]}) + "\n"
 
                         # tool call arguments arrive in pieces — merge by index

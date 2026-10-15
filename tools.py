@@ -2,12 +2,38 @@ import httpx
 import os
 from ddgs import DDGS
 import asyncio
-import os
-from pydantic import BaseModel
+import re
 from fastapi.responses import JSONResponse
-from langchain_core.tools import tool
+import urllib.parse
+
+ALLOWED_DIR = f"{os.getcwd()}\\sandbox"
+
 
 class Tools:
+    def validate_url(self, url: str) -> str:
+        """
+        Return the URL unchanged if it uses an allowed scheme (http or https).
+        Raise ValueError for any other scheme (file:, ftp:, etc.).
+        """
+        parsed = urllib.parse.urlparse(url)
+        scheme = parsed.scheme.lower()
+
+        if scheme not in ("http", "https"):
+            raise ValueError(
+                f"Access denied: URL scheme '{scheme}' is not allowed. "
+                "Only http(s) URLs are permitted."
+            )
+
+        # Return a normalised representation (lower‑case scheme, keep rest as‑is)
+        return urllib.parse.urlunparse((
+            scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment
+        ))
+
     def _get_crawler_args(self):
         """Return crawler config that avoids headless-browser detection (e.g. Cloudflare JS challenge)."""
         profile_dir = os.path.join(os.path.expanduser("~"), ".cache", "crawl4ai_profile")
@@ -82,8 +108,7 @@ class Tools:
                         md = self.run_jina_sync(link)
                         res.append((link, md, err_msg if not md else None))
             return res
-        return asyncio.run(_crawl())
-    
+        return asyncio.run(_crawl()) 
     async def scrape_with_jina(self, req):
         """
         Scrapes a webpage using Jina Reader.
@@ -152,15 +177,14 @@ class Tools:
         Args:
             url: The URL of the page to fetch.
         """
+        
         loop = asyncio.get_running_loop()
+        self.validate_url(url)
         target_url = url if url.startswith("http") else "https://" + url
         md = await loop.run_in_executor(None, self.run_crawl_sync, target_url)
         if not md:
             md = await loop.run_in_executor(None, self.run_jina_sync, target_url)
         return md or f"Could not retrieve content from {target_url}"
-
-    class ScrapeRequest(BaseModel):
-        url: str
 
     async def web_search(self, query: str, max_results: int = 3) -> str:
         """Search the web for real-time information. Use for anything recent, factual, or uncertain.
@@ -174,6 +198,7 @@ class Tools:
         # If the "query" is actually a URL, scrape it directly
         is_url = query.startswith("http://") or query.startswith("https://") or ("." in query and " " not in query)
         if is_url:
+            self.validate_url(query)
             target_url = query if query.startswith("http") else "https://" + query
             md = await loop.run_in_executor(None, self.run_crawl_sync, target_url)
             if not md:
@@ -204,3 +229,42 @@ class Tools:
             return f"Search succeeded but crawling failed: {e}"
 
         return combined
+
+    
+
+    def validate_path(self, file_path):
+        abs_path = os.path.abspath(os.path.join(ALLOWED_DIR, file_path))
+        if not abs_path.startswith(os.path.abspath(ALLOWED_DIR) + os.sep):
+            raise ValueError("Access denied: path escapes the allowed directory")
+        return abs_path
+
+    def read_file(self, file_path, offset=0, length=None):
+        safe_path = self.validate_path(file_path)
+        with open(safe_path, 'r') as f:
+            f.seek(offset)
+            if length is not None:
+                return f.read(length)
+            return f.read()
+
+    def write_file(self, file_path, content):
+        safe_path = self.validate_path(file_path)
+        with open(safe_path, 'w') as f:
+            f.write(content)
+
+    def edit_file(self, file_path, pattern, replacement, flags=0):
+        safe_path = self.validate_path(file_path)
+        with open(safe_path, 'r') as f:
+            content = f.read()
+        new_content = re.sub(pattern, replacement, content, flags=flags)
+        with open(safe_path, 'w') as f:
+            f.write(new_content)
+    
+    def list_sandbox_files(self):
+        file_list = []
+        for root, dirs, files in os.walk(ALLOWED_DIR):
+            for f in files:
+                full_path = os.path.join(root, f)
+                rel_path = os.path.relpath(self.validate_path(full_path), ALLOWED_DIR)
+                file_list.append(rel_path)
+        
+        return ", ".join(file_list)

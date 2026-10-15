@@ -154,8 +154,6 @@ function deleteNode(nodeId, deleteBranch) {
         }, 20);
     }
 
-    centerCanvas()
-
     if (typeof saveState === 'function') saveState();
 }
 

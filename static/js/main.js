@@ -330,9 +330,11 @@ window.addEventListener('keydown', (e) => {
         });
         document.getElementById(activeNodeId).querySelector('.delete-btn').dispatchEvent(shiftClickEvent)
         e.preventDefault()
+        // centerCanvas()
     } else if (e.key === 'Delete') {
         document.getElementById(activeNodeId).querySelector('.delete-btn').click()
         e.preventDefault();
+        // centerCanvas()
     }
 });
 
