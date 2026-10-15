@@ -204,7 +204,7 @@ async function triggerSingleSummarize(nodeId) {
     if (el) {
         oldHeight = el.offsetHeight;
         if (sumEl) {
-            sumEl.style.display = 'block';
+            // Let CSS handle visibility via .collapsed-node class
             sumEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
         }
     }
