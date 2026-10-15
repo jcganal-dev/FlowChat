@@ -28,7 +28,8 @@ TOOL_REGISTRY = {
     "write_file": agent_tools.write_file,
     "write_file": agent_tools.write_file,
     "list_sandbox_files": agent_tools.list_sandbox_files,
-    "edit_file": agent_tools.edit_file
+    "edit_file": agent_tools.edit_file,
+    "delete_file": agent_tools.delete_file
 }
 
 TOOLS_SCHEMA = [
@@ -51,7 +52,7 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "scrape",
-            "description": "Fetch the full content of a specific webpage as markdown.",
+            "description": "Fetch the full content of a specific webpage as markdown. Only allows valid url. Does not allow file:/// format.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -108,22 +109,35 @@ TOOLS_SCHEMA = [
         "type": "function",
         "function": {
             "name": "edit_file",
-            "description": "Edit specific parts of a file in the sandbox directory using regex.",
+            "description": "Edit a file in the sandbox by replacing exact string matches. Not a regex — provide the literal text to find and replace.",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "file_path": {"type": "string", "description": "The path to the file you want to write to."},
-                    "pattern": {"type": "string", "description": "The regex pattern"},
-                    "replacement": {"type": "string", "description": "The content you want to edit into the file."},
-                    "flags": {"type": "integer", "description": "Regex flag(s) to modify pattern matching (e.g., 0 for default, re.I for case‑insensitive)."}
+                    "file_path": {"type": "string", "description": "The path to the file you want to edit."},
+                    "old_string": {"type": "string", "description": "The exact text to find and replace."},
+                    "new_string": {"type": "string", "description": "The text to replace it with."}
                 },
-                "required": ["file_path", "pattern", "replacement"],
+                "required": ["file_path", "old_string", "new_string"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_file",
+            "description": "Delete a file or folder from the sandbox directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "file_path": {"type": "string", "description": "The path to the file or folder to delete."}
+                },
+                "required": ["file_path"],
             },
         },
     },
 ]
 
-MAX_TOOL_ROUNDS = 50
+MAX_TOOL_ROUNDS = 200
 
 async def execute_tool(name: str, args: dict) -> str:
     fn = TOOL_REGISTRY.get(name)
@@ -315,7 +329,8 @@ SYSTEM_INSTRUCTIONS = [
     "Use web_search whenever the question involves current events, recent data, or facts you're unsure about.",
     "Prefer one focused search over many broad ones. Summarize results in your answer instead of dumping raw tool output.",
     "If a search fails, tell the user rather than retrying indefinitely.",
-    "Once you arrive at an answer, give the answer to the user. Do not overthink."
+    "Once you arrive at an answer, give the answer to the user. Do not overthink.",
+    "You are already inside the sandbox directory. If you want to access a file, ommit /sandbox from your path."
 ]
 
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)

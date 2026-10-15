@@ -2,7 +2,7 @@ import httpx
 import os
 from ddgs import DDGS
 import asyncio
-import re
+import shutil
 from fastapi.responses import JSONResponse
 import urllib.parse
 
@@ -250,14 +250,19 @@ class Tools:
         safe_path = self.validate_path(file_path)
         with open(safe_path, 'w') as f:
             f.write(content)
+            return f"Wrote into file {file_path}"
 
-    def edit_file(self, file_path, pattern, replacement, flags=0):
+    def edit_file(self, file_path, old_string, new_string):
+        """Replace exact literal string occurrences in a file. Not a regex."""
         safe_path = self.validate_path(file_path)
         with open(safe_path, 'r') as f:
             content = f.read()
-        new_content = re.sub(pattern, replacement, content, flags=flags)
+        if old_string not in content:
+            raise ValueError(f"String not found in file: {old_string[:80]}...")
+        new_content = content.replace(old_string, new_string)
         with open(safe_path, 'w') as f:
             f.write(new_content)
+            return f"Replaced {old_string} with {new_string}"
     
     def list_sandbox_files(self):
         file_list = []
@@ -266,5 +271,19 @@ class Tools:
                 full_path = os.path.join(root, f)
                 rel_path = os.path.relpath(self.validate_path(full_path), ALLOWED_DIR)
                 file_list.append(rel_path)
-        
+
         return ", ".join(file_list)
+
+    def delete_file(self, file_path):
+        """Delete a file or folder from the sandbox."""
+        safe_path = self.validate_path(file_path)
+        if not os.path.exists(safe_path):
+            return f"File not found: {file_path}"
+        try:
+            if os.path.isdir(safe_path):
+                shutil.rmtree(safe_path)
+            else:
+                os.remove(safe_path)
+            return f"Deleted: {file_path}"
+        except Exception as e:
+            return f"Error deleting {file_path}: {e}"

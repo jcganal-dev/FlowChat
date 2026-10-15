@@ -322,20 +322,21 @@ window.addEventListener('keydown', (e) => {
     } else if (e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         if (typeof toggleFocusMode === 'function') toggleFocusMode();
-    } else if(e.shiftKey && e.key === 'Delete') {
-        const shiftClickEvent = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            shiftKey: true
-        });
-        document.getElementById(activeNodeId).querySelector('.delete-btn').dispatchEvent(shiftClickEvent)
-        e.preventDefault()
-        // centerCanvas()
-    } else if (e.key === 'Delete') {
-        document.getElementById(activeNodeId).querySelector('.delete-btn').click()
-        e.preventDefault();
-        // centerCanvas()
-    }
+    } 
+    // else if(e.shiftKey && e.key === 'Delete') {
+    //     const shiftClickEvent = new MouseEvent('click', {
+    //         bubbles: true,
+    //         cancelable: true,
+    //         shiftKey: true
+    //     });
+    //     document.getElementById(activeNodeId).querySelector('.delete-btn').dispatchEvent(shiftClickEvent)
+    //     e.preventDefault()
+    //     // centerCanvas()
+    // } else if (e.key === 'Delete') {
+    //     document.getElementById(activeNodeId).querySelector('.delete-btn').click()
+    //     e.preventDefault();
+    //     // centerCanvas()
+    // }
 });
 
 $('menu-summarize').addEventListener('click', () => {

@@ -34,8 +34,8 @@ class BaseNode {
         if (this.nodeData.muted) this.el.classList.add('muted-node');
         this.el.id = this.id;
         this.el.style.transform = `translate(${this.nodeData.x}px, ${this.nodeData.y}px)`;
-        this.el.style.width = `360px`;
-        this.el.style.minWidth = `360px`;
+        this.el.style.width = `336px`;
+        this.el.style.minWidth = `336px`;
         if (this.nodeData.nodeWidth) this.el.style.width = `${this.nodeData.nodeWidth}px`;
         this.el.style.zIndex = highestZIndex++;
 
@@ -166,7 +166,7 @@ class BaseNode {
 
     onResizeMove(moveEvent) {
         const deltaX = (moveEvent.clientX - this.resizeStartMouseX) / camera.zoom;
-        const isSymmetrical = moveEvent.ctrlKey || moveEvent.metaKey;
+        const isSymmetrical = !(moveEvent.ctrlKey || moveEvent.metaKey);
         let diff = isSymmetrical ? deltaX * 2 : deltaX;
         if (moveEvent.altKey) diff = Math.round(diff / (isSymmetrical ? GRID_SIZE * 2 : GRID_SIZE)) * (isSymmetrical ? GRID_SIZE * 2 : GRID_SIZE);
         const snappedWidth = Math.min(Math.max(NODE_WIDTH.min, this.resizeTargetStartWidth + diff), NODE_WIDTH.max);

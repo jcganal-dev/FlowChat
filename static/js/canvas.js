@@ -306,7 +306,17 @@ viewport.addEventListener('wheel', (e) => {
         }
     }
     const targetPre = e.target.closest('pre');
-    if (targetPre && e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+    if (targetPre && !e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+        // do normal scrolling
+        return;
+    }
+    const thinkStream = e.target.closest('.think-stream');
+    if (thinkStream && !e.ctrlKey && thinkStream.scrollHeight > thinkStream.clientHeight) {
+        // do normal scrolling
+        return;
+    }
+    const userSection = e.target.closest('.user-section');
+    if (userSection && !e.ctrlKey && userSection.scrollHeight > userSection.clientHeight) {
         // do normal scrolling
         return;
     }

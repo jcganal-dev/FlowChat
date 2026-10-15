@@ -103,7 +103,6 @@ function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 
     const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
     let nodeInstance;
     if (type === 'image' || type === 'document') nodeInstance = new FileNode(config);
-    else if (type === 'tool') nodeInstance = new ToolNode(config);
     else if (type === 'scrape') nodeInstance = new ScrapeNode(config);
     else nodeInstance = new ChatNode(config);
     return nodeInstance.id;
@@ -401,7 +400,7 @@ function toggleFocusMode(stayFocused = false) {
     if (!focusBg) return;
 
     const activeData = nodes.find(n => n.id === activeNodeId);
-    if (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat') {
+    if (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat' || activeData.aiThinking.trim() != '') {
         return
     }
 
@@ -491,7 +490,7 @@ function exitFocusMode() {
             camera.y = (window.innerHeight / 2) - activeData.y - (activeEl.offsetHeight / 2);
             if (typeof updateCanvas === 'function') updateCanvas();
         }
-        document.getElementById(activeNodeId).querySelector('.node-input').innerHTML = document.getElementById('focus-chat-input').innerHTML;
+        document.getElementById(activeNodeId).querySelector('.node-input').innerHTML = document.getElementById('focus-chat-input').innerHTML.trim() || activeData.htmlText;
         document.getElementById(activeNodeId).querySelector('.node-input').focus()
     }
 

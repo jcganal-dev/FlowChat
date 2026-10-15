@@ -573,9 +573,9 @@ body.shift-pressed.input-focused .node-id {
     overflow: hidden;
 }
 
-.think-content::-webkit-scrollbar {
+/* .think-content::-webkit-scrollbar {
     display: none;
-}
+} */
 
 .think-content:empty {
     display: none;
@@ -594,6 +594,8 @@ body.shift-pressed.input-focused .node-id {
     padding: 12px;
     border-bottom: 1px solid var(--border-base);
     background: var(--bg-surface-hover);
+    overflow: auto;
+    max-height: 200px;
 }
 
 .node-input {
@@ -1138,25 +1140,6 @@ div[contentEditable='true'].scrape-node-input,
     margin-left: 0px;
 }
 
-/* WebKit (Chrome, Safari, Edge) */
-::-webkit-scrollbar {
-    width: 8px;
-}
-
-::-webkit-scrollbar-track {
-    background: transparent;
-    /* Hides the track/background */
-}
-
-::-webkit-scrollbar-thumb {
-    background: var(--text-disabled);
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: var(--border-highlight);
-}
-
 /* Collapsed Node State */
 .node.collapsed-node .user-section,
 .node.collapsed-node .ai-section,
@@ -1189,7 +1172,7 @@ div[contentEditable='true'].scrape-node-input,
 }
 
 .focus-project-files, .focus-chat-selection {
-    min-width: 15dvw;
+    width: 275px;
     height: 100%;
     background-color: var(--bg-input);
     display: none;
@@ -1505,6 +1488,7 @@ h6 {
     padding: 3px 10px;
     border-radius: 25px;
     font-size: 14px;
+    max-height: 30px;
 }
 
 .chat-entry-text:hover {
@@ -1513,5 +1497,25 @@ h6 {
 
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
-.think-stream { display: flex; flex-direction: column; gap: 6px; height: 100%; overflow: auto;}
+.think-stream { display: flex; flex-direction: column; gap: 6px; height: 100%; overflow: auto; white-space: break-spaces;}
 .think-stream .tool-chip { margin: 2px 0; }
+
+
+/* WebKit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    /* Hides the track/background */
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--text-disabled);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-highlight);
+}

@@ -272,7 +272,7 @@ class ChatNode extends BaseNode {
             e.stopPropagation();
             forkOffsetCounter += 1;
             const data = nodes.find(n => n.id === this.el.id);
-            const forkX = data.x + 360;
+            const forkX = data.x + 336;
             const newId = createNode(data.parentId, forkX, data.y, this.textarea.innerHTML, data.turn, data.branch, data.name);
             const newEl = document.getElementById(newId);
             const newData = nodes.find(n => n.id === newId);
@@ -386,10 +386,14 @@ class ChatNode extends BaseNode {
         };
         const flushUi = () => {
             uiDirty = false;
-            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here
+            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here -- PROBABLLY HERE
             if (aiThinkEl.isConnected) {
                 renderThinkStream(thinkStreamEl, this.nodeData);       // reasoning + chips, in stream order
-                thinkStreamEl.scrollTop = thinkStreamEl.scrollHeight;
+                // Only auto-scroll if user is already near the bottom (within 100px)
+                const isNearBottom = thinkStreamEl.scrollTop + thinkStreamEl.clientHeight >= thinkStreamEl.scrollHeight - 100;
+                if (isNearBottom) {
+                    thinkStreamEl.scrollTop = thinkStreamEl.scrollHeight;
+                }
             }
             if (typeof drawEdges === 'function') drawEdges();
             updateThermometer(this.id);
@@ -448,6 +452,12 @@ class ChatNode extends BaseNode {
                     }
                 }
                 requestUiFlush();   // chip flips to Done in place — nothing around it re-renders
+
+                // Refresh sandbox UI if a file-modifying tool was used
+                if (['write_file', 'edit_file', 'delete_file'].includes(tr.name)) {
+                    if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
+                    if (typeof renderFocusProjectFiles === 'function') renderFocusProjectFiles();
+                }
             },
             onReasoning: (reasoning) => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
@@ -484,6 +494,7 @@ class ChatNode extends BaseNode {
                 // If you want the old wipe-on-finish behavior, uncomment:
                 // this.el.querySelector('.think-content').innerHTML = '';
                 // this.nodeData.aiThinking = '';
+                this.nodeData.aiSegments = [];
                 if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
