@@ -2,7 +2,6 @@ const $ = (id) => document.getElementById(id);
 const $make = (tag) => document.createElement(tag);
 const erase_thoughts = true;
 const GRID_SIZE = 24;
-const CONTEXT_LIMIT = 4096;
 const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore|svg)$/i;
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
 const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
@@ -350,3 +349,33 @@ function shiftChildrenXY(nodeId, deltaX, deltaY) {
         shiftChildrenXY(c.id, deltaX, deltaY);
     });
 }
+
+/**
+ * Shows a toast notification at the top center of the screen.
+ * @param {string} message - The message to display.
+ * @param {string} type - The type of toast: 'success', 'error', 'warning', 'info' (default: 'info').
+ * @param {number} duration - How long to show the toast in ms (default: 3000).
+ */
+function showToast(message, type = 'info', duration = 3000) {
+    const toast = document.getElementById('custom-toast');
+    if (!toast) return;
+
+    toast.textContent = message;
+    toast.className = 'custom-toast show ' + type;
+    toast.style.display = 'block';
+
+    // Force reflow to trigger transition
+    toast.offsetHeight;
+
+    clearTimeout(toast._hideTimeout);
+    toast._hideTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => {
+            toast.style.display = 'none';
+            toast.classList.remove('hide');
+        }, 300);
+    }, duration);
+}
+
+window.showToast = showToast;

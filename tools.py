@@ -287,3 +287,61 @@ class Tools:
             return f"Deleted: {file_path}"
         except Exception as e:
             return f"Error deleting {file_path}: {e}"
+
+    def create_folder(self, folder_path):
+        """Create a folder in the sandbox directory."""
+        safe_path = self.validate_path(folder_path)
+        try:
+            os.makedirs(safe_path, exist_ok=True)
+            return f"Created folder: {folder_path}"
+        except Exception as e:
+            return f"Error creating folder {folder_path}: {e}"
+
+    def move_files(self, paths, target):
+        """Move files or folders to a target directory within the sandbox."""
+        safe_target = self.validate_path(target)
+        if not os.path.exists(safe_target):
+            os.makedirs(safe_target, exist_ok=True)
+        elif not os.path.isdir(safe_target):
+            return f"Target is not a directory: {target}"
+
+        results = []
+        for path in paths:
+            safe_src = self.validate_path(path)
+            if not os.path.exists(safe_src):
+                results.append(f"Source not found: {path}")
+                continue
+            filename = os.path.basename(safe_src)
+            dst_path = os.path.join(safe_target, filename)
+            try:
+                shutil.move(safe_src, dst_path)
+                results.append(f"Moved {path} -> {target}/{filename}")
+            except Exception as e:
+                results.append(f"Error moving {path}: {e}")
+        return "\n".join(results)
+
+    def copy_files(self, paths, target):
+        """Copy files or folders to a target directory within the sandbox."""
+        safe_target = self.validate_path(target)
+        if not os.path.exists(safe_target):
+            os.makedirs(safe_target, exist_ok=True)
+        elif not os.path.isdir(safe_target):
+            return f"Target is not a directory: {target}"
+
+        results = []
+        for path in paths:
+            safe_src = self.validate_path(path)
+            if not os.path.exists(safe_src):
+                results.append(f"Source not found: {path}")
+                continue
+            filename = os.path.basename(safe_src)
+            dst_path = os.path.join(safe_target, filename)
+            try:
+                if os.path.isdir(safe_src):
+                    shutil.copytree(safe_src, dst_path, dirs_exist_ok=True)
+                else:
+                    shutil.copy2(safe_src, dst_path)
+                results.append(f"Copied {path} -> {target}/{filename}")
+            except Exception as e:
+                results.append(f"Error copying {path}: {e}")
+        return "\n".join(results)

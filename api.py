@@ -26,10 +26,12 @@ TOOL_REGISTRY = {
     "scrape": agent_tools.scrape,
     "read_file": agent_tools.read_file,
     "write_file": agent_tools.write_file,
-    "write_file": agent_tools.write_file,
     "list_sandbox_files": agent_tools.list_sandbox_files,
     "edit_file": agent_tools.edit_file,
-    "delete_file": agent_tools.delete_file
+    "delete_file": agent_tools.delete_file,
+    "create_folder": agent_tools.create_folder,
+    "move_files": agent_tools.move_files,
+    "copy_files": agent_tools.copy_files,
 }
 
 TOOLS_SCHEMA = [
@@ -132,6 +134,50 @@ TOOLS_SCHEMA = [
                     "file_path": {"type": "string", "description": "The path to the file or folder to delete."}
                 },
                 "required": ["file_path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_folder",
+            "description": "Create a folder in the sandbox directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "folder_path": {"type": "string", "description": "The path of the folder to create."}
+                },
+                "required": ["folder_path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "move_files",
+            "description": "Move one or more files or folders to a target directory within the sandbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "paths": {"type": "array", "items": {"type": "string"}, "description": "List of source paths to move."},
+                    "target": {"type": "string", "description": "The target directory path."}
+                },
+                "required": ["paths", "target"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "copy_files",
+            "description": "Copy one or more files or folders to a target directory within the sandbox.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "paths": {"type": "array", "items": {"type": "string"}, "description": "List of source paths to copy."},
+                    "target": {"type": "string", "description": "The target directory path."}
+                },
+                "required": ["paths", "target"],
             },
         },
     },

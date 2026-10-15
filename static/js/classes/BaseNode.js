@@ -216,6 +216,11 @@ class BaseNode {
             newData.nodeWidth = childWidth;
             newEl.style.width = childWidth + 'px';
         }
+        let rootParent = this.el.id;
+        while (nodes.find(n => n.id === rootParent).parentId) {
+            rootParent = nodes.find(n => n.id === rootParent).parentId
+        }
+        autoLayout(true, rootParent)
         if (typeof saveState === 'function') saveState();
     }
 

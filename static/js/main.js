@@ -1,7 +1,7 @@
 /**
  * Extracts the current DOM layout, node contents, and camera position, then posts it to the backend to save.
  */
-async function saveState() {
+async function saveState(showToastNotification=false) {
     nodes.forEach(n => {
         const el = document.getElementById(n.id);
         if (el) {
@@ -20,7 +20,7 @@ async function saveState() {
         forkOffsetCounter: forkOffsetCounter
     };
 
-    await apiSaveState(state);
+    await apiSaveState(state, showToastNotification);
 }
 
 /**
@@ -318,7 +318,7 @@ window.addEventListener('keydown', (e) => {
         if (typeof centerCanvas === 'function') centerCanvas();
     } else if (e.ctrlKey && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        if (typeof saveState === 'function') saveState();
+        if (typeof saveState === 'function') saveState(true);
     } else if (e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         if (typeof toggleFocusMode === 'function') toggleFocusMode();
@@ -342,6 +342,10 @@ window.addEventListener('keydown', (e) => {
 $('menu-summarize').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (targetNodeIdForMenu) {
+        const node = nodes.find(n => n.id === targetNodeIdForMenu);
+        if (node && !node.isCollapsed) {
+            toggleNodeState(targetNodeIdForMenu);
+        }
         triggerSingleSummarize(targetNodeIdForMenu);
     }
 });
@@ -351,6 +355,10 @@ $('menu-summarize-selected').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     if (selectedNodes.size > 1) {
         selectedNodes.forEach(id => {
+            const node = nodes.find(n => n.id === id);
+            if (node && !node.isCollapsed) {
+                toggleNodeState(id);
+            }
             if (typeof triggerSingleSummarize === 'function') triggerSingleSummarize(id);
         });
     }

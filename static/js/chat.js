@@ -86,7 +86,7 @@ async function triggerSummarize(groupId) {
 
     const payload = {
         messages: [
-            { role: "system", content: `You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures what the AI did/said in response to the user's request. Be as concise as possible without losing the core meaning of the response. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>User asked about X, AI explained Y.</SUMMARY_0>. Do not include any other text. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
+            { role: "system", content: `You are a quick and precise summarizer. The user will provide a conversation segment broken into distinct [NODE_X] parts. For EACH node, write a summary that captures what the AI did/said in response to the user's request. Be as concise as possible without losing the core meaning of the response. You MUST wrap each summary in exact XML tags matching the node index, for example: <SUMMARY_0>The key changes made are...</SUMMARY_0>. Do not include any other text. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: summarizableNodes.length * token_per_node
@@ -184,13 +184,13 @@ async function triggerSingleSummarize(nodeId) {
         oldHeight = el.offsetHeight;
         if (sumEl) {
             // Let CSS handle visibility via .collapsed-node class
-            sumEl.innerHTML = "<img src='/static/icons/magnifying-glass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
+            sumEl.innerHTML = "<img src='/static/icons/hourglass.svg' class='file-icon' style='margin-bottom: -2px;'> Summarizing...";
         }
     }
 
     const payload = {
         messages: [
-            { role: "system", content: `You are a quick and precise summarizer. Write a summary that captures what the AI did/said in response to the user's request. The summary should be as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
+            { role: "system", content: `You are a quick and precise summarizer. Write a summary that captures what the AI did/said in response to the user's request. Do NOT include what the user asked for, nor say "The AI produced" nor "The assistant wrote". Plainly state the summarized version of the response. The summary should be as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: 150
