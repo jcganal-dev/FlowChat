@@ -264,10 +264,6 @@ class ChatNode extends BaseNode {
             if (typeof drawEdges === 'function') drawEdges();
         });
         this.addBtn.addEventListener('click', this.onFork.bind(this));
-        this.addBtn.addEventListener('click', () => {
-            this.onFork.bind(this)
-            autoLayout(true, this.nodeData.id)
-        });
         this.dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;

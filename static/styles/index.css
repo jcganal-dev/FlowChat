@@ -169,6 +169,47 @@ html {
     color: var(--text-primary);
 }
 
+/* Custom Toast */
+.custom-toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-100%);
+    background: var(--bg-base);
+    /* border: 1px solid var(--transparent-light); */
+    /* border-radius: 8px; */
+    padding: 8px 16px;
+    box-shadow: 0 10px 30px var(--shadow-md);
+    font-size: 14px;
+    color: var(--text-primary);
+    z-index: 10000;
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    white-space: nowrap;
+}
+
+.custom-toast.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+}
+
+.custom-toast.success {
+    border-left: 4px solid var(--success-green, #4ade80);
+}
+
+.custom-toast.error {
+    border-left: 4px solid var(--error-red, #f87171);
+}
+
+.custom-toast.warning {
+    border-left: 4px solid var(--warning-yellow, #fbbf24);
+}
+
+.custom-toast.info {
+    border-left: 4px solid var(--info-blue, #60a5fa);
+}
+
 /* Custom Modal */
 .custom-modal {
     position: fixed;
@@ -386,6 +427,7 @@ body.is-panning * {
     resize: horizontal;
     min-width: 300px;
     max-width: 1200px;
+    max-height: 1200px;
     cursor: auto;
     width: fit-content;
 }
@@ -602,6 +644,7 @@ body.shift-pressed.input-focused .node-id {
     background: var(--bg-surface-hover);
     overflow: auto;
     max-height: 200px;
+    flex-shrink: 0;
 }
 
 .node-input {
@@ -662,7 +705,7 @@ body.shift-pressed.input-focused .node-id {
     padding: 12px;
     cursor: default;
     min-height: 40px;
-    max-height: 1000px;
+    /* max-height: 1000px; */
     overflow: auto;
     overflow-wrap: break-word;
 }

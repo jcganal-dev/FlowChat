@@ -55,16 +55,23 @@ async function streamChatApi(payload, signal, callbacks) {
 /**
  * Sends the current application state to the backend to be persisted.
  * @param {Object} state - The complete state object (nodes, groups, camera, etc).
+ * @param {boolean} showToastNotification - Whether to show a toast notification on success (default: true).
  */
-async function apiSaveState(state) {
+async function apiSaveState(state, showToastNotification = false) {
     try {
         await fetch('/api/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ state: state })
         });
+        if (showToastNotification && typeof showToast === 'function') {
+            showToast('Saved Successfully', 'success', 2500);
+        }
     } catch (e) {
         console.error("SQLite save failed:", e);
+        if (typeof showToast === 'function') {
+            showToast('Save failed', 'error', 3000);
+        }
     }
 }
 

@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowChat</title>
     <link rel="stylesheet" href="/static/styles/index.css">
-    <link rel="icon" href="/static/icons/temp_icon.png" type="image/png">
+    <link rel="icon" href="/static/icons/icon.svg" type="image/png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
     <link href="https://cdn.jsdelivr.net/gh/PrismJS/prism-themes@master/themes/prism-vsc-dark-plus.css"
         rel="stylesheet" />
@@ -26,7 +26,7 @@
     <!-- Floating Sandbox Palette -->
     <div id="sandbox-palette" class="sandbox-palette" style="display: none;">
         <div class="palette-header" id="sandbox-palette-header">
-            <h3>Project Files</h3>
+            <h3>Sandbox Files</h3>
             <div class="header-actions">
                 <a id="create-folder-btn" onclick="promptCreateFolder()" title="Create Folder"><img
                         src="/static/icons/create-folder.svg" class="file-icon"></a>
@@ -61,6 +61,9 @@
         </span>
     </div>
 
+    <!-- Custom Toast Notification -->
+    <div id="custom-toast" class="custom-toast" style="display: none;"></div>
+
     <!-- Custom Popup Modal -->
     <div id="custom-modal" class="custom-modal" style="display: none;">
         <div class="custom-modal-content">
@@ -69,7 +72,7 @@
             <div id="custom-modal-input-container" style="display: none; align-items: center; gap: 8px;">
                 <div id="custom-modal-color-proxy" class="group-color-proxy"
                     style="background-color: #a0a0a0; display: none;" onclick="this.nextElementSibling.click()"></div>
-                <input type="color" id="custom-modal-color" style="display: none;" value="#a0a0a0"
+                <input type="color" id="custom-modal-color" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;" value="#a0a0a0"
                     onchange="this.previousElementSibling.style.backgroundColor = this.value">
                 <input type="text" id="custom-modal-input" class="modal-input" style="flex: 1;" />
             </div>

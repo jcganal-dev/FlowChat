@@ -455,8 +455,8 @@ function drawGroups() {
         box.innerHTML = `
             <div class="group-header">
                 <div class="group-color-proxy" style="background-color: ${group.color || '#a0a0a0'};" onclick="this.nextElementSibling.click()"></div>
-                <input type="color" class="group-color-picker" value="${group.color || '#a0a0a0'}" 
-                    onchange="changeGroupColor('${group.id}', this.value)" style="display: none;">
+                <input type="color" class="group-color-picker" value="${group.color || '#a0a0a0'}"
+                    onchange="changeGroupColor('${group.id}', this.value)" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;">
                 <span class="node-id" style="color: ${group.color || '#a0a0a0'};" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
                 ${btnHtml}
             </div>
@@ -914,6 +914,7 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
 
         if (children.length === 0) {
             nodeData.subtreeWidth = nodeWidth;
+            nodeData.mainColumnCenter = nodeWidth / 2; // NEW: a leaf fills its slot; center = middle
             return nodeData.subtreeWidth;
         }
 
@@ -931,8 +932,20 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
             let mainColumnWidth = Math.max(nodeWidth, childMainWidth);
             nodeData.mainColumnWidth = mainColumnWidth;
 
-            let offset = (mainColumnWidth - childMainWidth) / 2;
-            nodeData.fullGroupedWidth = Math.max(mainColumnWidth, offset + child.subtreeWidth);
+            // NEW: the child's main column is NOT at the left edge of its subtree slot —
+            // a normal child is centered over its own children, a group-column child is
+            // centered in its own grouped block. mainColumnCenter tells us where it is.
+            // (The old code assumed left edge via `offset`, which caused the rightward drift.)
+
+            // NEW: where THIS node's main column sits relative to its slot's left edge.
+            // The grouped block must contain both the main column and the child's
+            // subtree centered on the shared axis:
+            nodeData.mainColumnCenter = Math.max(mainColumnWidth / 2, child.mainColumnCenter);
+
+            // NEW: block width = left part + right part around the axis
+            nodeData.fullGroupedWidth =
+                nodeData.mainColumnCenter +
+                Math.max(mainColumnWidth / 2, child.subtreeWidth - child.mainColumnCenter);
 
             nodeData.subtreeWidth = nodeData.fullGroupedWidth + (otherWidth > 0 ? HORIZONTAL_GAP + otherWidth : 0);
             nodeData.isGroupColumn = true;
@@ -947,6 +960,7 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
             nodeData.fullGroupedWidth = Math.max(nodeWidth, childrenTotalWidth);
             nodeData.subtreeWidth = Math.max(nodeWidth, childrenTotalWidth);
             nodeData.isGroupColumn = false;
+            nodeData.mainColumnCenter = nodeData.subtreeWidth / 2; // NEW: centered over its children
         }
 
         return nodeData.subtreeWidth;
@@ -956,7 +970,10 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
         const children = childrenMap[nodeData.id] || [];
 
         if (nodeData.isGroupColumn) {
-            nodeData.x = startX + (nodeData.mainColumnWidth / 2) - (nodeData.nodeWidth / 2);
+            // CHANGED: center the main column on the group axis instead of
+            // pinning it to the left edge of the slot
+            let mainColCenter = startX + nodeData.mainColumnCenter;
+            nodeData.x = mainColCenter - nodeData.nodeWidth / 2;
             nodeData.y = currentY;
 
             let groupedChildren = children.filter(c => nodeData.groupId && c.groupId === nodeData.groupId);
@@ -965,9 +982,9 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
             if (groupedChildren.length === 1) {
                 let child = groupedChildren[0];
                 let tightDrop = nodeData.nodeHeight + (GRID_SIZE * 2);
-                let childMainWidth = child.isGroupColumn ? child.mainColumnWidth : child.nodeWidth;
-                let offset = (nodeData.mainColumnWidth - childMainWidth) / 2;
-                placeSubtree(child, startX + offset, currentY + tightDrop);
+                // CHANGED: slot the child so the center of ITS main column lands
+                // exactly under ours — this is the line that fixes the drift
+                placeSubtree(child, mainColCenter - child.mainColumnCenter, currentY + tightDrop);
             }
 
             let currentOtherX = startX + nodeData.fullGroupedWidth + HORIZONTAL_GAP;
