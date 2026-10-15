@@ -155,7 +155,6 @@ function deleteNode(nodeId, deleteBranch) {
             selectNode(nodes[nodes.length - 1].id);
         } else {
             activeNodeId = null;
-            if (typeof updateThermometer === 'function') updateThermometer(null);
             edgesLayer.innerHTML = '';
         }
     } else {
@@ -233,7 +232,6 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
     });
 
     if (typeof drawEdges === 'function') drawEdges(lineage);
-    if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
 }
 
 /**
@@ -572,7 +570,6 @@ function exitFocusMode(abortStreaming = false) {
 
     if (typeof drawEdges === 'function') drawEdges();
     if (typeof drawGroups === 'function') drawGroups();
-    if (typeof updateThermometer === 'function') updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
     centerCanvas();
 }

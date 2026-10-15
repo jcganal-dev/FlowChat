@@ -45,26 +45,6 @@ function estimateTokens(messages) {
 }
 
 /**
- * Updates the context token visualizer (thermometer) to show how full the LLM context window is.
- * @param {string} nodeId - The current active leaf node to measure context from.
- */
-function updateThermometer(nodeId) {
-    if (!nodeId) return;
-    const history = walkContext(nodeId);
-    const tokens = estimateTokens(history);
-    const pct = Math.min(100, Math.round((tokens / CONTEXT_LIMIT) * 100));
-
-    const counter = document.getElementById('token-counter');
-    const fill = document.getElementById('meter-fill');
-
-    if (counter && fill) {
-        counter.textContent = `${tokens.toLocaleString()} / ${CONTEXT_LIMIT.toLocaleString()} tokens (${pct}%)`;
-        fill.style.width = `${pct}%`;
-        fill.className = pct > 85 ? 'danger' : pct > 65 ? 'warning' : '';
-    }
-}
-
-/**
  * Extracts context, parses inline @references, and streams a completion request to the LLM backend for a given node.
  * Updates the node's UI dynamically as the stream returns content and reasoning.
  * @param {string} nodeId - The ID of the chat node triggering the execution.
@@ -167,7 +147,6 @@ async function triggerSummarize(groupId) {
 
             group.isCollapsed = true;
             if (typeof drawGroups === 'function') drawGroups();
-            updateThermometer(activeNodeId);
             if (typeof saveState === 'function') saveState();
         }
     });
@@ -261,7 +240,6 @@ async function triggerSingleSummarize(nodeId) {
                 }
             }
             if (typeof drawGroups === 'function') drawGroups();
-            updateThermometer(activeNodeId);
             if (typeof saveState === 'function') saveState();
         }
     });
@@ -296,7 +274,6 @@ function toggleGroupState(groupId) {
     });
 
     if (typeof drawGroups === 'function') drawGroups();
-    updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
     if (typeof updateCanvas === 'function') updateCanvas();
 }
@@ -328,7 +305,6 @@ function toggleNodeState(nodeId) {
     }
 
     if (typeof drawGroups === 'function') drawGroups();
-    updateThermometer(activeNodeId);
     if (typeof saveState === 'function') saveState();
     if (typeof updateCanvas === 'function') updateCanvas();
 }
