@@ -71,7 +71,11 @@ async function wipeState() {
 }
 
 window.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('.node-input')) return;
+    if (e.target.closest('.node-input')) {
+        if (node && node.isContentEditable && node.tagName === 'DIV') {
+            return;
+        }
+    }
 
     if (!e.target.closest('#viewport')) return;
 
@@ -688,7 +692,6 @@ window.addEventListener('DOMContentLoaded', async () => {
         if (typeof createNode === 'function') createNode();
     }
 
-    centerCanvas();
     if (typeof refreshNodeCulling === 'function') refreshNodeCulling();
     setTimeout(() => {
         if (typeof refreshNodeCulling === 'function') refreshNodeCulling();
