@@ -188,7 +188,7 @@ Open **http://localhost:5000** in your browser.
 ### Sandbox Files
 
 - **Upload** - Use buttons beside sidebar header
-- **Reference in chat** - Drag files/folder into chatbox → inserts `@filepath` chip
+- **Reference in chat** - Drag files/folder into chatbox → inserts `filepath` chip
 - **LLM tools:**
   * **web_search** - search the web for current information
   * **scrape** - fetch a webpage as markdown
