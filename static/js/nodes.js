@@ -1170,6 +1170,9 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         if (isAborted) {
             if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
         } else {
+            document.getElementById('focus-chat-input').innerText = turnEl.querySelector('.focus-user').innerText
+            turnEl.remove()
+            showToast(`${data ? (data.message || data) : 'Unknown error'}`, 'error', 2500)
             if (aiEl) aiEl.innerHTML = `<span style="color: #ff5555;">Error: ${data ? (data.message || data) : 'Unknown error'}</span>`;
         }
         updateFocusModeButtonState('idle');
