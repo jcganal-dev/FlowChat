@@ -320,6 +320,12 @@ viewport.addEventListener('wheel', (e) => {
         // do normal scrolling
         return;
     }
+    
+    const nodeSummaryDisplay = e.target.closest('.node-summary-display');
+    if (nodeSummaryDisplay && !e.ctrlKey && nodeSummaryDisplay.scrollHeight > nodeSummaryDisplay.clientHeight) {
+        // do normal scrolling
+        return;
+    }
 
     e.preventDefault();
     if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
@@ -473,6 +479,7 @@ window.changeGroupColor = function (groupId, color, save = true) {
         groups[groupId].color = color;
 
         const groupEl = document.getElementById(`box_${groupId}`);
+        groupEl.style.border = `2px dashed ${color || '#a0a0a0'}`;
         if (groupEl) {
             const proxy = groupEl.querySelector('.group-color-proxy');
             if (proxy) proxy.style.backgroundColor = color;

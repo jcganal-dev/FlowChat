@@ -1199,6 +1199,7 @@ div[contentEditable='true'].scrape-node-input,
 
 .node.collapsed-node .node-summary-display {
     display: block !important;
+    overflow: auto;
 }
 
 .chevron {
