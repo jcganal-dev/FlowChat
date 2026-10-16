@@ -18,6 +18,7 @@ from tools import Tools
 import asyncio
 import stat
 import sys
+from pathlib import Path
 
 agent_tools = Tools()
 
@@ -351,10 +352,20 @@ class ScrapeRequest(BaseModel):
 async def scrapeTool(url: ScrapeRequest):
     return await agent_tools.scrape_with_jina(url)
 
-load_dotenv() 
+env_path = Path(".env")
+
+if not env_path.exists():
+    api_key = input("Enter API_KEY: ").strip()
+    server_url = input("Enter SERVER_URL: ").strip()
+    model = input("Enter MODEL: ").strip()
+    env_path.write_text(f"API_KEY={api_key}\nSERVER_URL={server_url}\nMODEL={model}\n")
+
+load_dotenv(dotenv_path=env_path)
+
 API_KEY = os.getenv("API_KEY")
 SERVER_URL: str = os.getenv("SERVER_URL", "")
 MODEL = os.getenv("MODEL")
+
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file")
 if not SERVER_URL:
@@ -467,7 +478,7 @@ async def chat_endpoint(user_data: ChatPayload):
                                     entry["arguments"] += fn["arguments"]
 
                 if had_error or not streamed_calls:
-                    return  # final answer finished (or error)
+                    return
 
                 # Build the assistant message with tool_calls and execute them
                 calls = [streamed_calls[i] for i in sorted(streamed_calls)]

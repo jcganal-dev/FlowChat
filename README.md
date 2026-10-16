@@ -1,4 +1,3 @@
-
 # FlowChat
 
 > **A spatial, node-based LLM conversation canvas with tool-use, sandbox filesystem, and focus mode.**
@@ -128,11 +127,11 @@ MODEL = 'anthropic/claude-3.5-sonnet'      # Or any model your endpoint supports
 ### Run
 
 ```bash
-# Development (auto-reload)
-uvicorn api:app --reload --host 0.0.0.0 --port 5000
+# Launch
+uvicorn api:app --port 5000
 
-# Production
-uvicorn api:app --host 0.0.0.0 --port 5000
+# Development (auto-reload)
+uvicorn api:app --reload --port 5000
 ```
 
 Open **http://localhost:5000** in your browser.
@@ -258,7 +257,7 @@ LLM2/
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+BSD 2-Clause License — see [LICENSE](LICENSE) for details.
 
 ---
 
@@ -276,13 +275,3 @@ MIT License — see [LICENSE](LICENSE) for details.
   - HTML by **Venus** (Graphic Room)
   - CSS by **Pixel Icons**
 - **SVG Repo** — responsive flat icons collection (chart, brush, pencil, bulb, folder, trash, clock, magnifying glass, error, upload, chevron, group, send, stop, cloud, globe, refresh, hourglass, node, document, image, focus, and app icon)
-
----
-
-## 💡 Tips & Tricks
-
-- **Reference chips persist** — `node-id` chips survive save/load and inject full context
-- **ScrapeNode auto-branches** — successful scrapes auto-create a child chat node
-- **Group summarize** — right-click group → "Summarize" compresses all nodes
-- **Canvas state survives reload** — auto-saves to SQLite on every change
-- **Shift+Click node ID** in canvas → inserts reference into *focused* input (focus mode or canvas)
