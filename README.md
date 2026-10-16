@@ -4,6 +4,10 @@
 
 FlowChat reimagines LLM interaction as a **spatial canvas** where conversations branch, fork, and reference each other visually. Built on FastAPI and vanilla JS, it combines infinite canvas with the power of tool-enabled LLMs.
 
+| Canvas                                           | Focus                                            |
+| ------------------------------------------------ | ------------------------------------------------ |
+| ![1792128988089](image/README/1792128988089.png) | ![1792128948603](image/README/1792128948603.png) |
+
 ---
 
 ## Key Features
@@ -184,7 +188,7 @@ Open **http://localhost:5000** in your browser.
 ### Sandbox Files
 
 - **Upload** - Use buttons beside sidebar header
-- **Reference in chat** - Drag files/folder into chatbox → inserts `@filepath` chip
+- **Reference in chat** - Drag files/folder into chatbox → inserts `filepath` chip
 - **LLM tools:**
   * **web_search** - search the web for current information
   * **scrape** - fetch a webpage as markdown
