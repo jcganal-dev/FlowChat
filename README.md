@@ -1,4 +1,3 @@
-
 # FlowChat
 
 > **A spatial, node-based LLM conversation canvas with tool-use, sandbox filesystem, and focus mode.**
@@ -207,7 +206,7 @@ Open **http://localhost:5000** in your browser.
 ## Project Structure
 
 ```
-LLM2/
+FlowChat/
 ├── api.py                 # FastAPI backend, tool registry, SSE chat endpoint
 ├── tools.py               # Tool implementations (search, scrape, file ops)
 ├── requirements.txt       # Python dependencies
