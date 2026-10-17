@@ -153,18 +153,6 @@ const nodeResizeObserver = new ResizeObserver(() => {
     }, 30);
 });
 
-/**
- * Copies the given text to the system clipboard.
- * @param {string} text - The text to copy.
- */
-async function copy_text(text) {
-    try {
-        await navigator.clipboard.writeText(text);
-    } catch (err) {
-        console.error('Failed to copy text: ', err);
-    }
-}
-
 function getIconpath(filepath) {
     const extension = filepath.split('.').pop().toLowerCase();
     

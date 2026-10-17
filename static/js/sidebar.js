@@ -474,7 +474,7 @@ async function handleSandboxFileShiftClick(filepath) {
     }
 
     if (lastFocusedInput.contentEditable === 'false' || lastFocusedInput.getAttribute('contenteditable') === 'false') {
-        window.customAlert('Cannot add references to a finished node!');
+        // window.customAlert('Cannot add references to a finished node!');
         return;
     }
 

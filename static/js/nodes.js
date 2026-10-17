@@ -296,27 +296,34 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="/static/icons/document.svg" class="file-icon"> ${refId}`;
             if (refId.endsWith('/*')) {
+                chipLabel = `<img src="/static/icons/folder.svg" class="file-icon"> ${refId}`;
                 const folderName = refId.split('/').slice(1, -1).join('/');
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
                     refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
                 });
             } else {
-                refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
+                const filename = refData.files[0].name;
+                if (refData.files.length > 1) {
+                    chipLabel = `<img src="/static/icons/document.svg" class="file-icon"> ${refId}`;
+                    refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => {f.name;console.log(f.name)}).join(', ')}]`;
+                } else {
+                    chipLabel = `<img src="${getIconpath(filename)}" class="file-icon"> ${refId}`;
+                    refText = `[DOCUMENT_ATTACHED: ${refData.files[0].name}`;
+                }
             }
             isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
-            chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> Summary of ${refId}`;
+            chipLabel = `${chatIcon()} Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else if (refData.type === 'scrape') {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `<img src="/static/icons/globe.svg" class="file-icon"> ${refId}`;
+            chipLabel = `${scrapeIcon()} ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `<img src="/static/icons/node.svg" class="file-icon"> ${refId}`;
+            chipLabel = `${chatIcon()} ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         }
     }
@@ -385,8 +392,6 @@ function handleIdClick(event, id, isGroup = false) {
         // If not inserted, we intentionally do nothing and do NOT stop propagation.
         // This lets the click event bubble up to `.node` which will naturally trigger
         // lineage selection via `selectNode(el.id, e.shiftKey)`.
-    } else {
-        if (typeof copy_text === 'function') copy_text(isGroup ? groups[id].name : id);
     }
 }
 
@@ -1155,7 +1160,8 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
 
     if (type === 'reasoning') {
         if (thinkEl) {
-            const truncData = data.slice(Math.max(0,data.length-1000),data.length)
+            const truncData = data
+            // const truncData = data.slice(Math.max(0,data.length-1000),data.length)
             thinkEl.style.display = 'block';
             thinkEl.innerHTML = `<div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div><div class="focus-think-body">${truncData}</div>`;
         }
@@ -1171,7 +1177,6 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
             if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
         } else {
             document.getElementById('focus-chat-input').innerText = turnEl.querySelector('.focus-user').innerText
-            turnEl.remove()
             showToast(`${data ? (data.message || data) : 'Unknown error'}`, 'error', 2500)
             if (aiEl) aiEl.innerHTML = `<span style="color: #ff5555;">Error: ${data ? (data.message || data) : 'Unknown error'}</span>`;
         }
