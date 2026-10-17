@@ -218,46 +218,46 @@ class ChatNode extends BaseNode {
                 this.run();
             }
         });
-        this.textarea.addEventListener('keyup', (e) => {
-            if (e.key === ' ') {
-                const selection = window.getSelection();
-                if (!selection.rangeCount) return;
-                const range = selection.getRangeAt(0);
-                const textNode = range.startContainer;
-                if (textNode.nodeType === Node.TEXT_NODE) {
-                    const text = textNode.textContent;
-                    const cursorOffset = range.startOffset;
-                    const textBeforeCursor = text.slice(0, cursorOffset);
-                    const refRegex = /@([\w()-]+)\s$/;
-                    const match = textBeforeCursor.match(refRegex);
-                    if (match) {
-                        const refName = match[1];
-                        let isGroup = false;
-                        let targetId = null;
-                        const refNode = nodes.find(n => n.id === refName);
-                        if (refNode && refNode.id !== this.el.id) {
-                            targetId = refName;
-                        } else {
-                            const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
-                            if (groupObj) {
-                                targetId = groupObj.id;
-                                isGroup = true;
-                            }
-                        }
-                        if (targetId) {
-                            const delRange = document.createRange();
-                            delRange.setStart(textNode, match.index);
-                            delRange.setEnd(textNode, cursorOffset);
-                            delRange.deleteContents();
-                            const newRange = document.createRange();
-                            newRange.setStart(textNode, match.index);
-                            newRange.collapse(true);
-                            insertChipAtRange(this.textarea, newRange, targetId, isGroup);
-                        }
-                    }
-                }
-            }
-        });
+        // this.textarea.addEventListener('keyup', (e) => {
+        //     if (e.key === ' ') {
+        //         const selection = window.getSelection();
+        //         if (!selection.rangeCount) return;
+        //         const range = selection.getRangeAt(0);
+        //         const textNode = range.startContainer;
+        //         if (textNode.nodeType === Node.TEXT_NODE) {
+        //             const text = textNode.textContent;
+        //             const cursorOffset = range.startOffset;
+        //             const textBeforeCursor = text.slice(0, cursorOffset);
+        //             const refRegex = /@([\w()-]+)\s$/;
+        //             const match = textBeforeCursor.match(refRegex);
+        //             if (match) {
+        //                 const refName = match[1];
+        //                 let isGroup = false;
+        //                 let targetId = null;
+        //                 const refNode = nodes.find(n => n.id === refName);
+        //                 if (refNode && refNode.id !== this.el.id) {
+        //                     targetId = refName;
+        //                 } else {
+        //                     const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
+        //                     if (groupObj) {
+        //                         targetId = groupObj.id;
+        //                         isGroup = true;
+        //                     }
+        //                 }
+        //                 if (targetId) {
+        //                     const delRange = document.createRange();
+        //                     delRange.setStart(textNode, match.index);
+        //                     delRange.setEnd(textNode, cursorOffset);
+        //                     delRange.deleteContents();
+        //                     const newRange = document.createRange();
+        //                     newRange.setStart(textNode, match.index);
+        //                     newRange.collapse(true);
+        //                     insertChipAtRange(this.textarea, newRange, targetId, isGroup);
+        //                 }
+        //             }
+        //         }
+        //     }
+        // });
         this.textarea.addEventListener('input', () => {
             const chips = Array.from(this.textarea.querySelectorAll('.reference-node'));
             this.nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));

@@ -852,15 +852,6 @@ body.shift-pressed.input-focused .node-id {
     box-shadow: 0 0 0 2px var(--transparent-strong);
 }
 
-.active-branch.multi-selected {
-
-    box-shadow: 0 0 0 2px var(--selection-glow);
-
-    /* .node-header {
-        background-color: var(--bg-surface-hover);
-    } */
-}
-
 #groups-layer {
     position: absolute;
     top: 0;
@@ -1568,4 +1559,11 @@ h6 {
 
 ::-webkit-scrollbar-thumb:hover {
     background: var(--border-highlight);
+}
+
+@keyframes linearGradientMove {
+  to {
+    /* Shifts the position horizontally and vertically to simulate movement */
+    background-position: 15px 0, 100% 15px, -15px 100%, 0 -15px;
+  }
 }
