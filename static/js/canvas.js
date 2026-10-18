@@ -1214,7 +1214,14 @@ window.addEventListener('mouseup', (e) => {
  * Pans and zooms the camera to center exactly on the last active node.
  */
 function centerCanvas() {
-    if (typeof activeNodeId === 'undefined' || !activeNodeId) return;
+    const activeNode = nodes.find(n => n.id === activeNodeId)
+    if (typeof activeNodeId === 'undefined' || !activeNodeId || activeNode.type != 'chat') {
+        for (let i = nodes.length-1;i>0;i--) {
+            if (nodes[i].type==='chat') {
+                document.getElementById(nodes[i].id).click()
+            }
+        }
+    }
     const el = document.getElementById(activeNodeId);
     if (!el) return;
     const nodeData = nodes.find(n => n.id === activeNodeId);
