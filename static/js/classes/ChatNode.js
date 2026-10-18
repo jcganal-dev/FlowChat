@@ -125,7 +125,7 @@ class ChatNode extends BaseNode {
                 </div>
                 <div>
                     <a class="toggle-btn" title="Toggle Summary" style="cursor: pointer; ${this.nodeData.summaryText ? 'display: flex;' : 'display: none;'}" onclick="event.stopPropagation(); if(typeof toggleNodeState === 'function') toggleNodeState('${this.id}')">${this.nodeData.isCollapsed ? '<img src="/static/icons/expand.svg" class="file-icon">' : '<img src="/static/icons/collapse.svg" class="file-icon">'}</a>
-                    <a class="duplicate-btn" title="Duplicate Branch"><img src="/static/icons/file.svg" class="file-icon"></a>
+                    <a class="duplicate-btn" title="Duplicate Branch"><img src="/static/icons/duplicate.svg" class="file-icon"></a>
                     <a class="delete-btn" title="Delete"><img src="/static/icons/close.svg" class="file-icon"></a>
                 </div>
             </div>
