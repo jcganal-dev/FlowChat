@@ -71,7 +71,7 @@ FlowChat reimagines LLM interaction as a **spatial canvas** where conversations 
           ▼                   ▼                   ▼
   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
   │  /api/chat    │   │ /api/scrape   │   │ /api/sandbox/*│
-  │  (SSE stream) │   │(Jina/Crawl4AI)│   │  (file CRUD)  │
+  │  (SSE stream) │   │  (Crawl4AI)│  │   |  (file CRUD)  │
   └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
           │                   │                   │
           ▼                   ▼                   ▼
@@ -268,7 +268,7 @@ BSD 2-Clause License — see [LICENSE](LICENSE) for details.
 ## Acknowledgments
 
 - **FastAPI** — modern, fast web framework
-- **Crawl4AI** / **Jina Reader** — robust scraping
+- **Crawl4AI** — robust scraping
 - **DDGS** — privacy-respecting search
 - **marked** + **highlight.js** + **KaTeX** — markdown/math/code rendering
 - **Prism.js** — syntax highlighting

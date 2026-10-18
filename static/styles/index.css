@@ -507,6 +507,12 @@ body.shift-pressed.input-focused .node-id {
     stroke-width: 3px;
 }
 
+#edges-layer {
+    .active {
+        stroke: var(--transparent-strong);
+    }
+}
+
 /* Chat Input Bar */
 #chat-bar {
     position: fixed;
@@ -717,7 +723,7 @@ body.shift-pressed.input-focused .node-id {
     transform: translateX(-50%);
     background: var(--border-base);
     color: var(--text-primary);
-    border: 1px solid var(--border-highlight);
+    border: 2px solid var(--border-highlight);
     border-radius: 50%;
     width: 24px;
     height: 24px;
@@ -850,6 +856,9 @@ body.shift-pressed.input-focused .node-id {
 
 .active-branch {
     box-shadow: 0 0 0 2px var(--transparent-strong);
+    .handle-in, .handle-out, .add-child-btn {
+        border-color: var(--transparent-strong);
+    }
 }
 
 #groups-layer {
@@ -1432,31 +1441,6 @@ h6 {
 
     img {
         max-width: 720px;
-    }
-}
-
-.hint-overlay {
-    position: fixed;
-    top:0;
-    left:0;
-    width: 100dvw;
-    height: 100dvh;
-    pointer-events: none;
-    display: flex;
-    justify-content: start;
-    align-items: end;
-
-    list {
-        font-size: 12px;
-        transition: 0.2s all ease-out;
-        pointer-events: fill;
-        opacity:0.1;
-        ul {
-            padding-left: 15px;
-        }
-    }
-    list:hover {
-        opacity: 0;
     }
 }
 

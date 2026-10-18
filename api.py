@@ -350,7 +350,8 @@ class ScrapeRequest(BaseModel):
 
 @app.post("/api/scrape")
 async def scrapeTool(url: ScrapeRequest):
-    return await agent_tools.scrape_with_jina(url)
+    result = await agent_tools.scrape(url.url)
+    return JSONResponse(content={"content": result})
 
 env_path = Path(".env")
 
@@ -455,9 +456,12 @@ async def chat_endpoint(user_data: ChatPayload):
                             continue
                         delta = chunk["choices"][0].get("delta", {})
 
+                        print(delta)
                         if "reasoning" in delta:
-                            # print(delta["reasoning"])
                             yield json.dumps({"reasoning_content": delta["reasoning"]}) + "\n"
+                            
+                        if "reasoning_content" in delta:
+                            yield json.dumps({"reasoning_content": delta["reasoning_content"]}) + "\n"
 
                         if delta.get("content"):
                             assistant_content += delta["content"]

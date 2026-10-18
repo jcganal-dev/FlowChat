@@ -14,7 +14,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
-<body class="no-select" onload="Prism.highlightAll()">
+<body class="no-select" onload="Prism.highlightAll();zoom(0)">
     <div id="sandbox-palette" class="sandbox-palette" style="display: none;">
         <div class="palette-header" id="sandbox-palette-header">
             <h3>Sandbox Files</h3>
@@ -44,11 +44,150 @@
         </div>
     </div>
 
-    <div class="hint-overlay">
-        <span class="circle" title="">
+    <style>
+        .hint-overlay {
+            position: fixed;
+            top:0;
+            left:0;
+            width: 100dvw;
+            height: 100dvh;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: end;
+            align-items: end;
+        }
+        .bl-toolbar {
+            margin: 10px;
+            pointer-events: all;
+            background-color: var(--bg-surface);
+            border: solid 1px var(--border-strong);
+            display: flex;
+            flex-direction: row;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            padding: 5px 15px;
+        }
+        .btn-bl-tool {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        .btn-bl-tool:hover {
+            background-color: var(--bg-surface-hover);
+        }
+        .zoomadjust {
+            display: flex;
+            flex-direction: row;
+            gap: 5px;
+        }
+        .zoomlevel {
+            font-size: 13px;
+            background-color: var(--bg-surface-hover);
+            padding: 0 10px;
+            width: 5ch;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+        }
+        .zoomlevel:empty::before {
+            content: attr(value);
+        }
+        .zoomlevel:empty::after {
+            content: '%';
+        }
+    </style>
 
-        </span>
+    <div class="hint-overlay">
+        <div class="bl-toolbar" id="bl-toolbar">
+            <div class="zoomadjust">
+                <a class="btn-zoom-in btn-bl-tool">
+                    <img src="/static/icons/zoomin.svg" class="file-icon" />
+                </a>
+                <div class="zoomlevel" id="zoomlevel" value="100"></div>
+                <a class="btn-zoom-out btn-bl-tool">
+                    <img src="/static/icons/zoomout.svg" class="file-icon" />
+                </a>
+            </div>
+            <a class="btn-bl-tool save" title="Save State (Ctrl+S)">
+                <img src="/static/icons/save.svg" class="file-icon" />
+            </a>
+            <a class="btn-bl-tool center" title="Center Canvas (Alt+H)">
+                <img src="/static/icons/home.svg" class="file-icon" />
+            </a>
+            <a class="btn-bl-tool focus" title="Toggle Focus (Alt+F)">
+                <img src="/static/icons/focus (2).svg" class="file-icon" />
+            </a>
+            <a class="btn-bl-tool layout" title="Auto Layout (Alt+L)">
+                <img src="/static/icons/layout.svg" class="file-icon" />
+            </a>
+            <a class="btn-bl-tool wipe" title="Wipe State (Alt+W)">
+                <img src="/static/icons/bin.svg" class="file-icon" />
+            </a>
+        </div>
     </div>
+
+    <script>
+        const toolbar = document.getElementById('bl-toolbar')
+        const zoomin = toolbar.querySelector('.btn-zoom-in')
+        const zoomout = toolbar.querySelector('.btn-zoom-out')
+        const savebtn = toolbar.querySelector('.save')
+        const centerbtn = toolbar.querySelector('.center')
+        const focusbtn = toolbar.querySelector('.focus')
+        const layoutbtn = toolbar.querySelector('.layout')
+        const wipebtn = toolbar.querySelector('.wipe')
+
+        function zoom(delta) {
+            let newZoom = camera.zoom + delta;
+            newZoom = Math.max(0.1, Math.min(newZoom, 3));
+            newZoom = Math.round((newZoom*100))/100
+            toolbar.querySelector('.zoomlevel').setAttribute('value', Math.round(newZoom*10)*10)
+
+            const rect = viewport.getBoundingClientRect();
+            const activeNode = nodes.find(n => n.id === activeNodeId)
+            const mouseX = window.innerWidth/2;
+            const mouseY = window.innerHeight/2;
+
+            camera.x = mouseX - (mouseX - camera.x) * (newZoom / camera.zoom);
+            camera.y = mouseY - (mouseY - camera.y) * (newZoom / camera.zoom);
+            camera.zoom = newZoom;
+
+            updateCanvas();
+        }
+
+        zoomin.addEventListener('click', () => {zoom(0.1)})
+        zoomout.addEventListener('click', () => {zoom(-0.1)})
+        savebtn.addEventListener('click', () => {
+            if (typeof saveState === 'function') saveState(true)
+        })
+        centerbtn.addEventListener('click', () => {
+            if (typeof centerCanvas === 'function') centerCanvas();
+        })
+        focusbtn.addEventListener('click', () => {
+            if (typeof toggleFocusMode === 'function') toggleFocusMode();
+        })
+        layoutbtn.addEventListener('click', (e) => {
+            e.preventDefault()
+            if (typeof autoLayout === 'function') {
+                if (e.ctrlKey || e.metaKey) {
+                    autoLayout(false);
+                } else {
+                    autoLayout(true);
+                }
+            }
+        })
+        wipebtn.addEventListener('click', () => {
+            if (typeof wipeState === 'function') wipeState();
+        })
+
+    </script>
 
     <div id="custom-toast" class="custom-toast" style="display: none;"></div>
 
@@ -69,6 +208,7 @@
             </div>
         </div>
     </div>
+    
     <div id="focus-bg" class="focus-bg" style="display: none;">
         <div id="focus-tab-selection" class="focus-tab-selection">
             <a class="tab-btn" onclick="showSidebar('focus-chat-selection');updateChatHistory()" title="Chat History"><img src="/static/icons/chatnode.svg" class="tab-icon"/></a>

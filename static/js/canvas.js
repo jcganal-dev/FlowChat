@@ -334,6 +334,7 @@ viewport.addEventListener('wheel', (e) => {
     const delta = e.deltaY * -zoomSensitivity;
     let newZoom = camera.zoom * Math.exp(delta);
     newZoom = Math.max(0.1, Math.min(newZoom, 3));
+    toolbar.querySelector('.zoomlevel').setAttribute('value', Math.round(newZoom*10)*10)
 
     const rect = viewport.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -388,7 +389,7 @@ function drawEdges(activeLineage = null) {
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.id = 'edge_' + node.id;
-        path.setAttribute('d', `M ${startX} ${startY} C ${startX} ${startY + 60}, ${endX} ${endY - 60}, ${endX} ${endY}`);
+        path.setAttribute('d', `M ${startX} ${startY} C ${startX} ${startY + 60}, ${endX} ${endY - 80}, ${endX} ${endY}`);
 
         let edgeClass = 'edge-path';
         if (activeLineage.has(node.id) && activeLineage.has(parent.id)) edgeClass += ' active';

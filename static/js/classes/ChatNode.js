@@ -426,17 +426,28 @@ class ChatNode extends BaseNode {
             },
             onToolCall: (tc) => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
-                this.nodeData.aiSegments.push({
-                    type: 'tool_call',
-                    id: tc.id || '',
-                    name: tc.name || 'tool',
-                    argsPreview: toolArgsPreview(tc.arguments),
-                    rawArgs: tc.arguments || '',
-                    status: 'running',
-                    result: ''
-                });
+                const id = tc.id || '';
+                const segs = this.nodeData.aiSegments;
+                let seg = segs.find(s => s.type === 'tool_call' && id && s.id === id);
+                if (!seg) {
+                    // First time we see this tool call — chip appears NOW, even with empty args
+                    seg = {
+                        type: 'tool_call',
+                        id,
+                        name: tc.name || 'tool',
+                        argsPreview: '',
+                        rawArgs: '',
+                        status: 'running',
+                        result: ''
+                    };
+                    segs.push(seg);
+                }
+                // Live-update as more argument tokens stream in
+                seg.name        = tc.name        || seg.name;
+                seg.rawArgs     = tc.arguments   || '';
+                seg.argsPreview = toolArgsPreview(seg.rawArgs);
                 syncThinkVisibility();
-                requestUiFlush();   // chip appears right after the reasoning that led to it
+                requestUiFlush();
             },
             onToolResult: (tr) => {
                 const segs = this.nodeData.aiSegments || [];

@@ -55,22 +55,9 @@ class Tools:
             ],
             "user_data_dir": profile_dir,  # persistent profile = realistic fingerprint + cookies
         }
-    def run_jina_sync(self, url: str):
-        """Fetch page content via Jina Reader. Used when the direct crawler is blocked by anti-bot (Cloudflare) protection."""
-        jina_url = "https://r.jina.ai/" + url
-        try:
-            with httpx.Client(timeout=40, follow_redirects=True) as client:
-                resp = client.get(jina_url, headers={
-                    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                "Chrome/131.0.0.0 Safari/537.36")
-                })
-                return resp.text if resp.status_code == 200 else None
-        except Exception as e:
-            print(f"Jina reader failed for {url}: {e}")
-            return None
+
     def run_crawl_sync(self, url: str):
-        """Crawl a URL with Crawl4AI using a persistent profile and stealth args; returns markdown or falls back to Jina Reader."""
+        """Crawl a URL with Crawl4AI using a persistent profile and stealth args; returns markdown or None on failure."""
         async def _crawl():
             from crawl4ai import AsyncWebCrawler
             attempts = 0
@@ -86,12 +73,10 @@ class Tools:
             return None
 
         markdown = asyncio.run(_crawl())
-        if markdown:
-            return markdown
-        # Fallback: Jina Reader (often bypasses Cloudflare bot protection)
-        return self.run_jina_sync(url)
+        return markdown
+
     def run_crawl_multi_sync(self, links: list):
-        """Crawl multiple links, falling back to Jina Reader when the direct crawler fails."""
+        """Crawl multiple links; returns list of (link, markdown, error)."""
         async def _crawl():
             from crawl4ai import AsyncWebCrawler
             res = []
@@ -101,29 +86,26 @@ class Tools:
                         result = await crawler.arun(url=link, word_count=300)
                         markdown = result.markdown if (result and result.markdown) else None
                         if not markdown:
-                            markdown = self.run_jina_sync(link)
+                            markdown = None
                         res.append((link, markdown, None if markdown else "Failed to scrape"))
                     except Exception as e:
                         err_msg = str(e)
-                        md = self.run_jina_sync(link)
-                        res.append((link, md, err_msg if not md else None))
+                        res.append((link, None, err_msg))
             return res
-        return asyncio.run(_crawl()) 
-    async def scrape_with_jina(self, req):
-        """
-        Scrapes a webpage using Jina Reader.
-        
+        return asyncio.run(_crawl())
+
+
+    async def scrape(self, url: str) -> str:
+        """Scrape a URL with Crawl4AI; on failure, fall back to a DDGS search
+        and scrape the top results. Returns markdown string.
+
         Args:
-            req.url (str): The URL of the webpage to scrape.
+            url: The URL of the page to fetch.
         """
-        target = req.url
-        
-        # Check if it looks like a URL
+        target = url
         is_url = target.startswith("http://") or target.startswith("https://") or ("." in target and " " not in target)
-        target_url = target
-        if is_url and not target.startswith("http"):
-            target_url = "https://" + target
-        
+        target_url = target if target.startswith("http") else "https://" + target
+
         markdown_content = None
         loop = asyncio.get_running_loop()
         if is_url:
@@ -133,18 +115,9 @@ class Tools:
                 print(f"Direct crawl failed: {e}")
 
         if markdown_content:
-            return JSONResponse(content={"content": markdown_content})
+            return markdown_content
 
-        # Fallback 1: Jina Reader directly (bypasses Cloudflare / anti-bot blocks)
-        if is_url:
-            try:
-                jina_content = await loop.run_in_executor(None, self.run_jina_sync, target_url)
-                if jina_content:
-                    return JSONResponse(content={"content": jina_content})
-            except Exception as e:
-                print(f"Jina fallback failed for {target_url}: {e}")
-
-        # Fallback 2: search engine results -> crawl the top links
+        # Fallback: DDGS search -> crawl top links
         links = []
         try:
             with DDGS(timeout=20) as ddgs:
@@ -152,39 +125,23 @@ class Tools:
                 for r in results:
                     links.append(r.get("href"))
         except Exception as e:
-            return JSONResponse(content={"error": f"DDGS failed: {e}", "content": None}, status_code=500)
+            return f"DDGS failed: {e}"
 
         if not links:
-            return JSONResponse(content={"error": "No results found on DDGS", "content": None}, status_code=404)
+            return "No results found on DDGS."
 
-        # Crawl the links
-        combined_markdown = f"# Search Results for: {target}\n\n"
+        combined = f"# Search Results for: {target}\n\n"
         try:
             results = await loop.run_in_executor(None, self.run_crawl_multi_sync, links)
             for i, (link, md, err) in enumerate(results):
                 if md:
-                    combined_markdown += f"## Source {i+1}: {link}\n\n{md}\n\n---\n\n"
+                    combined += f"## Source {i+1}: {link}\n\n{md}\n\n---\n\n"
                 else:
-                    combined_markdown += f"## Source {i+1}: {link}\n\nFailed to scrape: {err}\n\n---\n\n"
+                    combined += f"## Source {i+1}: {link}\n\nFailed to scrape: {err}\n\n---\n\n"
         except Exception as e:
-            return JSONResponse(content={"error": f"Crawler failed on links: {e}", "content": None}, status_code=500)
+            return f"Crawler failed on links: {e}"
 
-        return JSONResponse(content={"content": combined_markdown})
-
-    async def scrape(self, url: str) -> str:
-        """Fetch the full content of a specific webpage as markdown.
-
-        Args:
-            url: The URL of the page to fetch.
-        """
-        
-        loop = asyncio.get_running_loop()
-        self.validate_url(url)
-        target_url = url if url.startswith("http") else "https://" + url
-        md = await loop.run_in_executor(None, self.run_crawl_sync, target_url)
-        if not md:
-            md = await loop.run_in_executor(None, self.run_jina_sync, target_url)
-        return md or f"Could not retrieve content from {target_url}"
+        return combined
 
     async def web_search(self, query: str, max_results: int = 3) -> str:
         """Search the web for real-time information. Use for anything recent, factual, or uncertain.
@@ -202,8 +159,8 @@ class Tools:
             target_url = query if query.startswith("http") else "https://" + query
             md = await loop.run_in_executor(None, self.run_crawl_sync, target_url)
             if not md:
-                md = await loop.run_in_executor(None, self.run_jina_sync, target_url)
-            return md or f"Could not retrieve content from {target_url}"
+                return f"Could not retrieve content from {target_url}"
+            return md
 
         # Otherwise treat it as a search query
         def _search():
@@ -229,8 +186,6 @@ class Tools:
             return f"Search succeeded but crawling failed: {e}"
 
         return combined
-
-    
 
     def validate_path(self, file_path):
         abs_path = os.path.abspath(os.path.join(ALLOWED_DIR, file_path))
@@ -263,7 +218,7 @@ class Tools:
         with open(safe_path, 'w') as f:
             f.write(new_content)
             return f"Replaced {old_string} with {new_string}"
-    
+
     def list_sandbox_files(self):
         file_list = []
         for root, dirs, files in os.walk(ALLOWED_DIR):
