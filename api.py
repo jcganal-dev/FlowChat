@@ -472,12 +472,24 @@ async def chat_endpoint(user_data: ChatPayload):
                         if delta.get("tool_calls"):
                             for tc in delta["tool_calls"]:
                                 idx = tc.get("index", 0)
-                                entry = streamed_calls.setdefault(idx, {"id": None, "name": "", "arguments": ""})
+                                entry = streamed_calls.setdefault(idx, {"id": None, "name": "", "arguments": "", "announced": False})
                                 if tc.get("id"):
                                     entry["id"] = tc["id"]
                                 fn = tc.get("function") or {}
                                 if fn.get("name"):
                                     entry["name"] = fn["name"]
+
+                                # Announce ONCE, the moment we know the name
+                                if entry["name"] and not entry["announced"]:
+                                    entry["announced"] = True
+                                    call_id = entry["id"] or f"call_{idx}"
+                                    yield json.dumps({
+                                        "tool_call_start": {
+                                            "id": call_id,
+                                            "name": entry["name"],
+                                        }
+                                    }) + "\n"
+
                                 if fn.get("arguments"):
                                     entry["arguments"] += fn["arguments"]
 

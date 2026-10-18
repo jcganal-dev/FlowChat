@@ -16,7 +16,7 @@ function renderToolChipHtml(seg) {
     const preview = escapeHtml(seg.argsPreview || '');
     if (seg.status === 'running') {
         return `<div class="tool-chip" data-seg-id="${escapeHtml(seg.id)}">` +
-            `Running:<b>${escapeHtml(seg.name)}</b>(${preview})</div>`;
+            `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})...</div>`;
     }
     return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
         `<summary>Done: <b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
@@ -29,7 +29,7 @@ function renderToolChipsHtml(node) {
     return segs.filter(s => s.type === 'tool_call').map(renderToolChipHtml).join('');
 }
 
-// Static one-shot think-stream HTML (restore / first paint).
+// Static one-shot think-stream HTML (restore / first paint).   
 function renderThinkStreamHtml(node) {
     const segs = (Array.isArray(node.aiSegments) ? node.aiSegments : [])
         .filter(s => s.type === 'reasoning' || s.type === 'tool_call');
@@ -424,27 +424,34 @@ class ChatNode extends BaseNode {
                 requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'content', this.nodeData.aiText);
             },
+            onToolCallStart: (tc) => {
+                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                const segs = this.nodeData.aiSegments;
+                // Avoid dupes if the same id somehow announces twice
+                if (segs.some(s => s.type === 'tool_call' && s.id === tc.id)) return;
+                segs.push({
+                    type: 'tool_call',
+                    id: tc.id,
+                    name: tc.name,
+                    argsPreview: '',
+                    rawArgs: '',
+                    status: 'running',
+                    result: ''
+                });
+                syncThinkVisibility();
+                requestUiFlush();
+            },
             onToolCall: (tc) => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
-                const id = tc.id || '';
                 const segs = this.nodeData.aiSegments;
-                let seg = segs.find(s => s.type === 'tool_call' && id && s.id === id);
+                let seg = segs.find(s => s.type === 'tool_call' && s.id === tc.id);
                 if (!seg) {
-                    // First time we see this tool call — chip appears NOW, even with empty args
-                    seg = {
-                        type: 'tool_call',
-                        id,
-                        name: tc.name || 'tool',
-                        argsPreview: '',
-                        rawArgs: '',
-                        status: 'running',
-                        result: ''
-                    };
+                    // Fallback in case tool_call_start was missed (e.g. restore from history)
+                    seg = { type: 'tool_call', id: tc.id, name: tc.name, argsPreview: '', rawArgs: '', status: 'running', result: '' };
                     segs.push(seg);
                 }
-                // Live-update as more argument tokens stream in
-                seg.name        = tc.name        || seg.name;
-                seg.rawArgs     = tc.arguments   || '';
+                seg.name        = tc.name || seg.name;
+                seg.rawArgs     = tc.arguments || '';
                 seg.argsPreview = toolArgsPreview(seg.rawArgs);
                 syncThinkVisibility();
                 requestUiFlush();

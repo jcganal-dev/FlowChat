@@ -6,7 +6,7 @@
  * @param {Object} callbacks - Object containing onContent, onReasoning, onError, and onComplete hooks.
  */
 async function streamChatApi(payload, signal, callbacks) {
-    const { onContent, onReasoning, onToolCall, onToolResult, onError, onComplete } = callbacks;
+    const { onContent, onReasoning, onToolCallStart, onToolCall, onToolResult, onError, onComplete } = callbacks;
     try {
         const response = await fetch('http://127.0.0.1:5000/api/chat', {
             method: 'POST',
@@ -32,7 +32,9 @@ async function streamChatApi(payload, signal, callbacks) {
                 if (!line.trim()) continue;
                 try {
                     const deltaObj = JSON.parse(line);
-                    if (deltaObj.tool_call) {
+                    if (deltaObj.tool_call_start) {
+                        onToolCallStart && onToolCallStart(deltaObj.tool_call_start);
+                    } else if (deltaObj.tool_call) {
                         onToolCall && onToolCall(deltaObj.tool_call);        // {id, name, arguments}
                     } else if (deltaObj.tool_result) {
                         onToolResult && onToolResult(deltaObj.tool_result);  // {id, name, result}
