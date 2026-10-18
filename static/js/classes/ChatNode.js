@@ -440,6 +440,7 @@ class ChatNode extends BaseNode {
                 });
                 syncThinkVisibility();
                 requestUiFlush();
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_call_start', tc);
             },
             onToolCall: (tc) => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
@@ -455,6 +456,7 @@ class ChatNode extends BaseNode {
                 seg.argsPreview = toolArgsPreview(seg.rawArgs);
                 syncThinkVisibility();
                 requestUiFlush();
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_call', tc);
             },
             onToolResult: (tr) => {
                 const segs = this.nodeData.aiSegments || [];
@@ -474,6 +476,7 @@ class ChatNode extends BaseNode {
                     if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
                     if (typeof renderFocusProjectFiles === 'function') renderFocusProjectFiles();
                 }
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_result', tr);
             },
             onReasoning: (reasoning) => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
@@ -508,8 +511,8 @@ class ChatNode extends BaseNode {
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 // Stream stays visible after completion: reasoning + Done chips remain inspectable.
                 // If you want the old wipe-on-finish behavior, uncomment:
-                // this.el.querySelector('.think-content').innerHTML = '';
-                // this.nodeData.aiThinking = '';
+                this.el.querySelector('.think-content').innerHTML = '';
+                this.nodeData.aiThinking = '';
                 this.nodeData.aiSegments = [];
                 if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();

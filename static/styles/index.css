@@ -1358,9 +1358,11 @@ h6 {
 
 
 .focus-input-area {
-    padding: 15px 100px 20px 100px;
+    padding: 15px 0px 20px 0px;
     background-color: var(--bg-surface);
     border-top: 1px solid var(--border-base);
+    display: flex;
+    justify-content: center;
 }
 
 .focus-button-row {
@@ -1427,6 +1429,7 @@ h6 {
     align-items: end;
     padding: 8px 10px 8px 18px;
     border-radius: 10px;
+    width: 800px;
 }
 
 .scraped-md {
