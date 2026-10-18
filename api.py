@@ -387,8 +387,7 @@ SYSTEM_INSTRUCTIONS = [
     "Use web_search whenever the question involves current events, recent data, or facts you're unsure about.",
     "Prefer one focused search over many broad ones. Summarize results in your answer instead of dumping raw tool output.",
     "If a search fails, tell the user rather than retrying indefinitely.",
-    "Once you arrive at an answer, give the answer to the user. Do not overthink.",
-    "You are already inside the sandbox directory. If you want to access a file, ommit '/sandbox' from your path (just use /file.txt instead of /sandbox/file.txt._"
+    "Once you arrive at an answer, give the answer to the user. Do not overthink."
 ]
 
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)

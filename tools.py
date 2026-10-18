@@ -94,7 +94,6 @@ class Tools:
             return res
         return asyncio.run(_crawl())
 
-
     async def scrape(self, url: str) -> str:
         """Scrape a URL with Crawl4AI; on failure, fall back to a DDGS search
         and scrape the top results. Returns markdown string.
@@ -188,10 +187,22 @@ class Tools:
         return combined
 
     def validate_path(self, file_path):
-        abs_path = os.path.abspath(os.path.join(ALLOWED_DIR, file_path))
-        if not abs_path.startswith(os.path.abspath(ALLOWED_DIR) + os.sep):
-            raise ValueError("Access denied: path escapes the allowed directory")
+        normalized_path = os.path.normpath(file_path)
+        
+        while normalized_path.startswith("/") or normalized_path.startswith("\\"):
+            normalized_path = normalized_path[1:]
+        
+        if not normalized_path:
+            normalized_path = "."
+        
+        abs_path = os.path.abspath(os.path.join(ALLOWED_DIR, normalized_path))
+        allowed_abs = os.path.abspath(ALLOWED_DIR)
+        
+        if not abs_path.startswith(allowed_abs + os.sep) and abs_path != allowed_abs:
+            raise ValueError(f"Access denied: path escapes the allowed directory")
+        
         return abs_path
+
 
     def read_file(self, file_path, offset=0, length=None):
         safe_path = self.validate_path(file_path)
