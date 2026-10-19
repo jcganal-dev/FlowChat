@@ -615,21 +615,20 @@ body.shift-pressed.input-focused .node-id {
     font-size: 0.85em;
     font-style: italic;
     border-left: 2px solid var(--border-highlight);
-    padding-left: 8px;
-    margin: 8px 12px;
-    /* white-space: pre-wrap; */
-    line-height: 1;
+    padding-left: 20px;
+    margin: 8px 12px 8px 0px;
+    line-height: 1.5;
     max-height: 200px;
     min-height: 0px;
     display: flex;
     flex-direction: column;
     height: fit-content;
-    overflow: hidden;
+    overflow: auto;
+    scrollbar-width: none;
 }
-
-/* .think-content::-webkit-scrollbar {
-    display: none;
-} */
+.outer-summary {
+    margin-left: -14px;
+}
 
 .think-content:empty {
     display: none;
@@ -1286,7 +1285,7 @@ div[contentEditable='true'].scrape-node-input,
 .ai-content > pre,
 .focus-ai > pre {
     overflow: auto !important;
-    /* scrollbar-width: none !important; */
+    scrollbar-width: none !important;
 }
 
 h1,
@@ -1317,7 +1316,6 @@ h6 {
         margin: 80px 0px 10px 0px;
         display: flex;
         flex-direction: column;
-        gap: 40px;
 
         .focus-user {
             max-width: 70%;
@@ -1327,15 +1325,20 @@ h6 {
             border-radius: 25px;
             color: var(--text-primary);
             word-break: break-word;
+            margin-bottom: 40px;
         }
 
         .focus-think {
             max-width: 90%;
             align-self: start;
-            padding: 10px;
+            padding: 0px 20px;
             color: var(--text-muted);
             font-style: italic;
-            margin-bottom: 10px;
+            border-left: 2px solid var(--border-highlight);
+            max-height: 200px;
+            overflow: auto;
+            font-size: 0.85em;
+            line-height: 1.5;
         }
 
         .focus-ai {
@@ -1448,8 +1451,7 @@ h6 {
 }
 
 .focus-think-body {
-    max-height: 200px;
-    overflow: hidden;
+    overflow: auto;
     display: flex;
     flex-direction: column;
     justify-content: end;
@@ -1475,7 +1477,6 @@ h6 {
         left: 48.75px;
         height: 100dvh;
         z-index: 2;
-        width: 300px;
   }
   .focus-ai {
     width: 100% !important;
@@ -1525,8 +1526,16 @@ h6 {
 
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
-.think-stream { display: flex; flex-direction: column; gap: 6px; height: 100%; overflow: auto; white-space: break-spaces;}
-.think-stream .tool-chip { margin: 2px 0; }
+.think-stream { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 6px; 
+    height: 100%; 
+    overflow: auto; 
+    white-space: break-spaces;
+    scrollbar-width: none;
+}
+.think-stream .tool-chip, .think-content .tool-chip { margin: 10px 0; }
 
 
 /* WebKit (Chrome, Safari, Edge) */
@@ -1553,4 +1562,30 @@ h6 {
     /* Shifts the position horizontally and vertically to simulate movement */
     background-position: 15px 0, 100% 15px, -15px 100%, 0 -15px;
   }
+}
+
+.tool-result {
+    background-color: var(--bg-input);
+    padding: 10px 20px;
+    border-radius: 10px;
+}
+
+.fade-top {
+    mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px);
+}
+
+.fade-bottom {
+    mask-image: linear-gradient(to bottom, var(--bg-surface) calc(100% - 30px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, var(--bg-surface) calc(100% - 30px), transparent 100%);
+}
+
+.fade-both {
+    mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px, var(--bg-surface) calc(100% - 30px), transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px, var(--bg-surface) calc(100% - 30px), transparent 100%);
+}
+
+details > summary {
+    cursor: pointer;
+    user-select: none;
 }

@@ -221,6 +221,7 @@ class BaseNode {
             rootParent = nodes.find(n => n.id === rootParent).parentId
         }
         autoLayout(true, rootParent)
+        data.hasChild = true
         if (typeof saveState === 'function') saveState();
     }
 

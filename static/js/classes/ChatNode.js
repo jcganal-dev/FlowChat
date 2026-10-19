@@ -106,6 +106,33 @@ function renderAnswerHtml(node) {
     return (typeof renderMarkdown === 'function') ? renderMarkdown(text) : escapeHtml(text);
 }
 
+// Add fade bottom and top based on scroll height
+function addFade(element, reset=false) {
+    const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight
+    const atTop = element.scrollTop <= 0
+    if (reset) {
+        element.classList.remove('fade-top')
+        element.classList.remove('fade-bottom')
+        element.classList.remove('fade-both')
+        return
+    }
+    if (!atBottom && !atTop) {
+        element.classList.add('fade-both')
+    } else {
+        element.classList.remove('fade-both')
+    }
+    if (!atBottom) {
+        element.classList.add('fade-bottom')
+    } else {
+        element.classList.remove('fade-bottom')
+    }
+    if (!atTop) {
+        element.classList.add('fade-top')
+    } else {
+        element.classList.remove('fade-top')
+    }
+}
+
 class ChatNode extends BaseNode {
     constructor(config) {
         config.type = 'chat';
@@ -137,9 +164,10 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="ai-section">
-                <div class="think-content" style="${thinkHtml ? 'display:flex;overflow:auto;' : 'display:none'}">
-                    <div class="think-stream">${thinkHtml}</div>
-                </div>
+                <details class="think-content" style="${thinkHtml ? 'display:flex;overflow:auto;' : 'display:none'}">
+                    <summary class='outer-summary'>Thoughts</summary>
+                    ${thinkHtml}
+                </details>
                 <div class="ai-content">${this.nodeData.aiText ? renderAnswerHtml(this.nodeData) : ''}</div>
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
@@ -171,6 +199,18 @@ class ChatNode extends BaseNode {
             e.stopPropagation();
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
         });
+        this.thinkContent = this.el.querySelector('.think-content');
+        this.thinkContent.addEventListener('scroll', () => {
+            addFade(this.thinkContent)
+        })
+        this.thinkContent.addEventListener('click', () => { 
+            this.nodeData.oldHeight = this.el.offsetHeight
+            setTimeout(() => {
+                addFade(this.thinkContent, !this.thinkContent.open)
+                const deltaY = this.el.offsetHeight-this.nodeData.oldHeight
+                if (typeof shiftChildrenXY === 'function') shiftChildrenXY(this.nodeData.id, 0, deltaY);
+            }, 1)
+        })
         this.runBtn.addEventListener('click', this.run.bind(this));
         this.textarea.addEventListener('focus', () => {
             lastFocusedInput = this.textarea;
@@ -218,46 +258,6 @@ class ChatNode extends BaseNode {
                 this.run();
             }
         });
-        // this.textarea.addEventListener('keyup', (e) => {
-        //     if (e.key === ' ') {
-        //         const selection = window.getSelection();
-        //         if (!selection.rangeCount) return;
-        //         const range = selection.getRangeAt(0);
-        //         const textNode = range.startContainer;
-        //         if (textNode.nodeType === Node.TEXT_NODE) {
-        //             const text = textNode.textContent;
-        //             const cursorOffset = range.startOffset;
-        //             const textBeforeCursor = text.slice(0, cursorOffset);
-        //             const refRegex = /@([\w()-]+)\s$/;
-        //             const match = textBeforeCursor.match(refRegex);
-        //             if (match) {
-        //                 const refName = match[1];
-        //                 let isGroup = false;
-        //                 let targetId = null;
-        //                 const refNode = nodes.find(n => n.id === refName);
-        //                 if (refNode && refNode.id !== this.el.id) {
-        //                     targetId = refName;
-        //                 } else {
-        //                     const groupObj = Object.values(groups).find(g => g.name === refName || g.id === refName);
-        //                     if (groupObj) {
-        //                         targetId = groupObj.id;
-        //                         isGroup = true;
-        //                     }
-        //                 }
-        //                 if (targetId) {
-        //                     const delRange = document.createRange();
-        //                     delRange.setStart(textNode, match.index);
-        //                     delRange.setEnd(textNode, cursorOffset);
-        //                     delRange.deleteContents();
-        //                     const newRange = document.createRange();
-        //                     newRange.setStart(textNode, match.index);
-        //                     newRange.collapse(true);
-        //                     insertChipAtRange(this.textarea, newRange, targetId, isGroup);
-        //                 }
-        //             }
-        //         }
-        //     }
-        // });
         this.textarea.addEventListener('input', () => {
             const chips = Array.from(this.textarea.querySelectorAll('.reference-node'));
             this.nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
@@ -307,10 +307,11 @@ class ChatNode extends BaseNode {
         const aiThinkEl = this.el.querySelector('.think-content');
         aiContentEl.innerHTML = '';
         // One streaming container: reasoning text and tool chips interleave in order.
-        aiThinkEl.innerHTML =
+        aiThinkEl.innerHTML +=
             `<div class="think-placeholder" style="display:flex;flex-direction:row;align-items:center;">` +
             `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>` +
             `<div class="think-stream"></div>`;
+        aiThinkEl.open = true
         const thinkStreamEl = aiThinkEl.querySelector('.think-stream');
         const thinkPlaceholder = aiThinkEl.querySelector('.think-placeholder');
         // Persist <details> open state back into the segment (toggle doesn't bubble -> capture).
@@ -408,7 +409,15 @@ class ChatNode extends BaseNode {
                 if (!erased_thoughts) {
                     erased_thoughts = true;
                     if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
-                        this.nodeData.aiThinking = '';
+                        // Put think content into a summary tag
+                        const thinkContent = this.el.querySelector('.think-content')
+                        thinkContent.innerHTML = `
+                            <details>
+                                <summary class='outer-summary'>Thoughts</summary>
+                                <div class="think-stream">
+                                    ${thinkContent.innerHTML}
+                                </div>
+                            </details>`;
                         this.nodeData.aiSegments = this.nodeData.aiSegments.filter(s => s.type !== 'reasoning');
                     }
                 }
@@ -511,9 +520,9 @@ class ChatNode extends BaseNode {
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 // Stream stays visible after completion: reasoning + Done chips remain inspectable.
                 // If you want the old wipe-on-finish behavior, uncomment:
-                this.el.querySelector('.think-content').innerHTML = '';
-                this.nodeData.aiThinking = '';
-                this.nodeData.aiSegments = [];
+                // this.nodeData.aiThinking = '';
+                // this.nodeData.aiSegments = [];
+                aiThinkEl.open=false
                 if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');

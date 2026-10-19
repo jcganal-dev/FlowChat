@@ -310,7 +310,7 @@ viewport.addEventListener('wheel', (e) => {
         // do normal scrolling
         return;
     }
-    const thinkStream = e.target.closest('.think-stream');
+    const thinkStream = e.target.closest('.think-content');
     if (thinkStream && !e.ctrlKey && thinkStream.scrollHeight > thinkStream.clientHeight) {
         // do normal scrolling
         return;
