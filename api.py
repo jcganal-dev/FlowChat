@@ -14,175 +14,19 @@ from typing import List, Any, Dict
 from ddgs import DDGS
 from dotenv import load_dotenv
 import os
-from tools import Tools
 import asyncio
 import stat
 import sys
 from pathlib import Path
 
-agent_tools = Tools()
+import tools as agent_tools_module
 
-TOOL_REGISTRY = {
-    "web_search": agent_tools.web_search,
-    "scrape": agent_tools.scrape,
-    "read_file": agent_tools.read_file,
-    "write_file": agent_tools.write_file,
-    "list_sandbox_files": agent_tools.list_sandbox_files,
-    "edit_file": agent_tools.edit_file,
-    "delete_file": agent_tools.delete_file,
-    "create_folder": agent_tools.create_folder,
-    "move_files": agent_tools.move_files,
-    "copy_files": agent_tools.copy_files,
-}
+agent_tools = agent_tools_module.Tools()
 
-TOOLS_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": "web_search",
-            "description": "Search the web for current information. Use for anything recent, factual, or uncertain.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "The search query"},
-                    "max_results": {"type": "integer", "description": "Number of results to fetch (default 3)"}
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "scrape",
-            "description": "Fetch the full content of a specific webpage as markdown. Only allows valid url. Does not allow file:/// format.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "url": {"type": "string", "description": "The URL to fetch"}
-                },
-                "required": ["url"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": "Read the contents of a file in the sandbox directory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {"type": "string", "description": "The path to the file you want to read."},
-                    "offset": {"type": "integer", "description": "The offset to which you start reading the file's content"},
-                    "length": {"type": "integer", "description": "The lenght of content you want to read."},
-                },
-                "required": ["file_path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "write_file",
-            "description": "Write the contents of a file in the sandbox directory. Warning: this will overwrite the whole content of the target file",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {"type": "string", "description": "The path to the file you want to write to."},
-                    "content": {"type": "string", "description": "The content you want to write into the file."}
-                },
-                "required": ["file_path", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "list_sandbox_files",
-            "description": "Get the list of all files in the sandbox",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "required": [],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "edit_file",
-            "description": "Edit a file in the sandbox by replacing exact string matches. Not a regex — provide the literal text to find and replace.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {"type": "string", "description": "The path to the file you want to edit."},
-                    "old_string": {"type": "string", "description": "The exact text to find and replace."},
-                    "new_string": {"type": "string", "description": "The text to replace it with."}
-                },
-                "required": ["file_path", "old_string", "new_string"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "delete_file",
-            "description": "Delete a file or folder from the sandbox directory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "file_path": {"type": "string", "description": "The path to the file or folder to delete."}
-                },
-                "required": ["file_path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "create_folder",
-            "description": "Create a folder in the sandbox directory.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "folder_path": {"type": "string", "description": "The path of the folder to create."}
-                },
-                "required": ["folder_path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "move_files",
-            "description": "Move one or more files or folders to a target directory within the sandbox.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "paths": {"type": "array", "items": {"type": "string"}, "description": "List of source paths to move."},
-                    "target": {"type": "string", "description": "The target directory path."}
-                },
-                "required": ["paths", "target"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "copy_files",
-            "description": "Copy one or more files or folders to a target directory within the sandbox.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "paths": {"type": "array", "items": {"type": "string"}, "description": "List of source paths to copy."},
-                    "target": {"type": "string", "description": "The target directory path."}
-                },
-                "required": ["paths", "target"],
-            },
-        },
-    },
-]
+TOOL_REGISTRY, TOOLS_SCHEMA = agent_tools_module.build_tools(
+    agent_tools,
+    exclude=["run_command"],   # remove this once you trust the agent's behavior
+)
 
 MAX_TOOL_ROUNDS = 200
 
@@ -383,11 +227,12 @@ from datetime import date
 
 SYSTEM_INSTRUCTIONS = [
     f"You have access to tools ({', '.join(tool_list)}).",
-    f"For you reference, today is {date.today()}",
     "Use web_search whenever the question involves current events, recent data, or facts you're unsure about.",
     "Prefer one focused search over many broad ones. Summarize results in your answer instead of dumping raw tool output.",
     "If a search fails, tell the user rather than retrying indefinitely.",
-    "Once you arrive at an answer, give the answer to the user. Do not overthink."
+    "Once you arrive at an answer, give the answer to the user. Do not overthink.",
+    "You are already inside the sandbox directory. If you want to access a file, ommit 'sandbox/' from your path (just use file.txt instead of sandbox/file.txt",
+    "Make sure to tell the user what you did after finishing your task."
 ]
 
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
@@ -455,7 +300,7 @@ async def chat_endpoint(user_data: ChatPayload):
                             continue
                         delta = chunk["choices"][0].get("delta", {})
 
-                        print(delta)
+                        # print(delta)
                         if "reasoning" in delta:
                             yield json.dumps({"reasoning_content": delta["reasoning"]}) + "\n"
                             
