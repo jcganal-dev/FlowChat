@@ -144,7 +144,11 @@ function toggleFocusMode(stayFocused = false) {
                     break
                 }
             }
-            if (!foundEmptyChat) return
+            if (!foundEmptyChat) {
+                const newNodeId = createNode()
+                autoLayout(true)
+                document.getElementById(newNodeId).click()
+            }
         }
     }
 

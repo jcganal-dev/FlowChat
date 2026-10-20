@@ -110,7 +110,6 @@ function renderAnswerHtml(node) {
 function addFade(parentelement, reset=false) {
     const element = parentelement.querySelector('.think-stream')
     const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight
-    console.log(element.scrollTop + element.clientHeight + " >= " + element.scrollHeight)
     const atTop = element.scrollTop <= 0
     if (reset) {
         element.classList.remove('fade-top')
