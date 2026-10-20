@@ -97,7 +97,7 @@ function updateChatHistory() {
         // P2 Fix: Include nodes that are thinking (have aiThinking but no aiText
         // yet) — show them with a "Thinking..." indicator instead of hiding them.
         // Unexecuted empty leaves stay listed too (that's the node being typed into).
-        if (node.type == 'chat' && node.aiText.trim() == '' && node.hasChild == false) {
+        if (node.type == 'chat' && node.aiText.trim() == '' && node.hasChild == false && node.aiThinking.trim() =='') {
             if (typeof addToChatHistory == "function") {addToChatHistory(node)}
         }
     });
