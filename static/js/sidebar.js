@@ -528,7 +528,7 @@ async function handleSandboxFileShiftClick(filepath) {
                         aiText: ' ',
                         aiThinking: '',
                         references: [],
-                        hasChild: false,
+                        childNodeIds: [],
                         isCollapsed: false,
                         isVirtual: true
                     };
@@ -582,7 +582,7 @@ async function handleSandboxFileShiftClick(filepath) {
             aiText: ' ',
             aiThinking: '',
             references: [],
-            hasChild: false,
+            childNodeIds: [],
             isCollapsed: false,
             isVirtual: true
         };

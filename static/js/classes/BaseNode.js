@@ -7,6 +7,8 @@ class BaseNode {
             this.nodeData = restoreData;
             this.id = this.nodeData.id;
             this.nodeData.abortController = null;
+            if (!Array.isArray(this.nodeData.childNodeIds)) this.nodeData.childNodeIds = [];
+            delete this.nodeData.hasChild;
             if (!this.nodeData.files) this.nodeData.files = [];
             if (this.nodeData.filePayload && this.nodeData.files.length === 0) {
                 this.nodeData.files.push({
@@ -21,7 +23,7 @@ class BaseNode {
                 id: undefined, type, files: [], filePayload: null, fileName: null,
                 userText: initialUserText, htmlText: initialUserText, aiText: "", aiThinking: "",
                 parentId, x, y, muted: false, references: [], turn, branch, name,
-                hasChild: false, isCollapsed: false, abortController: null
+                childNodeIds: [], isCollapsed: false, abortController: null
             };
             this.id = idfy(this.nodeData);
             this.nodeData.id = this.id;
@@ -221,7 +223,7 @@ class BaseNode {
             rootParent = nodes.find(n => n.id === rootParent).parentId
         }
         autoLayout(true, rootParent)
-        data.hasChild = true
+        // The new child is registered on the parent's child id list by createNode().
         if (typeof saveState === 'function') saveState();
     }
 

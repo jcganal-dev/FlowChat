@@ -188,7 +188,7 @@ class ScrapeNode extends BaseNode {
 
         if (isSuccess) {
             this.el.querySelector('.add-child-btn').classList.remove('hidden');
-            if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
+            if (this.nodeData.childNodeIds.length === 0) this.el.querySelector('.add-child-btn').click()
             if (typeof drawEdges === 'function') drawEdges();
             if (typeof saveState === 'function') saveState();
             if (typeof centerCanvas === 'function') centerCanvas();

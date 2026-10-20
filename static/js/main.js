@@ -54,6 +54,9 @@ async function loadState() {
         }
     });
 
+    // Rebuild the child id lists so they match the restored parent links.
+    rebuildChildNodeIds();
+
     if (typeof updateCanvas === 'function') updateCanvas();
 
     if (activeNodeId) selectNode(activeNodeId);
@@ -131,7 +134,7 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
 
-        if (nodeData.hasChild || nodeData.aiText.trim() != '' || nodeData.type != 'chat') {
+        if (getChildNodeIds(nodeData).length > 0 || nodeData.aiText.trim() != '' || nodeData.type != 'chat') {
             document.getElementById('menu-focus-mode').style.display = 'none';
         } else {
             document.getElementById('menu-focus-mode').style.display = 'block';
@@ -435,6 +438,14 @@ $('menu-rename-node').addEventListener('click', async () => {
 
     nodeData.id = newId;
 
+    // Keep the parent's child id list in sync with the new id.
+    const parentNode = nodes.find(n => n.id === nodeData.parentId);
+    if (parentNode) {
+        const childIds = getChildNodeIds(parentNode);
+        const childIndex = childIds.indexOf(oldId);
+        if (childIndex !== -1) childIds[childIndex] = newId;
+    }
+
     const el = document.getElementById(oldId);
     if (el) {
         el.id = newId;
@@ -527,6 +538,14 @@ $('menu-rename').addEventListener('click', async () => {
 
         idMap[oldId] = newId;
         nodeData.id = newId;
+
+        // Keep the parent's child id list in sync with the new id.
+        const parentNode = nodes.find(n => n.id === nodeData.parentId);
+        if (parentNode) {
+            const childIds = getChildNodeIds(parentNode);
+            const childIndex = childIds.indexOf(oldId);
+            if (childIndex !== -1) childIds[childIndex] = newId;
+        }
 
         const el = document.getElementById(oldId);
         if (el) {

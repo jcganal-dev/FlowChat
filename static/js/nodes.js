@@ -105,6 +105,10 @@ function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 
     if (type === 'image' || type === 'document') nodeInstance = new FileNode(config);
     else if (type === 'scrape') nodeInstance = new ScrapeNode(config);
     else nodeInstance = new ChatNode(config);
+    // Register the new node on its parent's child id list.
+    // When restoring, the parent link comes from the saved data instead of the argument.
+    const effectiveParentId = restoreData ? (restoreData.parentId || null) : parentId;
+    addChildNodeId(effectiveParentId, nodeInstance.id);
     return nodeInstance.id;
 }
 
@@ -124,9 +128,13 @@ function deleteNode(nodeId, deleteBranch) {
     } else {
         const children = nodes.filter(n => n.parentId === nodeId);
         children.forEach(child => {
-            child.parentId = nodeData.parentId;
+            // Children are promoted to the deleted node's parent.
+            setNodeParent(child.id, nodeData.parentId);
         });
     }
+
+    // Drop the deleted node from its parent's child id list.
+    removeChildNodeId(nodeData.parentId, nodeId);
 
     // P0 Fix: Abort any in-flight requests for nodes being deleted
     idsToRemove.forEach(id => {

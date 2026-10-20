@@ -1004,9 +1004,7 @@ window.addEventListener('mousedown', (e) => {
                 isDraggingEdge = true;
                 dragEdgeStartNodeId = node.parentId;
                 dragEdgeType = 'out';
-                const parentIndex = nodes.findIndex(n => n.id === node.parentId);
-                nodes[parentIndex].hasChild = false
-                node.parentId = null;
+                setNodeParent(node.id, null);
                 if (typeof drawEdges === 'function') drawEdges();
             } else {
                 isDraggingEdge = true;
@@ -1175,8 +1173,7 @@ window.addEventListener('mouseup', (e) => {
 
                         if (parentNodes.has(targetNodeId)) return;
                         if (targetNode) {
-                            targetNode.parentId = dragEdgeStartNodeId;
-                            startNode.hasChild = true
+                            setNodeParent(targetNode.id, dragEdgeStartNodeId);
                         }
                     }
                 } else if (dragEdgeType === 'in' && dropTarget.classList.contains('handle-out')) {
@@ -1197,8 +1194,7 @@ window.addEventListener('mouseup', (e) => {
 
                         if (parentNodes.has(dragEdgeStartNodeId)) return;
                         if (startNode) {
-                            startNode.parentId = targetNodeId;
-                            nodes.find(n => n.id === targetNodeId).hasChild = true
+                            setNodeParent(startNode.id, targetNodeId);
                         }
                     }
                 }

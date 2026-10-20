@@ -339,6 +339,72 @@ function shiftChildrenXY(nodeId, deltaX, deltaY) {
 }
 
 /**
+ * Returns the list of child node ids of a node, initializing it when missing.
+ * @param {Object} node - The node data object.
+ * @returns {string[]} The array holding the ids of the node's direct children.
+ */
+function getChildNodeIds(node) {
+    if (!node) return [];
+    if (!Array.isArray(node.childNodeIds)) node.childNodeIds = [];
+    return node.childNodeIds;
+}
+
+/**
+ * Registers a child node id on its parent, keeping the parent's child list unique.
+ * @param {string|null} parentId - The id of the parent node.
+ * @param {string} childId - The id of the child node.
+ */
+function addChildNodeId(parentId, childId) {
+    if (!parentId || !childId) return;
+    const parent = nodes.find(n => n.id === parentId);
+    if (!parent) return;
+    const childIds = getChildNodeIds(parent);
+    if (!childIds.includes(childId)) childIds.push(childId);
+}
+
+/**
+ * Unregisters a child node id from its parent.
+ * @param {string|null} parentId - The id of the parent node.
+ * @param {string} childId - The id of the child node.
+ */
+function removeChildNodeId(parentId, childId) {
+    if (!parentId || !childId) return;
+    const parent = nodes.find(n => n.id === parentId);
+    if (!parent) return;
+    const childIds = getChildNodeIds(parent);
+    const index = childIds.indexOf(childId);
+    if (index !== -1) childIds.splice(index, 1);
+}
+
+/**
+ * Re-parents a node, keeping both the parent link and the child id lists in sync.
+ * @param {string} nodeId - The id of the node being moved.
+ * @param {string|null} newParentId - The id of the new parent, or null to detach the node.
+ */
+function setNodeParent(nodeId, newParentId) {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const targetParentId = newParentId || null;
+    if (node.parentId === targetParentId) return;
+    if (node.parentId) removeChildNodeId(node.parentId, nodeId);
+    node.parentId = targetParentId;
+    if (targetParentId) addChildNodeId(targetParentId, nodeId);
+}
+
+/**
+ * Rebuilds every node's child id list from the parent links.
+ * Used after loading a saved state so the lists match the restored tree.
+ */
+function rebuildChildNodeIds() {
+    nodes.forEach(n => { getChildNodeIds(n).length = 0; });
+    nodes.forEach(n => {
+        if (!n.parentId) return;
+        const parent = nodes.find(p => p.id === n.parentId);
+        if (parent) getChildNodeIds(parent).push(n.id);
+    });
+}
+
+/**
  * Shows a toast notification at the top center of the screen.
  * @param {string} message - The message to display.
  * @param {string} type - The type of toast: 'success', 'error', 'warning', 'info' (default: 'info').

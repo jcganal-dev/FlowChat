@@ -530,7 +530,7 @@ class ChatNode extends BaseNode {
                 // this.nodeData.aiThinking = '';
                 // this.nodeData.aiSegments = [];
                 aiThinkEl.open=false
-                if (!this.nodeData.hasChild) this.el.querySelector('.add-child-btn').click()
+                if (this.nodeData.childNodeIds.length === 0) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
                 autoLayout(true, this.nodeData.id);

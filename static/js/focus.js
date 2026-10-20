@@ -97,7 +97,7 @@ function updateChatHistory() {
         // P2 Fix: Include nodes that are thinking (have aiThinking but no aiText
         // yet) — show them with a "Thinking..." indicator instead of hiding them.
         // Unexecuted empty leaves stay listed too (that's the node being typed into).
-        if (node.type == 'chat' && node.aiText.trim() == '' && node.hasChild == false && node.aiThinking.trim() =='') {
+        if (node.type == 'chat' && node.aiText.trim() == '' && node.childNodeIds.length == 0 && node.aiThinking.trim() =='') {
             if (typeof addToChatHistory == "function") {addToChatHistory(node)}
         }
     });
@@ -135,10 +135,10 @@ function toggleFocusMode(stayFocused = false) {
     // If not in focus mode but streaming, allow re-entry to restore streaming view
     // Otherwise, apply normal entry restrictions
     if (!isFocusModeActive && !isFocusModeStreaming) {
-        if (activeData && (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat' || activeData.aiThinking.trim() != '')) {
+        if (activeData && (activeData.childNodeIds.length > 0 || activeData.aiText.trim() != '' || activeData.type != 'chat' || activeData.aiThinking.trim() != '')) {
             let foundEmptyChat = false
             for (let i = nodes.length-1;i>0;i--) {
-                if (!nodes[i].hasChild && nodes[i].aiText.trim() == '' && nodes[i].type == 'chat' && nodes[i].aiThinking.trim() == '') {
+                if (nodes[i].childNodeIds.length == 0 && nodes[i].aiText.trim() == '' && nodes[i].type == 'chat' && nodes[i].aiThinking.trim() == '') {
                     document.getElementById(nodes[i].id).click()
                     foundEmptyChat = true
                     break
@@ -835,7 +835,7 @@ async function sendFocusMessage() {
 
     const isLeafEmpty = targetNode &&
         targetNode.type === 'chat' &&
-        !targetNode.hasChild &&
+        targetNode.childNodeIds.length === 0 &&
         (!targetNode.aiText || targetNode.aiText.trim() === '');
 
     if (isLeafEmpty) {
