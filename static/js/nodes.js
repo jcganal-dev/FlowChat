@@ -243,25 +243,6 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
 }
 
 /**
- * Toggles the muted state of a node, allowing its text to be excluded from LLM context generation.
- * @param {string} nodeId - The ID of the node to mute/unmute.
- * @param {Event} e - The click event.
- */
-function toggleMute(nodeId, e) {
-    if (e) e.stopPropagation();
-    const nodeData = nodes.find(n => n.id === nodeId);
-    if (!nodeData) return;
-
-    nodeData.muted = !nodeData.muted;
-    const el = document.getElementById(nodeId);
-    if (el) el.classList.toggle('muted-node', nodeData.muted);
-
-    if (activeNodeId) {
-        selectNode(activeNodeId);
-    }
-}
-
-/**
  * Injects a visual @reference chip into a contenteditable textarea at the current cursor range.
  * @param {HTMLElement} textarea - The target text area.
  * @param {Range} range - The selection range where the chip will be inserted.

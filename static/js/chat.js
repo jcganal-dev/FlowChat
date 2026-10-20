@@ -15,7 +15,7 @@ function walkContext(leafNodeId) {
             if (node.summaryText) {
                 history.push({ role: 'system', content: `[COMPRESSED HISTORY]: ${node.summaryText}` });
             }
-        } else if (!node.muted) {
+        } else {
             if (node.type === 'document' && (node.files && node.files.length > 0)) {
                 node.files.forEach(f => {
                     history.push({ role: 'user', content: `[DOCUMENT ATTACHED: ${f.name || 'Document'}]\n${f.payload}` });

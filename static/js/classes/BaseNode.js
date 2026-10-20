@@ -9,6 +9,7 @@ class BaseNode {
             this.nodeData.abortController = null;
             if (!Array.isArray(this.nodeData.childNodeIds)) this.nodeData.childNodeIds = [];
             delete this.nodeData.hasChild;
+            delete this.nodeData.muted;
             if (!this.nodeData.files) this.nodeData.files = [];
             if (this.nodeData.filePayload && this.nodeData.files.length === 0) {
                 this.nodeData.files.push({
@@ -22,7 +23,7 @@ class BaseNode {
             this.nodeData = {
                 id: undefined, type, files: [], filePayload: null, fileName: null,
                 userText: initialUserText, htmlText: initialUserText, aiText: "", aiThinking: "",
-                parentId, x, y, muted: false, references: [], turn, branch, name,
+                parentId, x, y, references: [], turn, branch, name,
                 childNodeIds: [], isCollapsed: false, abortController: null
             };
             this.id = idfy(this.nodeData);
@@ -33,7 +34,6 @@ class BaseNode {
         this.isCollapsed = this.nodeData.isCollapsed;
         this.el = document.createElement('div');
         this.el.className = `node turn-node ${this.isCollapsed ? 'collapsed-node' : ''}`;
-        if (this.nodeData.muted) this.el.classList.add('muted-node');
         this.el.id = this.id;
         this.el.style.transform = `translate(${this.nodeData.x}px, ${this.nodeData.y}px)`;
         this.el.style.width = `336px`;

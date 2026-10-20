@@ -393,7 +393,6 @@ function drawEdges(activeLineage = null) {
 
         let edgeClass = 'edge-path';
         if (activeLineage.has(node.id) && activeLineage.has(parent.id)) edgeClass += ' active';
-        if (node.muted || parent.muted) edgeClass += ' muted';
         path.setAttribute('class', edgeClass);
 
         edgesLayer.appendChild(path);
