@@ -370,9 +370,9 @@ class ChatNode extends BaseNode {
         }
         let aborted = false;
         this.textarea.style.border = "none";
-        this.textarea.style.background = "transparent";
-        this.textarea.style.height = "auto";
-        this.textarea.style.color = "#eee";
+        // this.textarea.style.background = "transparent";
+        // this.textarea.style.height = "auto";
+        // this.textarea.style.color = "#eee";
         let erased_thoughts = false;
         if (history.length > 0) {
             const lastMsg = history[history.length - 1];
@@ -510,6 +510,7 @@ class ChatNode extends BaseNode {
             },
             onError: (error) => {
                 if (error.name === 'AbortError' || (error.message && error.message.includes('AbortError'))) {
+                    this.nodeData.abortController = null
                     aborted = true;
                     aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
                     this.textarea.contentEditable = true;

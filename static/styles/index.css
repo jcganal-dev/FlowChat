@@ -1162,7 +1162,7 @@ div[contentEditable='true'].scrape-node-input,
 }
 
 .node-input[contenteditable="false"] {
-    background-color: transparent;
+    /* background-color: transparent; */
     border: none;
     overflow-wrap: break-word;
 }
