@@ -110,6 +110,7 @@ function renderAnswerHtml(node) {
 function addFade(parentelement, reset=false) {
     const element = parentelement.querySelector('.think-stream')
     const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight
+    console.log(element.scrollTop + element.clientHeight + " >= " + element.scrollHeight)
     const atTop = element.scrollTop <= 0
     if (reset) {
         element.classList.remove('fade-top')
@@ -203,7 +204,7 @@ class ChatNode extends BaseNode {
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
         });
         this.thinkContent = this.el.querySelector('.think-content');
-        this.thinkStream = this.el.querySelector('.think-stream');
+        this.thinkStream = this.thinkContent.querySelector('.think-stream');
         this.thinkStream.addEventListener('scroll', () => {
             addFade(this.thinkContent)
         })
@@ -311,12 +312,16 @@ class ChatNode extends BaseNode {
         const aiThinkEl = this.el.querySelector('.think-content');
         aiContentEl.innerHTML = '';
         // One streaming container: reasoning text and tool chips interleave in order.
-        aiThinkEl.innerHTML +=
-            `<div class="think-placeholder" style="display:flex;flex-direction:row;align-items:center;">` +
-            `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...</div>` +
-            `<div class="think-stream"></div>`;
+        // Append as a real element: `innerHTML +=` re-parses the whole subtree, which
+        // would swap out .think-stream and silently drop its scroll listener.
+        const placeholderEl = document.createElement('div');
+        placeholderEl.className = 'think-placeholder';
+        placeholderEl.style.cssText = 'display:flex;flex-direction:row;align-items:center;';
+        placeholderEl.innerHTML = `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...`;
+        aiThinkEl.appendChild(placeholderEl);
         aiThinkEl.open = true
         const thinkStreamEl = aiThinkEl.querySelector('.think-stream');
+        this.thinkStream = thinkStreamEl;   // keep the reference pointing at the live element
         const thinkPlaceholder = aiThinkEl.querySelector('.think-placeholder');
         // Persist <details> open state back into the segment (toggle doesn't bubble -> capture).
         thinkStreamEl.addEventListener('toggle', (e) => {
@@ -389,13 +394,18 @@ class ChatNode extends BaseNode {
         };
         const flushUi = () => {
             uiDirty = false;
-            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here -- PROBABLLY HERE
+            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here
             if (aiThinkEl.isConnected) {
                 renderThinkStream(thinkStreamEl, this.nodeData);       // reasoning + chips, in stream order
                 // Only auto-scroll if user is already near the bottom (within 100px)
-                const isNearBottom = thinkStreamEl.scrollTop + thinkStreamEl.clientHeight >= thinkStreamEl.scrollHeight - 100;
-                if (isNearBottom) {
+                const thughtsIsNearBottom = thinkStreamEl.scrollTop + thinkStreamEl.clientHeight >= thinkStreamEl.scrollHeight - 100;
+                if (thughtsIsNearBottom) {
                     thinkStreamEl.scrollTop = thinkStreamEl.scrollHeight;
+                }
+                const aiSection = this.el.querySelector('.ai-section')
+                const contentIsNearBottom = aiSection.scrollTop + aiSection.clientHeight >= aiSection.scrollHeight - 100;
+                if (contentIsNearBottom) {
+                    aiSection.scrollTop = aiSection.scrollHeight;
                 }
             }
             if (typeof drawEdges === 'function') drawEdges();
@@ -413,14 +423,8 @@ class ChatNode extends BaseNode {
                     erased_thoughts = true;
                     if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
                         // Put think content into a summary tag
-                        const thinkContent = this.el.querySelector('.think-content')
-                        thinkContent.innerHTML = `
-                            <details>
-                                <summary class='outer-summary'>Thoughts</summary>
-                                <div class="think-stream">
-                                    ${thinkContent.innerHTML}
-                                </div>
-                            </details>`;
+                        const thinkContent = this.el.querySelector('.think-stream')
+                        thinkContent.innerHTML = thinkContent.innerHTML;
                         this.nodeData.aiSegments = this.nodeData.aiSegments.filter(s => s.type !== 'reasoning');
                     }
                 }

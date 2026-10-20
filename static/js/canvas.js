@@ -310,7 +310,7 @@ viewport.addEventListener('wheel', (e) => {
         // do normal scrolling
         return;
     }
-    const thinkStream = e.target.closest('.think-content');
+    const thinkStream = e.target.closest('.think-stream');
     if (thinkStream && !e.ctrlKey && thinkStream.scrollHeight > thinkStream.clientHeight) {
         // do normal scrolling
         return;
@@ -1256,7 +1256,8 @@ function centerCanvas() {
 
 const preventZoomElements = [
     'context-menu',
-    'sandbox-palette'
+    'sandbox-palette',
+    'hint-overlay'
 ]
 
 document.addEventListener('wheel', (e) => {
