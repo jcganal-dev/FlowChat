@@ -107,7 +107,8 @@ function renderAnswerHtml(node) {
 }
 
 // Add fade bottom and top based on scroll height
-function addFade(element, reset=false) {
+function addFade(parentelement, reset=false) {
+    const element = parentelement.querySelector('.think-stream')
     const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight
     const atTop = element.scrollTop <= 0
     if (reset) {
@@ -164,9 +165,11 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="ai-section">
-                <details class="think-content" style="${thinkHtml ? 'display:flex;overflow:auto;' : 'display:none'}">
+                <details class="think-content" style="${thinkHtml ? 'display:flex;' : 'display:none'}">
                     <summary class='outer-summary'>Thoughts</summary>
-                    ${thinkHtml}
+                    <div class="think-stream">
+                        ${thinkHtml}
+                    </div>
                 </details>
                 <div class="ai-content">${this.nodeData.aiText ? renderAnswerHtml(this.nodeData) : ''}</div>
             </div>
@@ -200,7 +203,8 @@ class ChatNode extends BaseNode {
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
         });
         this.thinkContent = this.el.querySelector('.think-content');
-        this.thinkContent.addEventListener('scroll', () => {
+        this.thinkStream = this.el.querySelector('.think-stream');
+        this.thinkStream.addEventListener('scroll', () => {
             addFade(this.thinkContent)
         })
         this.thinkContent.addEventListener('click', () => { 
@@ -376,7 +380,6 @@ class ChatNode extends BaseNode {
             }
         }
         const payload = { messages: history, max_tokens: 1000 };
-
         let uiDirty = false;
         const syncThinkVisibility = () => {
             const segs = this.nodeData.aiSegments || [];

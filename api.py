@@ -28,7 +28,7 @@ TOOL_REGISTRY, TOOLS_SCHEMA = agent_tools_module.build_tools(
     exclude=["run_command"],   # remove this once you trust the agent's behavior
 )
 
-MAX_TOOL_ROUNDS = 200
+MAX_TOOL_ROUNDS = 1000
 
 async def execute_tool(name: str, args: dict) -> str:
     fn = TOOL_REGISTRY.get(name)

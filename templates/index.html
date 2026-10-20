@@ -162,18 +162,18 @@
             updateCanvas();
         }
 
-        zoomin.addEventListener('click', () => {zoom(0.1)})
-        zoomout.addEventListener('click', () => {zoom(-0.1)})
-        savebtn.addEventListener('click', () => {
+        zoomin.addEventListener('mouseup', () => {zoom(0.1)})
+        zoomout.addEventListener('mouseup', () => {zoom(-0.1)})
+        savebtn.addEventListener('mouseup', () => {
             if (typeof saveState === 'function') saveState(true)
         })
-        centerbtn.addEventListener('click', () => {
+        centerbtn.addEventListener('mouseup', () => {
             if (typeof centerCanvas === 'function') centerCanvas();
         })
-        focusbtn.addEventListener('click', () => {
+        focusbtn.addEventListener('mouseup', () => {
             if (typeof toggleFocusMode === 'function') toggleFocusMode();
         })
-        layoutbtn.addEventListener('click', (e) => {
+        layoutbtn.addEventListener('mouseup', (e) => {
             e.preventDefault()
             if (typeof autoLayout === 'function') {
                 if (e.ctrlKey || e.metaKey) {
@@ -183,7 +183,7 @@
                 }
             }
         })
-        wipebtn.addEventListener('click', () => {
+        wipebtn.addEventListener('mouseup', () => {
             if (typeof wipeState === 'function') wipeState();
         })
 

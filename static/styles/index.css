@@ -618,13 +618,12 @@ body.shift-pressed.input-focused .node-id {
     padding-left: 20px;
     margin: 8px 12px 8px 0px;
     line-height: 1.5;
-    max-height: 200px;
     min-height: 0px;
     display: flex;
     flex-direction: column;
     height: fit-content;
-    overflow: auto;
-    scrollbar-width: none;
+    /* overflow: auto;
+    scrollbar-width: none; */
 }
 .outer-summary {
     margin-left: -14px;
@@ -1534,6 +1533,7 @@ h6 {
     overflow: auto; 
     white-space: break-spaces;
     scrollbar-width: none;
+    max-height: 200px;
 }
 .think-stream .tool-chip, .think-content .tool-chip { margin: 10px 0; }
 

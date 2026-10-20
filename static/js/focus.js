@@ -137,7 +137,7 @@ function toggleFocusMode(stayFocused = false) {
     if (!isFocusModeActive && !isFocusModeStreaming) {
         if (activeData && (activeData.hasChild || activeData.aiText.trim() != '' || activeData.type != 'chat' || activeData.aiThinking.trim() != '')) {
             let foundEmptyChat = false
-            for (let i = nodes.length-1;i>0;i++) {
+            for (let i = nodes.length-1;i>0;i--) {
                 if (!nodes[i].hasChild && nodes[i].aiText.trim() == '' && nodes[i].type == 'chat' && nodes[i].aiThinking.trim() == '') {
                     document.getElementById(nodes[i].id).click()
                     foundEmptyChat = true

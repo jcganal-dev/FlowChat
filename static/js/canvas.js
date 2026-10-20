@@ -1241,11 +1241,11 @@ function centerCanvas() {
     camera.x = vWidth / 2 - (nX + nWidth / 2) * camera.zoom;
     camera.y = vHeight / 2 - (nY + nHeight / 2) * camera.zoom;
 
-    document.getElementById(activeNodeId).querySelector('.node-input').focus()
-
+    
     updateCanvas();
-
+    
     setTimeout(() => {
+        document.getElementById(activeNodeId).querySelector('.node-input').focus()
         nodesLayer.style.transition = 'none';
     }, 300);
 }
