@@ -16,7 +16,7 @@ function renderToolChipHtml(seg) {
     const preview = escapeHtml(seg.argsPreview || '');
     if (seg.status === 'running') {
         return `<div class="tool-chip" data-seg-id="${escapeHtml(seg.id)}">` +
-            `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})...</div>`;
+            `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})</div>`;
     }
     return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
         `<summary>Done: <b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
@@ -29,34 +29,107 @@ function renderToolChipsHtml(node) {
     return segs.filter(s => s.type === 'tool_call').map(renderToolChipHtml).join('');
 }
 
-// Static one-shot think-stream HTML (restore / first paint).   
+// Static one-shot think-stream HTML (restore / first paint).
 function renderThinkStreamHtml(node) {
     const segs = (Array.isArray(node.aiSegments) ? node.aiSegments : [])
         .filter(s => s.type === 'reasoning' || s.type === 'tool_call');
     if (!segs.length) {
-        return node.aiThinking ? `<div class="think-text">${escapeHtml(node.aiThinking)}</div>` : '';
+        return node.aiThinking ? `<div class="think-text">${renderReasoningHtml(node.aiThinking)}</div>` : '';
     }
     return segs.map(seg => seg.type === 'reasoning'
-        ? `<div class="think-text">${escapeHtml(seg.text || '')}</div>`
+        ? `<div class="think-text">${renderReasoningHtml(seg.text || '')}</div>`
         : renderToolChipHtml(seg)
     ).join('');
 }
 
 const THINK_CAP = 20000;
 
+// Sliding window over the reasoning text, so a runaway stream can't grow the DOM forever.
+function capThinkText(text) {
+    return text.length > THINK_CAP ? '…' + text.slice(-THINK_CAP) : text;
+}
+
+// Splits reasoning text into renderable blocks: prose and fenced code.
+// A fence that is still streaming (no closing ``` yet) runs to the end of the text.
+function splitReasoningBlocks(text) {
+    const blocks = [];
+    const fence = /```([^\n`]*)\n?([\s\S]*?)(?:```|$)/g;
+    let last = 0;
+    let m;
+    while ((m = fence.exec(text)) !== null) {
+        if (m.index > last) blocks.push({ type: 'text', text: text.slice(last, m.index) });
+        blocks.push({ type: 'code', lang: (m[1] || '').trim(), text: m[2] });
+        last = fence.lastIndex;
+    }
+    if (last < text.length) blocks.push({ type: 'text', text: text.slice(last) });
+    return blocks;
+}
+
+// Language tag of a code block, reduced to characters that are safe in a class attribute.
+function safeLang(lang) {
+    return String(lang || '').replace(/[^A-Za-z0-9_+#.-]/g, '');
+}
+
+// Static markup for one reasoning segment (restore path). Mirrors the DOM
+// structure renderReasoningEl builds while streaming.
+function renderReasoningHtml(text) {
+    return splitReasoningBlocks(capThinkText(text || '')).map(block => block.type === 'text'
+        ? `<div class="think-block" data-block-type="text">${escapeHtml(block.text)}</div>`
+        : `<div class="think-block" data-block-type="code"><pre><code class="language-${safeLang(block.lang)}">${escapeHtml(block.text)}</code></pre></div>`
+    ).join('');
+}
+
 // Diffs text into el with minimal DOM churn.
 function updateThinkTextEl(el, text) {
     const shown = el._shown || '';
-    if (text.length > THINK_CAP) {
-        const target = '…' + text.slice(-THINK_CAP);   // sliding window — full reset is fine at this size
-        if (target !== shown) el.textContent = target;
-        el._shown = target;
-    } else if (text.startsWith(shown)) {
+    if (text.startsWith(shown)) {
         if (text.length > shown.length) el.appendChild(document.createTextNode(text.slice(shown.length)));
         el._shown = text;
     } else {
         el.textContent = text;
         el._shown = text;
+    }
+}
+
+// Renders one reasoning segment into its element.
+// Prose blocks are appended as text nodes (cheap, and the text stays selectable
+// while streaming); code blocks are re-rendered as <pre><code> and handed to
+// Prism right after the markup is written — Prism can only highlight code that
+// is already in the DOM.
+function renderReasoningEl(el, text) {
+    const blocks = splitReasoningBlocks(capThinkText(text || ''));
+    while (el.childElementCount > blocks.length) el.lastElementChild.remove();
+    for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
+        let child = el.children[i];
+        if (block.type === 'text') {
+            if (!child || child.dataset.blockType !== 'text') {
+                const fresh = document.createElement('div');
+                fresh.className = 'think-block';
+                fresh.dataset.blockType = 'text';
+                if (child) el.replaceChild(fresh, child); else el.appendChild(fresh);
+                child = fresh;
+            }
+            if (child._shown === undefined) {   // fresh or cloned element: seed it
+                child.textContent = '';
+                child._shown = '';
+            }
+            updateThinkTextEl(child, block.text);
+        } else {
+            if (!child || child.dataset.blockType !== 'code') {
+                const fresh = document.createElement('div');
+                fresh.className = 'think-block';
+                fresh.dataset.blockType = 'code';
+                if (child) el.replaceChild(fresh, child); else el.appendChild(fresh);
+                child = fresh;
+            }
+            if (child._code !== block.text || child._lang !== block.lang) {
+                child._code = block.text;
+                child._lang = block.lang;
+                child.innerHTML = `<pre><code class="language-${safeLang(block.lang)}">${escapeHtml(block.text)}</code></pre>`;
+                if (window.Prism) Prism.highlightAllUnder(child);
+            }
+        }
     }
 }
 
@@ -73,20 +146,19 @@ function renderThinkStream(container, node) {
         let el = container.children[i] || null;
         if (seg.type === 'reasoning') {
             if (!el || el.dataset.segType !== 'reasoning') {
-                if (el) el.remove();
-                el = document.createElement('div');
-                el.className = 'think-text';
-                el.dataset.segType = 'reasoning';
-                el._shown = '';
-                container.appendChild(el);
+                const fresh = document.createElement('div');
+                fresh.className = 'think-text';
+                fresh.dataset.segType = 'reasoning';
+                if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
+                el = fresh;
             }
-            updateThinkTextEl(el, seg.text || '');
+            renderReasoningEl(el, seg.text || '');
         } else {
             if (!el || el.dataset.segType !== 'tool_call') {
-                if (el) el.remove();
-                el = document.createElement('div');
-                el.dataset.segType = 'tool_call';
-                container.appendChild(el);
+                const fresh = document.createElement('div');
+                fresh.dataset.segType = 'tool_call';
+                if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
+                el = fresh;
             }
             const html = renderToolChipHtml(seg);
             if (el._chipHtml !== html) {
@@ -204,6 +276,10 @@ class ChatNode extends BaseNode {
         });
         this.thinkContent = this.el.querySelector('.think-content');
         this.thinkStream = this.thinkContent.querySelector('.think-stream');
+        // Restore path: the reasoning markup is already in the DOM, so its code
+        // blocks can be highlighted right away (the streaming path highlights
+        // them as it renders).
+        if (window.Prism) Prism.highlightAllUnder(this.thinkStream);
         this.thinkStream.addEventListener('scroll', () => {
             addFade(this.thinkContent)
         })

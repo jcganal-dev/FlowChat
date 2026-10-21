@@ -614,7 +614,6 @@ body.shift-pressed.input-focused .node-id {
     color: var(--text-disabled);
     font-size: 0.85em;
     font-style: italic;
-    border-left: 2px solid var(--border-highlight);
     padding-left: 20px;
     margin: 8px 12px 8px 0px;
     line-height: 1.5;
@@ -626,7 +625,7 @@ body.shift-pressed.input-focused .node-id {
     scrollbar-width: none; */
 }
 .outer-summary {
-    margin-left: -14px;
+    margin-left: -4px;
 }
 
 .think-content:empty {
@@ -646,8 +645,8 @@ body.shift-pressed.input-focused .node-id {
     padding: 12px;
     border-bottom: 1px solid var(--border-base);
     background: var(--bg-surface-hover);
-    overflow: auto;
-    max-height: 200px;
+    /* overflow: auto; */
+    /* max-height: 200px; */
     flex-shrink: 0;
 }
 
@@ -663,6 +662,9 @@ body.shift-pressed.input-focused .node-id {
     font-family: inherit;
     box-sizing: border-box;
     overflow-wrap: break-word;
+    overflow: auto;
+    max-height: 170px;
+    resize: none;
 }
 
 .node-input[contenteditable="true"] {
@@ -1030,6 +1032,8 @@ body.shift-pressed.input-focused .node-id {
     border-radius: 6px;
     overflow-x: auto;
     margin: 10px 0;
+    /* .think-stream sets break-spaces for the prose; code needs plain pre. */
+    white-space: pre;
 }
 
 .ai-content code,
@@ -1330,12 +1334,9 @@ h6 {
         .focus-think {
             max-width: 90%;
             align-self: start;
-            padding: 0px 20px;
+            padding: 0px 4px;
             color: var(--text-muted);
             font-style: italic;
-            border-left: 2px solid var(--border-highlight);
-            max-height: 200px;
-            overflow: auto;
             font-size: 0.85em;
             line-height: 1.5;
         }
@@ -1526,14 +1527,16 @@ h6 {
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
 .think-stream { 
-    display: flex; 
-    flex-direction: column; 
-    gap: 6px; 
-    height: 100%; 
-    overflow: auto; 
+    border-left: 2px solid var(--border-highlight);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: 100%;
+    overflow: auto;
     white-space: break-spaces;
     scrollbar-width: none;
     max-height: 200px;
+    padding-left: 10px;
 }
 .think-stream .tool-chip, .think-content .tool-chip { margin: 10px 0; }
 
@@ -1588,4 +1591,8 @@ h6 {
 details > summary {
     cursor: pointer;
     user-select: none;
+}
+
+.think-block > pre {
+    scrollbar-width: none;
 }

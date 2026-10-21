@@ -772,6 +772,13 @@ function renderFocusLineage() {
         
         
         turnDiv.innerHTML = turnHtml;
+        // Restored think stream: the reasoning markup is already in the DOM, so
+        // its code blocks can be highlighted right away (the streaming path
+        // highlights them as it renders).
+        if (window.Prism) {
+            const restoredStream = turnDiv.querySelector('.think-stream');
+            if (restoredStream) Prism.highlightAllUnder(restoredStream);
+        }
         const focusThink = turnDiv.querySelector('.focus-think')
 
         if (focusThink) {

@@ -315,7 +315,7 @@ viewport.addEventListener('wheel', (e) => {
         // do normal scrolling
         return;
     }
-    const userSection = e.target.closest('.user-section');
+    const userSection = e.target.closest('.node-input');
     if (userSection && !e.ctrlKey && userSection.scrollHeight > userSection.clientHeight) {
         // do normal scrolling
         return;
