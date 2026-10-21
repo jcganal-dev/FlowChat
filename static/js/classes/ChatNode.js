@@ -180,7 +180,8 @@ function renderAnswerHtml(node) {
 
 // Add fade bottom and top based on scroll height
 function addFade(parentelement, reset=false) {
-    const element = parentelement.querySelector('.think-stream')
+    const element = parentelement && parentelement.querySelector('.think-stream')
+    if (!element) return
     const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight
     const atTop = element.scrollTop <= 0
     if (reset) {

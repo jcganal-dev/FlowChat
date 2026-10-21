@@ -620,6 +620,32 @@ async function renderFocusProjectFiles() {
 }
 
 /**
+ * Wires the fade-on-scroll behavior for a focus-mode think block.
+ *
+ * The element that actually scrolls is `.focus-think-body .think-stream`
+ * (the <details> itself never scrolls, and scroll events don't bubble, so a
+ * listener on the <details> would never fire for the stream's scrolling).
+ * The <details> click handler re-runs the fade after the block opens/closes.
+ *
+ * Must be re-run whenever a think block is (re)created or cloned — cloneNode()
+ * drops event listeners, so a cloned turn comes back un-wired.
+ */
+function wireFocusThink(thinkEl) {
+    if (!thinkEl || thinkEl._fadeWired) return;
+    thinkEl._fadeWired = true;
+    const onScroll = () => addFade(thinkEl);
+    const stream = thinkEl.querySelector('.focus-think-body .think-stream');
+    if (stream) stream.addEventListener('scroll', onScroll);
+    const body = thinkEl.querySelector('.focus-think-body');
+    if (body) body.addEventListener('scroll', onScroll);
+    thinkEl.addEventListener('click', () => {
+        setTimeout(() => {
+            addFade(thinkEl, !thinkEl.open)
+        }, 1)
+    })
+}
+
+/**
  * Renders the linear message lineage history in the main chat layer.
  * Preserves the currently streaming node (if any) to avoid wiping in-progress content.
  */
@@ -782,14 +808,7 @@ function renderFocusLineage() {
         const focusThink = turnDiv.querySelector('.focus-think')
 
         if (focusThink) {
-            focusThink.addEventListener('scroll', () => {
-                addFade(focusThink)
-            })
-            focusThink.addEventListener('click', () => { 
-                setTimeout(() => {
-                    addFade(focusThink, !focusThink.open)
-                }, 1)
-            })
+            wireFocusThink(focusThink)
         }
         focusNodesLayer.appendChild(turnDiv);
     });
@@ -809,6 +828,9 @@ function renderFocusLineage() {
             renderThinkStream(clonedStream, streamingData);
         }
         focusNodesLayer.appendChild(streamingNodeEl);
+        // The streaming turn was cloneNode()'d, which drops every listener it had
+        // (including the fade wiring) — re-wire it on the clone that's now live.
+        wireFocusThink(streamingNodeEl.querySelector('.focus-think'));
     }
 
     focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
@@ -911,6 +933,9 @@ async function sendFocusMessage() {
             <div class="focus-ai ai-content"></div>
         `;
         focusNodesLayer.appendChild(turnDiv);
+        // Wire the fade behavior for this live turn — the turn is built from
+        // innerHTML here, so it starts with no listeners at all.
+        wireFocusThink(turnDiv.querySelector('.focus-think'));
         focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
     }
 
