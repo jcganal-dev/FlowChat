@@ -118,11 +118,11 @@ function updateChatHistory() {
 /**
  * Toggles the linear chat Focus Mode on or off for the current active branch lineage.
  */
-function toggleFocusMode(stayFocused = false) {
+function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
     const focusBg = document.getElementById('focus-bg');
     if (!focusBg) return;
 
-    const activeData = nodes.find(n => n.id === activeNodeId);
+    let activeData = nodes.find(n => n.id === targetId);
 
     // If already in focus mode and not stayFocused, exit
     if (isFocusModeActive || (focusBg.style.display !== 'none' && focusBg.style.display !== '')) {
@@ -132,27 +132,43 @@ function toggleFocusMode(stayFocused = false) {
         }
     }
 
+    function checkIfEmpty(node) {
+        return (node.aiText.trim() == '' && node.type == 'chat' && node.aiThinking.trim() == '')
+    }
+
     // If not in focus mode but streaming, allow re-entry to restore streaming view
     // Otherwise, apply normal entry restrictions
     if (!isFocusModeActive && !isFocusModeStreaming) {
-        if (activeData && (activeData.childNodeIds.length > 0 || activeData.aiText.trim() != '' || activeData.type != 'chat' || activeData.aiThinking.trim() != '')) {
+        if (activeData && checkIfEmpty(activeData) == false) {
             let foundEmptyChat = false
-            for (let i = nodes.length-1;i>0;i--) {
-                if (nodes[i].childNodeIds.length == 0 && nodes[i].aiText.trim() == '' && nodes[i].type == 'chat' && nodes[i].aiThinking.trim() == '') {
-                    document.getElementById(nodes[i].id).click()
-                    foundEmptyChat = true
-                    break
+            if (!foundEmptyChat) {
+                const childIds = activeData.childNodeIds
+                for (const id of childIds) {
+                    const child = nodes.find(node => node.id === id)
+                    if (checkIfEmpty(child) == true) {
+                        document.getElementById(child.id).click()
+                        foundEmptyChat = true
+                        break
+                    }
                 }
             }
             if (!foundEmptyChat) {
-                const newNodeId = createNode()
-                autoLayout(true)
-                document.getElementById(newNodeId).click()
+                const nodeEl = document.getElementById(activeData.id)
+                const addBtn = nodeEl.querySelector('.add-child-btn')
+                if (!addBtn.classList.contains('hidden')) {
+                    addBtn.click()
+                    autoLayout(true)
+                    foundEmptyChat = true
+                }
+            }
+            if (!foundEmptyChat) {
+                showToast('Current selected node cannot create child.', 'error', 3000);
+                return
             }
         }
     }
 
-    if (!activeNodeId) {
+    if (!targetId) {
         if (nodes.length > 0) {
             selectNode(nodes[nodes.length - 1].id);
         } else {
@@ -202,7 +218,7 @@ function toggleFocusMode(stayFocused = false) {
     if (chatInput) {
         // Don't overwrite input if we're streaming (preserve in-progress content)
         if (!isFocusModeStreaming) {
-            chatInput.innerHTML = document.getElementById(activeNodeId).querySelector('.node-input').innerHTML;
+            chatInput.innerHTML = document.getElementById(targetId).querySelector('.node-input').innerHTML;
         }
         chatInput.focus();
         moveContentEditableCaretToEnd(chatInput);
@@ -214,11 +230,11 @@ function toggleFocusMode(stayFocused = false) {
             chatInput.removeEventListener('input', chatInput._syncListener);
         }
         chatInput._syncListener = () => {
-            const canvasInput = document.getElementById(activeNodeId)?.querySelector('.node-input');
+            const canvasInput = document.getElementById(targetId)?.querySelector('.node-input');
             if (canvasInput && !isFocusModeStreaming) {
                 canvasInput.innerHTML = chatInput.innerHTML;
                 // Update nodeData for saveState
-                const nodeData = nodes.find(n => n.id === activeNodeId);
+                const nodeData = nodes.find(n => n.id === targetId);
                 if (nodeData) nodeData.htmlText = chatInput.innerHTML;
             }
         };

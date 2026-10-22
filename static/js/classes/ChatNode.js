@@ -418,29 +418,35 @@ class ChatNode extends BaseNode {
             const imageContents = [];
             let hasTextRefs = false;
             refs.forEach(rId => {
-                const rNode = nodes.find(n => n.id === rId);
-                if (rNode) {
-                    if (rNode.type === 'image' && (rNode.files && rNode.files.length > 0)) {
-                        hasImageRefs = true;
-                        rNode.files.forEach(f => imageContents.push({ type: "image_url", image_url: { url: f.payload } }));
-                    } else if (rNode.type === 'document' && (rNode.files && rNode.files.length > 0)) {
-                        hasTextRefs = true;
-                        rNode.files.forEach(f => systemDirectives += `\n[DOCUMENT ATTACHED: ${f.name}]\n${f.payload}\n`);
-                    } else if (rNode.type === 'chat' || !rNode.type) {
-                        hasTextRefs = true;
-                        systemDirectives += `\nRule: ${rNode.userText}\nStatus: ${rNode.aiText}\n`;
-                    }
+                // A reference can point at a single node or at a group; a group
+                // expands to its member nodes so their files come along too.
+                const refPayload = resolveReferencePayload(rId);
+                refPayload.text.forEach(t => systemDirectives += `\n${t}\n`);
+                if (refPayload.text.length > 0) hasTextRefs = true;
+                if (refPayload.images.length > 0) {
+                    hasImageRefs = true;
+                    refPayload.images.forEach(img => imageContents.push(img));
                 }
             });
             if (hasTextRefs) {
                 if (history.length > 0 && history[0].role === 'system') history[0].content += "\n\n" + systemDirectives;
                 else history.unshift({ role: 'system', content: systemDirectives });
             }
-            if (hasImageRefs && history.length > 0) {
-                const lastMsg = history[history.length - 1];
-                if (lastMsg.role === 'user') {
-                    const originalText = lastMsg.content;
-                    lastMsg.content = [{ type: "text", text: originalText }, ...imageContents];
+            if (hasImageRefs && imageContents.length > 0) {
+                // Attach the images to the most recent user message so they
+                // travel with the prompt instead of being dropped.
+                let targetMsg = null;
+                for (let i = history.length - 1; i >= 0; i--) {
+                    if (history[i].role === 'user') { targetMsg = history[i]; break; }
+                }
+                if (targetMsg) {
+                    if (typeof targetMsg.content === 'string') {
+                        targetMsg.content = [{ type: "text", text: targetMsg.content }, ...imageContents];
+                    } else if (Array.isArray(targetMsg.content)) {
+                        targetMsg.content = [...targetMsg.content, ...imageContents];
+                    }
+                } else {
+                    history.push({ role: 'user', content: imageContents });
                 }
             }
         }

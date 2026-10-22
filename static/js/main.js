@@ -74,8 +74,9 @@ async function wipeState() {
 }
 
 window.addEventListener('contextmenu', (e) => {
-    if (e.target.closest('.node-input')) {
-        if (node && node.isContentEditable && node.tagName === 'DIV') {
+    const targetNode = e.target.closest('.node-input')
+    if (targetNode) {
+        if (targetNode && targetNode.isContentEditable && targetNode.tagName === 'DIV') {
             return;
         }
     }
@@ -133,12 +134,12 @@ window.addEventListener('contextmenu', (e) => {
         document.getElementById('menu-rename-node').style.display = 'block';
         document.getElementById('menu-group').style.display = 'block';
         document.getElementById('menu-ungroup').style.display = 'block';
+        document.getElementById('menu-focus-mode').style.display = 'block';
 
-        if (getChildNodeIds(nodeData).length > 0 || nodeData.aiText.trim() != '' || nodeData.type != 'chat') {
-            document.getElementById('menu-focus-mode').style.display = 'none';
-        } else {
-            document.getElementById('menu-focus-mode').style.display = 'block';
-        }
+        // if (getChildNodeIds(nodeData).length > 0 || nodeData.aiText.trim() != '' || nodeData.type != 'chat') {
+        //     document.getElementById('menu-focus-mode').style.display = 'none';
+        // } else {
+        // }
 
         const summarizeMenu = document.getElementById('menu-summarize');
         const summarizeSelectedMenu = document.getElementById('menu-summarize-selected');
@@ -290,7 +291,7 @@ $('menu-add-scrape').addEventListener('click', () => {
 
 $('menu-focus-mode').addEventListener('click', () => {
     contextMenu.style.display = 'none';
-    toggleFocusMode();
+    toggleFocusMode(false, targetNodeIdForMenu);
 });
 
 window.addEventListener('click', (e) => {

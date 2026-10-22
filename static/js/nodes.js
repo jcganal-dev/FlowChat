@@ -275,6 +275,18 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             });
         }
 
+        // Image and document nodes hold no text of their own, so list them here
+        // to make the attachment visible in the reference. The payloads
+        // themselves are resolved when the prompt is sent (resolveReferencePayload).
+        gNodes.forEach((n, idx) => {
+            if (!n.files || n.files.length === 0) return;
+            if (n.type === 'image') {
+                refText += `[NODE_${idx}] IMAGE ATTACHED: ${n.files.map(f => f.name || 'Image').join(', ')}\n\n`;
+            } else if (n.type === 'document') {
+                refText += `[NODE_${idx}] DOCUMENT ATTACHED: ${n.files.map(f => f.name || 'Document').join(', ')}\n\n`;
+            }
+        });
+
         if (!refText) return false;
     } else {
         const refData = nodes.find(n => n.id === refId);
@@ -353,6 +365,48 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     textarea.focus();
 
     return true;
+}
+
+/**
+ * Resolves a reference target into the content it contributes to a prompt.
+ * A reference can point at a single node or at a whole group of nodes; a group
+ * expands to its member nodes so attached images and documents travel with it.
+ * @param {string} refId - The id of the referenced node or group.
+ * @returns {{text: string[], images: Array<Object>}} Text directives and image attachments.
+ */
+function resolveReferencePayload(refId) {
+    const payload = { text: [], images: [] };
+
+    const collectNode = (n, label) => {
+        if (!n) return;
+        if (n.type === 'image') {
+            if (!n.files || n.files.length === 0) return;
+            n.files.forEach(f => {
+                if (f.payload) payload.images.push({ type: "image_url", image_url: { url: f.payload } });
+            });
+            payload.text.push(`${label}[IMAGE ATTACHED: ${n.files.map(f => f.name || 'Image').join(', ')}]`);
+        } else if (n.type === 'document') {
+            if (!n.files || n.files.length === 0) return;
+            n.files.forEach(f => {
+                payload.text.push(`${label}[DOCUMENT ATTACHED: ${f.name || 'Document'}]\n${f.payload}`);
+            });
+        } else if (n.type === 'chat' || !n.type) {
+            payload.text.push(`${label}Rule: ${n.userText || ''}\nStatus: ${n.aiText || ''}`);
+        }
+    };
+
+    if (groups[refId]) {
+        // The chat text of a group is already embedded in the reference chip,
+        // so only the attached files are collected here.
+        nodes.filter(n => n.groupId === refId).forEach((n, idx) => {
+            if (n.type === 'image' || n.type === 'document') collectNode(n, `[NODE_${idx}] `);
+        });
+    } else {
+        const n = nodes.find(x => x.id === refId);
+        if (n) collectNode(n, '');
+    }
+
+    return payload;
 }
 
 /**

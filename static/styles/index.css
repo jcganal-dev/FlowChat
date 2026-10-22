@@ -613,7 +613,7 @@ body.shift-pressed.input-focused .node-id {
     color: var(--text-disabled);
     font-size: 0.85em;
     font-style: italic;
-    /* padding-left: 20px; */
+    padding-left: 4px;
     margin: 8px 12px 8px 0px;
     line-height: 1.5;
     min-height: 0px;
