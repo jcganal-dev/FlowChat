@@ -4,10 +4,15 @@
  * @param {Object} payload - The request payload containing messages and config.
  * @param {AbortSignal} signal - Signal to abort the fetch request.
  * @param {Object} callbacks - Object containing onContent, onReasoning, onError, and onComplete hooks.
+ * @param {string} [model] - Optional model override to send with the request.
  */
-async function streamChatApi(payload, signal, callbacks) {
+async function streamChatApi(payload, signal, callbacks, model = null) {
     const { onContent, onReasoning, onToolCallStart, onToolCall, onToolResult, onError, onComplete } = callbacks;
     try {
+        // Include model in payload if provided
+        if (model) {
+            payload.model = model;
+        }
         const response = await fetch('http://127.0.0.1:5000/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -88,6 +93,22 @@ async function apiLoadState() {
         return data;
     } catch (e) {
         console.error("SQLite load failed:", e);
+        return null;
+    }
+}
+
+/**
+ * Fetches the list of free models from OpenRouter via the backend.
+ * @returns {Array|null} An array of model objects, or null if it fails.
+ */
+async function apiFetchModels() {
+    try {
+        const res = await fetch('/api/models');
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.models || [];
+    } catch (e) {
+        console.error("Failed to fetch models:", e);
         return null;
     }
 }

@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from typing import List, Any, Dict
+from typing import List, Any, Dict, Optional
 from ddgs import DDGS
 from dotenv import load_dotenv
 import os
@@ -197,26 +197,57 @@ async def scrapeTool(url: ScrapeRequest):
     result = await agent_tools.scrape(url.url)
     return JSONResponse(content={"content": result})
 
+@app.get("/api/models")
+async def get_models():
+    """Fetch free models from OpenRouter."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get("https://openrouter.ai/api/v1/models")
+            if response.status_code != 200:
+                return JSONResponse(content={"models": [], "error": "Failed to fetch models"}, status_code=500)
+
+            data = response.json()
+            # Filter for models where both prompt and completion costs are zero (free)
+            free_models = []
+            for model in data.get("data", []):
+                pricing = model.get("pricing", {})
+                prompt_cost = pricing.get("prompt", "0")
+                completion_cost = pricing.get("completion", "0")
+                try:
+                    if float(prompt_cost) == 0 and float(completion_cost) == 0:
+                        free_models.insert(0, {
+                            "id": model.get("id"),
+                            "name": model.get("name"),
+                            "context_length": model.get("context_length")
+                        })
+                except (ValueError, TypeError):
+                    continue
+
+            return JSONResponse(content={"models": free_models})
+    except Exception as e:
+        return JSONResponse(content={"models": [], "error": str(e)}, status_code=500)
+
 env_path = Path(".env")
 
 if not env_path.exists():
     api_key = input("Enter API_KEY: ").strip()
     server_url = input("Enter SERVER_URL: ").strip()
-    model = input("Enter MODEL: ").strip()
-    env_path.write_text(f"API_KEY={api_key}\nSERVER_URL={server_url}\nMODEL={model}\n")
+    model = input("Enter MODEL (optional, press Enter to use default): ").strip()
+    env_content = f"API_KEY={api_key}\nSERVER_URL={server_url}\n"
+    if model:
+        env_content += f"MODEL={model}\n"
+    env_path.write_text(env_content)
 
 load_dotenv(dotenv_path=env_path)
 
 API_KEY = os.getenv("API_KEY")
 SERVER_URL: str = os.getenv("SERVER_URL", "")
-MODEL = os.getenv("MODEL")
+MODEL = os.getenv("MODEL", "openrouter/auto")  # Default to OpenRouter auto model selection
 
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file")
 if not SERVER_URL:
     raise ValueError("SERVER_URL not found in .env file")
-if not MODEL:
-    raise ValueError("MODEL not found in .env file")
 
 tool_list = []
 
@@ -240,10 +271,13 @@ BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
 class ChatPayload(BaseModel):
     messages: List[Any]
     max_tokens: int = 500
+    model: Optional[str] = None
 
 @app.post("/api/chat")
 async def chat_endpoint(user_data: ChatPayload):
     messages = user_data.messages
+    # Use model from payload if provided, otherwise fall back to env MODEL
+    model = user_data.model or MODEL
 
     if len(messages) > 0 and messages[0].get("role") == "system":
         messages[0]["content"] = f"{BASE_SYSTEM_PROMPT}\n\n{messages[0].get('content', '')}"
@@ -259,7 +293,7 @@ async def chat_endpoint(user_data: ChatPayload):
 
             for _round in range(MAX_TOOL_ROUNDS):
                 payload = {
-                    "model": MODEL,
+                    "model": model,
                     "messages": messages,
                     "tools": TOOLS_SCHEMA,
                     "include_reasoning": True,

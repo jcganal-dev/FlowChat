@@ -98,9 +98,9 @@ function areNodesInSameLineage(nodeIds) {
     return hitCount === nodeIds.size;
 }
 
-function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat") {
+function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 1, branch = 0, name = "Chat_Node", restoreData = null, type = "chat", inheritedModel = null) {
     if (restoreData) type = restoreData.type || 'chat';
-    const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type };
+    const config = { parentId, x, y, initialUserText, turn, branch, name, restoreData, type, inheritedModel };
     let nodeInstance;
     if (type === 'image' || type === 'document') nodeInstance = new FileNode(config);
     else if (type === 'scrape') nodeInstance = new ScrapeNode(config);

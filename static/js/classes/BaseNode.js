@@ -207,11 +207,12 @@ class BaseNode {
         const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
         let childWidth = 336;
         const parentWidth = this.el.offsetWidth;
+        const parentModel = data.selectedModel
         if (Math.round(parentWidth / GRID_SIZE) % 2 !== Math.round(childWidth / GRID_SIZE) % 2) childWidth += GRID_SIZE;
         const forkX = data.x + (parentWidth - childWidth) / 2;
         const forkY = snappedBottomY + (GRID_SIZE * 3);
         const existingChildren = nodes.filter(n => n.parentId === data.id);
-        const newId = createNode(data.id, forkX, forkY, "", data.turn + 1, data.branch + existingChildren.length, data.name);
+        const newId = createNode(data.id, forkX, forkY, "", data.turn + 1, data.branch + existingChildren.length, data.name, null, 'chat', parentModel);
         const newEl = document.getElementById(newId);
         const newData = nodes.find(n => n.id === newId);
         if (newEl && newData) {

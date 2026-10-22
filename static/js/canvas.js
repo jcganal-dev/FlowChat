@@ -306,7 +306,7 @@ viewport.addEventListener('wheel', (e) => {
         }
     }
     const targetPre = e.target.closest('pre');
-    if (targetPre && !e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
+    if (targetPre && e.shiftKey && targetPre.scrollWidth > targetPre.clientWidth) {
         // do normal scrolling
         return;
     }

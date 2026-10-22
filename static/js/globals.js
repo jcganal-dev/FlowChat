@@ -6,6 +6,43 @@ const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
 const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
 
+// Model cache - fetched once per session
+let cachedModels = null;
+let modelsFetchPromise = null;
+
+/**
+ * Fetches and caches the free model list from the backend.
+ * Subsequent calls return the cached result immediately.
+ * @returns {Promise<Array>} Array of model objects
+ */
+async function getCachedModels() {
+    if (cachedModels) return cachedModels;
+    if (modelsFetchPromise) return modelsFetchPromise;
+
+    modelsFetchPromise = (async () => {
+        try {
+            const models = await apiFetchModels();
+            cachedModels = models || [];
+            return cachedModels;
+        } catch (e) {
+            console.error("Failed to fetch models:", e);
+            cachedModels = [];
+            return cachedModels;
+        } finally {
+            modelsFetchPromise = null;
+        }
+    })();
+
+    return modelsFetchPromise;
+}
+
+/**
+ * Clears the model cache (e.g., for manual refresh).
+ */
+function clearModelCache() {
+    cachedModels = null;
+    modelsFetchPromise = null;
+}
 
 function groupIcon(color='#000000') {
     return `

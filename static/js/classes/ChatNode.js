@@ -233,6 +233,7 @@ class ChatNode extends BaseNode {
             <div class="user-section">
                 <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
+                    <select class="model-selection" id="${this.nodeData.id}-model-selection"></select>
                     <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Send</button>
                     <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="/static/icons/stop.svg" class="file-icon" style="margin:0px"> Stop</button>
                 </div>
@@ -254,6 +255,11 @@ class ChatNode extends BaseNode {
         this.runBtn = this.el.querySelector('.run-btn');
         this.textarea = this.el.querySelector('.node-input');
         this.addBtn = this.el.querySelector('.add-child-btn');
+
+        // Initialize selectedModel from restore data, inherited model, or parent
+        if (!this.nodeData.selectedModel && this.config.inheritedModel) {
+            this.nodeData.selectedModel = this.config.inheritedModel;
+        }
         this.dupBtn = this.el.querySelector('.duplicate-btn');
         this.stopBtn = this.el.querySelector('.stop-btn');
         this.deleteBtn = this.el.querySelector('.delete-btn');
@@ -350,7 +356,9 @@ class ChatNode extends BaseNode {
             forkOffsetCounter += 1;
             const data = nodes.find(n => n.id === this.el.id);
             const forkX = data.x + 336;
-            const newId = createNode(data.parentId, forkX, data.y, this.textarea.innerHTML, data.turn, data.branch, data.name);
+            // Pass selectedModel so child inherits parent's model choice
+            const selectedModel = this.nodeData.selectedModel || '';
+            const newId = createNode(data.parentId, forkX, data.y, this.textarea.innerHTML, data.turn, data.branch, data.name, null, 'chat', selectedModel);
             const newEl = document.getElementById(newId);
             const newData = nodes.find(n => n.id === newId);
             if (newEl && newData && data.nodeWidth) {
@@ -366,6 +374,40 @@ class ChatNode extends BaseNode {
             }
         });
         this.attachBaseListeners(this.config.restoreData);
+
+        // Populate model selection dropdown
+        this.populateModelSelection();
+    }
+
+    async populateModelSelection() {
+        const selectEl = this.el.querySelector('.model-selection');
+        if (!selectEl) return;
+
+        // Add a default/loading option
+        selectEl.innerHTML = '<option value="">Loading models...</option>';
+
+        try {
+            const models = await getCachedModels();
+            if (models && models.length > 0) {
+                selectEl.innerHTML = models.map(m =>
+                    `<option value="${m.id}">${m.name || m.id}</option>`
+                ).join('');
+                // Restore previously selected model if any
+                if (this.nodeData.selectedModel) {
+                    selectEl.value = this.nodeData.selectedModel;
+                }
+            } else {
+                selectEl.innerHTML = '<option value="">No free models found</option>';
+            }
+        } catch (e) {
+            console.error("Failed to populate models:", e);
+            selectEl.innerHTML = '<option value="">Error loading models</option>';
+        }
+
+        // Store selected model when changed
+        selectEl.addEventListener('change', () => {
+            this.nodeData.selectedModel = selectEl.value;
+        });
     }
 
     async run() {
@@ -467,6 +509,12 @@ class ChatNode extends BaseNode {
             }
         }
         const payload = { messages: history, max_tokens: 1000 };
+        // Get selected model from dropdown
+        const modelSelect = this.el.querySelector('.model-selection');
+        const selectedModel = modelSelect ? modelSelect.value : '';
+        if (selectedModel) {
+            this.nodeData.selectedModel = selectedModel; // Persist for restore
+        }
         let uiDirty = false;
         const syncThinkVisibility = () => {
             const segs = this.nodeData.aiSegments || [];
@@ -618,7 +666,7 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
                 autoLayout(true, this.nodeData.id);
             }
-        });
+        }, selectedModel);
         if (!aborted) {
             const btnRow = this.el.querySelector('.button-row');
             if (btnRow) btnRow.style.display = 'none';

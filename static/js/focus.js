@@ -215,6 +215,9 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
     // Setup input listeners
     setupFocusInputListeners();
 
+    // Populate focus model selection dropdown
+    populateFocusModelSelection();
+
     // Focus input
     const chatInput = document.getElementById('focus-chat-input');
     if (chatInput) {
@@ -910,7 +913,10 @@ async function sendFocusMessage() {
             name = parentNode.name;
         }
 
-        targetNodeId = createNode(parentId, forkX, forkY, "", turn, branch, name);
+        // Inherit model from parent/active node
+        const parentNodeData = nodes.find(n => n.id === parentId);
+        const inheritedModel = parentNodeData?.selectedModel || null;
+        targetNodeId = createNode(parentId, forkX, forkY, "", turn, branch, name, null, 'chat', inheritedModel);
         const newEl = document.getElementById(targetNodeId);
         const newData = nodes.find(n => n.id === targetNodeId);
         if (newEl && newData) {
@@ -963,6 +969,20 @@ async function sendFocusMessage() {
     // Update turns badge
     const badgeEl = document.getElementById('focus-node-count-badge');
     if (badgeEl) badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
+
+    // Sync selected model from focus dropdown to canvas node
+    const focusModelSelect = document.getElementById('focus-model-selection');
+    if (focusModelSelect && targetEl) {
+        const canvasModelSelect = targetEl.querySelector('.model-selection');
+        if (canvasModelSelect) {
+            canvasModelSelect.value = focusModelSelect.value;
+        }
+        // Also persist to nodeData
+        const targetNodeData = nodes.find(n => n.id === targetNodeId);
+        if (targetNodeData) {
+            targetNodeData.selectedModel = focusModelSelect.value;
+        }
+    }
 
     // Trigger execution on the ChatNode
     nodeInstance.run();
@@ -1088,6 +1108,44 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
 }
 
 let focusInputListenersInitialized = false;
+
+/**
+ * Populates the focus mode model selection dropdown with cached models.
+ */
+async function populateFocusModelSelection() {
+    const selectEl = document.getElementById('focus-model-selection');
+    if (!selectEl) return;
+
+    selectEl.innerHTML = '<option value="">Loading models...</option>';
+
+    try {
+        const models = await getCachedModels();
+        if (models && models.length > 0) {
+            selectEl.innerHTML = models.map(m =>
+                `<option value="${m.id}">${m.name || m.id} (${m.context_length || '?'} ctx)</option>`
+            ).join('');
+            // Sync with active node's selected model
+            const activeNodeData = nodes.find(n => n.id === activeNodeId);
+            if (activeNodeData?.selectedModel) {
+                selectEl.value = activeNodeData.selectedModel;
+            }
+        } else {
+            selectEl.innerHTML = '<option value="">No free models found</option>';
+        }
+    } catch (e) {
+        console.error("Failed to populate focus models:", e);
+        selectEl.innerHTML = '<option value="">Error loading models</option>';
+    }
+
+    // Store selected model when changed
+    selectEl.addEventListener('change', () => {
+        const activeNodeData = nodes.find(n => n.id === activeNodeId);
+        if (activeNodeData) {
+            activeNodeData.selectedModel = selectEl.value;
+        }
+    });
+}
+
 function setupFocusInputListeners() {
     if (focusInputListenersInitialized) return;
     focusInputListenersInitialized = true;

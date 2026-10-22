@@ -251,10 +251,11 @@
             </button>
             <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
             <div id="focus-input-area" class="focus-input-area">
+                <div id="focus-chat-input" class="focus-chat-input"
+                    oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true"
+                    spellcheck="true" placeholder="Type prompt here..."></div>
                 <div class="focus-chat-input-wrapper">
-                    <div id="focus-chat-input" class="focus-chat-input"
-                        oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true"
-                        spellcheck="true" placeholder="Type prompt here..."></div>
+                    <select class="focus-model-selection" id="focus-model-selection"></select>
                     <div class="focus-button-row">
                         <button id="focus-stop-btn" class="focus-stop-btn" style="display: none;">
                             <img src="/static/icons/stop.svg" class="file-icon">
