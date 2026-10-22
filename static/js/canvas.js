@@ -444,27 +444,12 @@ function drawGroups() {
         box.style.height = `${(maxY - minY) + (padding * 2)}px`;
         box.style.background = 'rgba(30, 30, 46, 0.6)';
 
-        const hasSummary = groupNodes.some(n => n.summaryText && n.summaryText !== "Summary unavailable.");
-
-        let btnHtml = '';
-        if (group.isCollapsed) {
-            btnHtml = `<button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="/static/icons/expand.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Expand</button>`;
-        } else if (hasSummary) {
-            btnHtml = `
-                <button class="summarize-btn" onclick="toggleGroupState('${group.id}')"><img src="/static/icons/collapse.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Collapse</button>
-                <button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src="/static/icons/bulb.svg" class="file-icon" style="width:14px;height:14px;vertical-align:middle;margin-right:4px;"> Re-Summarize</button>
-            `;
-        } else {
-            btnHtml = `<button class="summarize-btn" onclick="triggerSummarize('${group.id}')"><img src='/static/icons/bulb.svg' class="file-icon" style='margin-bottom: -2px; margin-right:0px;'> Summarize</button>`;
-        }
-
         box.innerHTML = `
             <div class="group-header">
                 <div class="group-color-proxy" style="background-color: ${group.color || '#a0a0a0'};" onclick="this.nextElementSibling.click()"></div>
                 <input type="color" class="group-color-picker" value="${group.color || '#a0a0a0'}"
                     onchange="changeGroupColor('${group.id}', this.value)" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0;">
                 <span class="node-id" style="color: ${group.color || '#a0a0a0'};" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${group.id}', true)">${group.name}</span>
-                ${btnHtml}
             </div>
         `;
         groupsLayer.appendChild(box);
