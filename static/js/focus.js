@@ -19,6 +19,22 @@ function showSidebar(target) {
     return
 }
 
+function moveContentEditableCaretToEnd(element) {
+    element.focus();
+
+    // Create a new range selection
+    const range = document.createRange();
+    range.selectNodeContents(element);
+
+    // Collapse the range to the end (false = end, true = start)
+    range.collapse(false);
+
+    // Apply the range to the window's selection object
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+}
+
 let last_active_chat = ''
 
 function addToChatHistory(targetNode) {
@@ -147,6 +163,7 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
                     const child = nodes.find(node => node.id === id)
                     if (checkIfEmpty(child) == true) {
                         document.getElementById(child.id).click()
+                        targetId = child.id
                         foundEmptyChat = true
                         break
                     }
@@ -158,6 +175,7 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
                 if (!addBtn.classList.contains('hidden')) {
                     addBtn.click()
                     autoLayout(true)
+                    targetId = activeNodeId
                     foundEmptyChat = true
                 }
             }
@@ -197,28 +215,13 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
     // Setup input listeners
     setupFocusInputListeners();
 
-    function moveContentEditableCaretToEnd(element) {
-        element.focus();
-
-        // Create a new range selection
-        const range = document.createRange();
-        range.selectNodeContents(element);
-
-        // Collapse the range to the end (false = end, true = start)
-        range.collapse(false);
-
-        // Apply the range to the window's selection object
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }
-
     // Focus input
     const chatInput = document.getElementById('focus-chat-input');
     if (chatInput) {
         // Don't overwrite input if we're streaming (preserve in-progress content)
-        if (!isFocusModeStreaming) {
-            chatInput.innerHTML = document.getElementById(targetId).querySelector('.node-input').innerHTML;
+        const inputContent = document.getElementById(targetId).querySelector('.node-input')
+        if (!isFocusModeStreaming && inputContent.innerText.trim() != '') {
+            chatInput.innerHTML = inputContent.innerHTML;
         }
         chatInput.focus();
         moveContentEditableCaretToEnd(chatInput);
@@ -279,6 +282,7 @@ function exitFocusMode(abortStreaming = false) {
     if (focusInput && focusInput._syncListener) {
         focusInput.removeEventListener('input', focusInput._syncListener);
         focusInput._syncListener = null;
+        focusInput.innerHTML = ''
     }
 
     if (lastFocusedInput && lastFocusedInput.id === 'focus-chat-input') {
@@ -301,6 +305,7 @@ function exitFocusMode(abortStreaming = false) {
             if (focusInput && canvasInput) {
                 canvasInput.innerHTML = focusInput.innerHTML.trim() || activeData.htmlText;
                 canvasInput.focus();
+                moveContentEditableCaretToEnd(canvasInput)
             }
         }
     }
