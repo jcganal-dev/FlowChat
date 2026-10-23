@@ -321,6 +321,12 @@ viewport.addEventListener('wheel', (e) => {
         return;
     }
     
+    const modelList = e.target.closest('.model-list');
+    if (modelList && !e.ctrlKey && modelList.scrollHeight > modelList.clientHeight) {
+        // do normal scrolling
+        return;
+    }
+    
     const nodeSummaryDisplay = e.target.closest('.node-summary-display');
     if (nodeSummaryDisplay && !e.ctrlKey && nodeSummaryDisplay.scrollHeight > nodeSummaryDisplay.clientHeight) {
         // do normal scrolling

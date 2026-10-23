@@ -233,7 +233,12 @@ class ChatNode extends BaseNode {
             <div class="user-section">
                 <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
-                    <select class="model-selection" id="${this.nodeData.id}-model-selection"></select>
+                    <div class="model-select-container">
+                        <div class="model-select-parent" style="position:fixed;margin-top:-13px;display:flex;flex-direction:column;gap:0px;max-width: 225px;z-index:11;">
+                            <a class="model-selection">Loading Models...</a>
+                            <div class="model-list" style="visibility: hidden; pointer-events: none;"></div>
+                        </div>
+                    </div>
                     <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Send</button>
                     <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="/static/icons/stop.svg" class="file-icon" style="margin:0px"> Stop</button>
                 </div>
@@ -252,6 +257,16 @@ class ChatNode extends BaseNode {
             <button class="add-child-btn ${this.nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
             <div class="resize-handle"></div>
         `;
+
+        this.modelSelectBtn = this.el.querySelector('.model-selection');
+        this.modelSelectBtn.addEventListener('click', () => {
+            const modelList = this.el.querySelector('.model-list')
+            modelList.style = modelList.style.visibility == 'hidden' ? 'visibility: visible; pointer-events: all;' : 'visibility: hidden; pointer-events: none;'; 
+        })
+        this.modelSelPar = this.el.querySelector('.model-select-parent')
+        this.modelSelPar.addEventListener('mouseleave', () => {
+            this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none;'; 
+        })
         this.runBtn = this.el.querySelector('.run-btn');
         this.textarea = this.el.querySelector('.node-input');
         this.addBtn = this.el.querySelector('.add-child-btn');
@@ -380,33 +395,39 @@ class ChatNode extends BaseNode {
     }
 
     async populateModelSelection() {
-        const selectEl = this.el.querySelector('.model-selection');
+        const selectBtn = this.el.querySelector('.model-selection');
+        const selectEl = this.el.querySelector('.model-list');
         if (!selectEl) return;
 
         // Add a default/loading option
-        selectEl.innerHTML = '<option class="model-option" value="">Loading models...</option>';
+        selectBtn.innerHTML = 'Loading models...';
 
         try {
             const models = await getCachedModels();
             if (models && models.length > 0) {
-                selectEl.innerHTML = models.map(m =>
-                    `<option class="model-option" value="${m.id}">${m.name || m.id}</option>`
+                selectEl.innerHTML = models.map(m => 
+                    `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
                 ).join('');
                 // Restore previously selected model if any
                 if (this.nodeData.selectedModel) {
-                    selectEl.value = this.nodeData.selectedModel;
+                    selectBtn.innerHTML = selectEl.querySelector(`[value="${this.nodeData.selectedModel}"]`).innerHTML;
+                } else {
+                    selectBtn.innerHTML = selectEl.querySelector(`[value="openrouter/free"]`).innerHTML;
                 }
             } else {
-                selectEl.innerHTML = '<option class="model-option" value="">No free models found</option>';
+                selectBtn.innerHTML = 'No free models found';
             }
         } catch (e) {
             console.error("Failed to populate models:", e);
-            selectEl.innerHTML = '<option class="model-option" value="">Error loading models</option>';
+            selectBtn.innerHTML = 'Error loading models';
         }
 
         // Store selected model when changed
-        selectEl.addEventListener('change', () => {
-            this.nodeData.selectedModel = selectEl.value;
+        selectEl.addEventListener('click', (e) => {
+            const target = e.target.closest('.model-option')
+            selectBtn.innerHTML = target.innerHTML
+            this.nodeData.selectedModel = target.getAttribute('value');
+            this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none;'
         });
     }
 
@@ -511,7 +532,7 @@ class ChatNode extends BaseNode {
         const payload = { messages: history, max_tokens: 1000 };
         // Get selected model from dropdown
         const modelSelect = this.el.querySelector('.model-selection');
-        const selectedModel = modelSelect ? modelSelect.value : '';
+        const selectedModel = modelSelect ? modelSelect.getAttribute('value') : '';
         if (selectedModel) {
             this.nodeData.selectedModel = selectedModel; // Persist for restore
         }

@@ -122,7 +122,7 @@ function getTextWhitelistExtensions() {
     return (textWhitelist.source.slice(2).match(/\w+/g) || []).join(',');
 }
 const NODE_WIDTH = {
-    min: 300,
+    min: 336,
     max: 1200,
 };
 const systemReminders = 'Do not overthink, immediately stop thinking after you arrive at an answer.'

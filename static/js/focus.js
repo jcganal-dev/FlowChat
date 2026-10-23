@@ -318,7 +318,12 @@ function exitFocusMode(abortStreaming = false) {
             if (focusInput && canvasInput) {
                 canvasInput.innerHTML = focusInput.innerHTML.trim() || activeData.htmlText;
                 canvasInput.focus();
-                canvasNode.querySelector('.model-selection').value = focusModel.value
+                const canvasModelSelect = canvasNode.querySelector('.model-selection');
+                const selectedModel = focusModel.getAttribute('value');
+                if (canvasModelSelect && selectedModel) {
+                    canvasModelSelect.innerHTML = focusModel.innerHTML;
+                    canvasModelSelect.setAttribute('value', selectedModel);
+                }
                 moveContentEditableCaretToEnd(canvasInput)
             }
         }
@@ -985,13 +990,15 @@ async function sendFocusMessage() {
     const focusModelSelect = document.getElementById('focus-model-selection');
     if (focusModelSelect && targetEl) {
         const canvasModelSelect = targetEl.querySelector('.model-selection');
-        if (canvasModelSelect) {
-            canvasModelSelect.value = focusModelSelect.value;
+        const selectedModel = focusModelSelect.getAttribute('value');
+        if (canvasModelSelect && selectedModel) {
+            canvasModelSelect.innerHTML = focusModelSelect.innerHTML;
+            canvasModelSelect.setAttribute('value', selectedModel);
         }
         // Also persist to nodeData
         const targetNodeData = nodes.find(n => n.id === targetNodeId);
-        if (targetNodeData) {
-            targetNodeData.selectedModel = focusModelSelect.value;
+        if (targetNodeData && selectedModel) {
+            targetNodeData.selectedModel = selectedModel;
         }
     }
 
@@ -1122,37 +1129,69 @@ let focusInputListenersInitialized = false;
 
 /**
  * Populates the focus mode model selection dropdown with cached models.
+ * Uses custom dropdown (like ChatNode) instead of native <select>.
  */
 async function populateFocusModelSelection() {
-    const selectEl = document.getElementById('focus-model-selection');
+    const selectBtn = document.getElementById('focus-model-selection');
+    const selectEl = document.querySelector('#focus-input-area .model-list');
     if (!selectEl) return;
 
-    selectEl.innerHTML = '<option value="">Loading models...</option>';
+    // Add a default/loading option
+    selectBtn.innerHTML = 'Loading models...';
 
     try {
         const models = await getCachedModels();
         if (models && models.length > 0) {
             selectEl.innerHTML = models.map(m =>
-                `<option value="${m.id}">${m.name || m.id}</option>`
+                `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
             ).join('');
-            // Sync with active node's selected model
+            // Restore previously selected model if any
             const activeNodeData = nodes.find(n => n.id === activeNodeId);
             if (activeNodeData?.selectedModel) {
-                selectEl.value = activeNodeData.selectedModel;
+                const selectedOption = selectEl.querySelector(`[value="${activeNodeData.selectedModel}"]`);
+                if (selectedOption) {
+                    selectBtn.innerHTML = selectedOption.innerHTML;
+                    selectBtn.setAttribute('value', activeNodeData.selectedModel);
+                }
+            } else {
+                const selectedOption = selectEl.querySelector(`[value="openrouter/free"]`);
+                if (selectedOption) {
+                    selectBtn.innerHTML = selectedOption.innerHTML;
+                    selectBtn.setAttribute('value', activeNodeData.selectedModel);
+                }
             }
         } else {
-            selectEl.innerHTML = '<option value="">No free models found</option>';
+            selectBtn.innerHTML = 'No free models found';
         }
     } catch (e) {
         console.error("Failed to populate focus models:", e);
-        selectEl.innerHTML = '<option value="">Error loading models</option>';
+        selectBtn.innerHTML = 'Error loading models';
+    }
+
+    // Toggle dropdown on click
+    selectBtn.onclick = () => {
+        selectEl.style = selectEl.style.visibility === 'hidden' ? 'visibility: visible; pointer-events: all;' : 'visibility: hidden; pointer-events: none;';
+    };
+
+    // Hide dropdown on mouse leave
+    const parentEl = document.querySelector('#focus-input-area .model-select-parent');
+    if (parentEl) {
+        parentEl.onmouseleave = () => {
+            selectEl.style = 'visibility: hidden; pointer-events: none;';
+        };
     }
 
     // Store selected model when changed
-    selectEl.addEventListener('change', () => {
+    selectEl.addEventListener('click', (e) => {
+        const target = e.target.closest('.model-option');
+        if (!target) return;
+        selectBtn.innerHTML = target.innerHTML;
+        selectBtn.setAttribute('value', target.getAttribute('value'));
+        selectEl.style = 'visibility: hidden; pointer-events: none;';
+
         const activeNodeData = nodes.find(n => n.id === activeNodeId);
         if (activeNodeData) {
-            activeNodeData.selectedModel = selectEl.value;
+            activeNodeData.selectedModel = target.getAttribute('value');
         }
     });
 }

@@ -49,42 +49,6 @@ FlowChat reimagines LLM interaction as a **spatial canvas** where conversations 
 
 ---
 
-## Architecture Overview
-
-```
-┌────────────────────────────────────────────────────────────┐
-│                          Browser                           │
-│  ┌──────────────┐    ┌──────────────┐  ┌─────────────────┐ │
-│  │  Canvas View │    │  Focus Mode  │  │ Sandbox Palette │ │
-│  │  (nodes.js)  │    │  (nodes.js)  │  │  (sidebar.js)   │ │
-│  └──────┬───────┘    └──────┬───────┘  └────────┬────────┘ │
-│         │                   │                   │          │
-│         └───────────────────┼───────────────────┘          │
-│                             ▼                              │
-│              ┌──────────────────────────────┐              │
-│              │   Shared State (globals.js)  │              │
-│              │  nodes[], groups{}, camera   │              │
-│              └──────────────┬───────────────┘              │
-└─────────────────────────────┼──────────────────────────────┘
-                              │ HTTP / SSE
-          ┌───────────────────┼───────────────────┐
-          ▼                   ▼                   ▼
-  ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
-  │  /api/chat    │   │ /api/scrape   │   │ /api/sandbox/*│
-  │  (SSE stream) │   │  (Crawl4AI)│  │   |  (file CRUD)  │
-  └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
-          │                   │                   │
-          ▼                   ▼                   ▼
-  ┌─────────────────────────────────────────────────────────┐
-  │                    FastAPI (api.py)                     │
-  │  • Tool registry (web_search, scrape, read/write/edit)  │
-  │  • SQLite persistence (flowchat.db)                     │
-  │  • OpenAI-compatible endpoint proxy                     │
-  └─────────────────────────────────────────────────────────┘
-```
-
----
-
 ## Quick Start
 
 ### Prerequisites
@@ -121,9 +85,9 @@ cp .env.example .env
 
 ```ini
 # .env
-API_KEY = 'sk-or-v1-xxxxxxxxxxxxx'        # Your API key (OpenRouter recommended)
+API_KEY = 'sk-or-v1-xxxxxxxxxxxxx'         # Your OpenRouter API key
 SERVER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'anthropic/claude-3.5-sonnet'      # OPTIONAL - will be set as default model if set
+MODEL = 'anthropic/claude-3.5-sonnet'      # OPTIONAL - will be choosen as default model if set
 ```
 
 > **Note**: The app expects an OpenAI-compatible `/chat/completions` endpoint with `tools`, `stream`, and `include_reasoning` support.
@@ -222,6 +186,7 @@ FlowChat/
 │   │   ├── nodes.js       # Focus mode, lineage, node lifecycle
 │   │   ├── chat.js        # Summarization (group & single node)
 │   │   ├── sidebar.js     # Floating sandbox palette
+│   │   ├── toolbar.js     # Bottom-left toolbar (zoom, save, focus, layout, wipe)
 │   │   ├── main.js        # Boot, event wiring, context menu
 │   │   └── classes/
 │   │       ├── BaseNode.js      # Drag, resize, header, cleanup
@@ -238,9 +203,9 @@ FlowChat/
 
 | Env Var             | Default  | Description                                                         |
 | ------------------- | -------- | ------------------------------------------------------------------- |
-| `API_KEY`         | required | Your LLM provider API key                                           |
+| `API_KEY`         | required | Your OpenRouter API key                                             |
 | `SERVER_URL`      | required | OpenAI-compatible chat completions endpoint                         |
-| `MODEL`           | required | [Optional] Model identifier (e.g., `anthropic/claude-3.5-sonnet`) |
+| `MODEL`           | optional | [Optional] Model identifier (e.g., `anthropic/claude-3.5-sonnet`) |
 | `MAX_TOOL_ROUNDS` | 200      | Max tool-call rounds per request (api.py)                           |
 
 ---

@@ -679,26 +679,6 @@ body.shift-pressed.input-focused .node-id {
     gap: 8px;
 }
 
-.model-selection, .focus-model-selection {
-    flex: 1;
-    min-width: 0;
-    border-radius: 12px;
-    border: none;
-    background: var(--border-base);
-    color: var(--text-primary);
-    font-size: 12px;
-    cursor: pointer;
-    max-width: 250px;
-    text-overflow: ellipsis;
-    overflow: clip;
-    padding: 4px 8px;
-}
-
-.model-selection:focus, .focus-model-selection:focus {
-    outline: none;
-    border-color: var(--accent-info);
-}
-
 .run-btn {
     background: var(--accent-info);
     color: var(--text-inverse);
@@ -1443,7 +1423,7 @@ h6 {
     box-sizing: border-box;
     resize: none;
     outline: none;
-    border-radius: 10px;
+    border-radius: 4px;
 }
 
 .focus-chat-input:empty::before {
@@ -1494,6 +1474,7 @@ h6 {
 }
 .focus-sidebar {
     max-width: 300px;
+    z-index: 12;
 }
 @media (max-width: 1200px) {
   .focus-sidebar {
@@ -1501,7 +1482,7 @@ h6 {
         top: 0;
         left: 48.75px;
         height: 100dvh;
-        z-index: 2;
+        z-index: 12;
   }
   .focus-ai {
     width: 100% !important;
@@ -1622,15 +1603,111 @@ details > summary {
     scrollbar-width: none;
 }
 
-/* Only works in some browsers */
-option {
-  background: var(--bg-base);
-  color: var(--text-primary);
-  padding: 0.5rem;
+.hint-overlay {
+    position: fixed;
+    top:0;
+    left:0;
+    width: 100dvw;
+    height: 100dvh;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    align-items: end;
+}
+.bl-toolbar {
+    margin: 10px;
+    pointer-events: all;
+    background-color: var(--bg-surface);
+    border: solid 1px var(--border-strong);
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+    justify-content: center;
+    align-items: center;
+    padding: 5px 15px;
+}
+.btn-bl-tool {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    border-radius: 4px;
+}
+.btn-bl-tool:hover {
+    background-color: var(--bg-surface-hover);
+}
+.zoomadjust {
+    display: flex;
+    flex-direction: row;
+    gap: 5px;
+}
+.zoomlevel {
+    font-size: 13px;
+    background-color: var(--bg-surface-hover);
+    padding: 0 10px;
+    width: 5ch;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+}
+.zoomlevel:empty::before {
+    content: attr(value);
+}
+.zoomlevel:empty::after {
+    content: '%';
 }
 
-/* Firefox allows some styling */
-option:checked {
-  background: var(--accent-primary);
-  color: var(--text-inverse);
+.model-selection, .focus-model-selection {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    color: var(--text-primary);
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0px 8px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: clip;
+    background: var(--border-base);
+    border: solid 1px var(--border-strong);
+}
+
+div.model-option {
+    background-color: var(--border-base);
+    padding: 0px 8px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: clip;
+}
+div.model-option:hover {
+    background-color: var(--border-highlight);
+    padding: 0px 8px;
+    cursor: pointer;
+}
+
+div.model-list {
+    list-style: none;
+    padding-inline-start: 0px;
+    font-size: 12px;
+    flex-direction: column;
+    margin-block-start: 0px;
+    margin-block-end: 0px;
+    text-overflow: ellipsis;
+    overflow: clip;
+    max-height: 290px;
+    overflow-y: auto;
+}
+
+div.model-list::-webkit-scrollbar-track {
+    background: var(--border-base);
+    border: none;
+}
+.model-select-container {
+    display: flex;
+    flex-direction: column;
 }
