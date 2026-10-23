@@ -4,9 +4,9 @@
 
 FlowChat reimagines LLM interaction as a **spatial canvas** where conversations branch, fork, and reference each other visually. Built on FastAPI and vanilla JS, it combines infinite canvas with the power of tool-enabled LLMs.
 
-| Canvas                                           | Focus                                            |
-| ------------------------------------------------ | ------------------------------------------------ |
-| ![1792128988089](image/README/1792128988089.png) | ![1792128948603](image/README/1792128948603.png) |
+| Canvas                             | Focus                             |
+| ---------------------------------- | --------------------------------- |
+| ![canvas](image/README/canvas.png) | ![focus](image/README/focus.png)  |
 
 ---
 
@@ -18,7 +18,7 @@ FlowChat reimagines LLM interaction as a **spatial canvas** where conversations 
 - **Node types** - Chat, Document, Image, Scrape
 - **Branching & forking** - every node can spawn children, creating conversation trees
 - **Visual connections** - SVG edges show parent→child relationships
-- **Groups** - organize related nodes into collapsible groups with auto-summarization
+- **Groups** - organize related nodes into collapsible groups
 
 ### Simple Tool-Enabled LLM Loop
 
