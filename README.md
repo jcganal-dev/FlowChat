@@ -123,7 +123,7 @@ cp .env.example .env
 # .env
 API_KEY = 'sk-or-v1-xxxxxxxxxxxxx'        # Your API key (OpenRouter recommended)
 SERVER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-MODEL = 'anthropic/claude-3.5-sonnet'      # Or any model your endpoint supports
+MODEL = 'anthropic/claude-3.5-sonnet'      # OPTIONAL - will be set as default model if set
 ```
 
 > **Note**: The app expects an OpenAI-compatible `/chat/completions` endpoint with `tools`, `stream`, and `include_reasoning` support.
@@ -236,12 +236,12 @@ FlowChat/
 
 ## Configuration Options
 
-| Env Var             | Default  | Description                                              |
-| ------------------- | -------- | -------------------------------------------------------- |
-| `API_KEY`         | required | Your LLM provider API key                                |
-| `SERVER_URL`      | required | OpenAI-compatible chat completions endpoint              |
-| `MODEL`           | required | Model identifier (e.g., `anthropic/claude-3.5-sonnet`) |
-| `MAX_TOOL_ROUNDS` | 200      | Max tool-call rounds per request (api.py)                |
+| Env Var             | Default  | Description                                                         |
+| ------------------- | -------- | ------------------------------------------------------------------- |
+| `API_KEY`         | required | Your LLM provider API key                                           |
+| `SERVER_URL`      | required | OpenAI-compatible chat completions endpoint                         |
+| `MODEL`           | required | [Optional] Model identifier (e.g., `anthropic/claude-3.5-sonnet`) |
+| `MAX_TOOL_ROUNDS` | 200      | Max tool-call rounds per request (api.py)                           |
 
 ---
 

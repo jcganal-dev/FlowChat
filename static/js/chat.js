@@ -92,6 +92,10 @@ async function triggerSummarize(groupId) {
         max_tokens: summarizableNodes.length * token_per_node
     };
 
+    // Use the first summarizable chat node's selected model, or fall back to default
+    const modelNode = summarizableNodes.find(n => n.type === 'chat' || !n.type);
+    const model = modelNode?.selectedModel || null;
+
     let summary = "";
     await streamChatApi(payload, null, {
         onContent: (content) => {
@@ -149,7 +153,7 @@ async function triggerSummarize(groupId) {
             if (typeof drawGroups === 'function') drawGroups();
             if (typeof saveState === 'function') saveState();
         }
-    });
+    }, model);
 }
 
 /**
@@ -195,6 +199,9 @@ async function triggerSingleSummarize(nodeId) {
         ],
         max_tokens: 150
     };
+
+    // Use this node's selected model
+    const model = node.selectedModel || null;
 
     let summary = "";
     await streamChatApi(payload, null, {
@@ -242,7 +249,7 @@ async function triggerSingleSummarize(nodeId) {
             if (typeof drawGroups === 'function') drawGroups();
             if (typeof saveState === 'function') saveState();
         }
-    });
+    }, model);
 }
 
 /**

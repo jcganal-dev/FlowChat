@@ -384,24 +384,24 @@ class ChatNode extends BaseNode {
         if (!selectEl) return;
 
         // Add a default/loading option
-        selectEl.innerHTML = '<option value="">Loading models...</option>';
+        selectEl.innerHTML = '<option class="model-option" value="">Loading models...</option>';
 
         try {
             const models = await getCachedModels();
             if (models && models.length > 0) {
                 selectEl.innerHTML = models.map(m =>
-                    `<option value="${m.id}">${m.name || m.id}</option>`
+                    `<option class="model-option" value="${m.id}">${m.name || m.id}</option>`
                 ).join('');
                 // Restore previously selected model if any
                 if (this.nodeData.selectedModel) {
                     selectEl.value = this.nodeData.selectedModel;
                 }
             } else {
-                selectEl.innerHTML = '<option value="">No free models found</option>';
+                selectEl.innerHTML = '<option class="model-option" value="">No free models found</option>';
             }
         } catch (e) {
             console.error("Failed to populate models:", e);
-            selectEl.innerHTML = '<option value="">Error loading models</option>';
+            selectEl.innerHTML = '<option class="model-option" value="">Error loading models</option>';
         }
 
         // Store selected model when changed

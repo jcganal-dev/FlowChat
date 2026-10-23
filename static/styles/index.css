@@ -363,10 +363,10 @@ html {
     width: 100%;
     position: relative;
     /* The Infinite Dotted Grid */
-    /* background-image: radial-gradient(var(--transparent-grid) 1px, transparent 1px); */
-    background-image:
+    background-image: radial-gradient(var(--border-base) 1px, transparent 1px);
+    /* background-image:
     linear-gradient(to right, var(--shadow-sm) 1px, transparent 1px),
-    linear-gradient(to bottom, var(--shadow-sm) 1px, transparent 1px);
+    linear-gradient(to bottom, var(--shadow-sm) 1px, transparent 1px); */
 
     /* Base grid size */
     background-position: 0 0;
