@@ -688,10 +688,10 @@ body.shift-pressed.input-focused .node-id {
     color: var(--text-primary);
     font-size: 12px;
     cursor: pointer;
-    max-width: 200px;
+    max-width: 250px;
     text-overflow: ellipsis;
     overflow: clip;
-    padding: 2px 4px;
+    padding: 4px 8px;
 }
 
 .model-selection:focus, .focus-model-selection:focus {
@@ -1458,23 +1458,6 @@ h6 {
     align-items: end;
     width: 800px;
     gap: 8px;
-}
-
-.focus-model-selection {
-    flex: 1;
-    min-width: 0;
-    padding: 4px 8px;
-    border-radius: 4px;
-    border: 1px solid var(--border-color);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.focus-model-selection:focus {
-    outline: none;
-    border-color: var(--accent-info);
 }
 
 .scraped-md {

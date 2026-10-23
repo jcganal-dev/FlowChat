@@ -220,7 +220,7 @@ class ChatNode extends BaseNode {
             <div class="node-header">
                 <div class="header-name">
                     <span class="node-icon" style="display: flex; justify-content:center; align-items: center;">
-                        ${this.nodeData.type === 'image'? imageIcon() : documentIcon()}
+                        ${chatIcon()}
                     </span>
                     <span class="node-id" title="Shift+Click to insert reference" onmousedown="if(event.shiftKey) event.preventDefault();" onclick="handleIdClick(event, '${this.id}')" data-text="${this.id.replaceAll('_', ' ')}"></span>
                 </div>

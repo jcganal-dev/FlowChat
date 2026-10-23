@@ -169,8 +169,8 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
                     }
                 }
             }
-            if (!foundEmptyChat) {
-                const nodeEl = document.getElementById(activeData.id)
+            const nodeEl = document.getElementById(activeData.id)
+            if (!foundEmptyChat && nodeEl && !nodeEl.isVirtual) {
                 const addBtn = nodeEl.querySelector('.add-child-btn')
                 if (!addBtn.classList.contains('hidden')) {
                     addBtn.click()
@@ -180,6 +180,10 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
                 }
             }
             if (!foundEmptyChat) {
+                if (!nodeEl) {
+                    showToast('Please select a node first.', 'error', 3000);
+                    return
+                }
                 showToast('Current selected node cannot create child.', 'error', 3000);
                 return
             }

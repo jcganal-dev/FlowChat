@@ -265,7 +265,7 @@ $('menu-add-node').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
     const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
-    createNode(null, x, y, '', 1, 0, 'New_Node', null, 'chat');
+    createNode(null, x, y, '', 1, 0, 'Chat_Node', null, 'chat');
 });
 
 $('menu-add-image').addEventListener('click', () => {
