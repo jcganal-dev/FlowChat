@@ -194,6 +194,10 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
         }
     }
 
+    const nodeData = nodes.find(n=>n.id==targetId)  
+    nodeData.userText = document.getElementById(targetId).querySelector('.node-input').innerText
+    nodeData.htmlText = document.getElementById(targetId).querySelector('.node-input').innerHTML
+
     updateChatHistory()
 
 
@@ -223,7 +227,7 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
     if (chatInput) {
         // Don't overwrite input if we're streaming (preserve in-progress content)
         const inputContent = document.getElementById(targetId).querySelector('.node-input')
-        if (!isFocusModeStreaming && inputContent.innerText.trim() != '') {
+        if (!isFocusModeStreaming) {
             chatInput.innerHTML = inputContent.innerHTML;
         }
         chatInput.focus();
@@ -304,10 +308,13 @@ function exitFocusMode(abortStreaming = false) {
         // Sync focus input back to canvas node (only if not streaming, as streaming node updates itself)
         if (!isFocusModeStreaming) {
             const focusInput = document.getElementById('focus-chat-input');
-            const canvasInput = document.getElementById(activeNodeId)?.querySelector('.node-input');
+            const focusModel = document.getElementById('focus-model-selection');
+            const canvasNode = document.getElementById(activeNodeId)
+            const canvasInput = canvasNode?.querySelector('.node-input');
             if (focusInput && canvasInput) {
                 canvasInput.innerHTML = focusInput.innerHTML.trim() || activeData.htmlText;
                 canvasInput.focus();
+                canvasNode.querySelector('.model-selection').value = focusModel.value
                 moveContentEditableCaretToEnd(canvasInput)
             }
         }
@@ -1122,7 +1129,7 @@ async function populateFocusModelSelection() {
         const models = await getCachedModels();
         if (models && models.length > 0) {
             selectEl.innerHTML = models.map(m =>
-                `<option value="${m.id}">${m.name || m.id} (${m.context_length || '?'} ctx)</option>`
+                `<option value="${m.id}">${m.name || m.id}</option>`
             ).join('');
             // Sync with active node's selected model
             const activeNodeData = nodes.find(n => n.id === activeNodeId);
