@@ -206,7 +206,7 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
                 selectedNodes.clear();
                 path.forEach(nodeId => selectedNodes.add(nodeId));
             } else {
-                console.warn("Cannot group: Nodes must be in the same direct lineage.");
+                // console.warn("Cannot group: Nodes must be in the same direct lineage.");
                 selectedNodes.clear();
                 selectedNodes.add(id);
                 shiftSelectionStartId = id;
@@ -291,14 +291,29 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     } else {
         const refData = nodes.find(n => n.id === refId);
         if (!refData) return false;
-
+        const color = refData.groupId?groups[refData.groupId].color:undefined;
+        let reficon = chatIcon(color)
+        switch (refData.type) {
+            case 'image':
+                reficon = imageIcon(color)
+                break
+            case 'document':
+                reficon = documentIcon(color)
+                break
+            case 'scrape':
+                reficon = scrapeIcon(color)
+                break
+            default:
+                reficon = chatIcon(color)
+                break
+        }
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `<img src="/static/icons/image.svg" class="file-icon"> ${refId}`;
+            chipLabel = `${reficon} ${refId}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
             if (refId.endsWith('/*')) {
-                chipLabel = `<img src="/static/icons/folder.svg" class="file-icon"> ${refId}`;
+                chipLabel = `${reficon} ${refId}`;
                 const folderName = refId.split('/').slice(1, -1).join('/');
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
@@ -307,24 +322,24 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
             } else {
                 const filename = refData.files[0].name;
                 if (refData.files.length > 1) {
-                    chipLabel = `<img src="/static/icons/document.svg" class="file-icon"> ${refId}`;
+                    chipLabel = `${reficon} ${refId}`;
                     refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => {f.name;console.log(f.name)}).join(', ')}]`;
                 } else {
-                    chipLabel = `<img src="${getIconpath(filename)}" class="file-icon"> ${refId}`;
+                    chipLabel = `${reficon} ${refId}`;
                     refText = `[DOCUMENT_ATTACHED: ${refData.files[0].name}`;
                 }
             }
             isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
-            chipLabel = `${chatIcon()} Summary of ${refId}`;
+            chipLabel = `${reficon} Summary of ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else if (refData.type === 'scrape') {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `${scrapeIcon()} ${refId}`;
+            chipLabel = `${reficon} ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
-            chipLabel = `${chatIcon()} ${refId}`;
+            chipLabel = `${reficon} ${refId}`;
             refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
         }
     }

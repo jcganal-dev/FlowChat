@@ -81,8 +81,10 @@ class FileNode extends BaseNode {
             item.className = 'file-item';
             if (this.nodeData.type === 'image') {
                 item.innerHTML = `
-                    <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px; border-radius: 8px;" />
-                    <a class="remove-file-btn" data-idx="${idx}"><img src="/static/icons/trash.svg" class="file-icon"></a>
+                <div style="width: max-content;position: relative;">
+                    <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px;" />
+                    <a class="remove-file-btn" data-idx="${idx}" style="top: 12px;right: 0px;"><img src="/static/icons/trash.svg" class="file-icon"></a>
+                </div>
                 `;
             } else {
                 const src = getIconpath(f.name.split('.').pop().toLowerCase());

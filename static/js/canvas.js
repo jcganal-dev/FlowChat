@@ -501,10 +501,10 @@ window.changeGroupColor = function (groupId, color, save = true) {
                 // if (colorIndicator) {
                 //     colorIndicator.style.backgroundColor = color;
                 // }
-                const nodeIdEl = el.querySelector('.node-id');
-                if (nodeIdEl) {
-                    nodeIdEl.style.color = color;
-                }
+                // const nodeIdEl = el.querySelector('.node-id');
+                // if (nodeIdEl) {
+                //     nodeIdEl.style.color = color;
+                // }
                 const nodeIcon = el.querySelector('.node-icon');
                 if (nodeIcon) {
                     if (n.type === 'document') nodeIcon.innerHTML = documentIcon(color) 
