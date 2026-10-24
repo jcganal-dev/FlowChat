@@ -1019,9 +1019,6 @@ window.addEventListener('mousemove', (e) => {
     if (isDraggingEdge) {
         updateTempEdge(e);
     }
-});
-
-window.addEventListener('mousemove', (e) => {
     if (isDraggingEdge) {
 
         let dropTarget = document.elementFromPoint(e.clientX, e.clientY);

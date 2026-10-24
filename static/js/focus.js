@@ -1207,7 +1207,7 @@ function setupFocusInputListeners() {
     const refreshBtn = document.getElementById('focus-refresh-files-btn');
 
     if (exitBtn) {
-        exitBtn.addEventListener('click', exitFocusMode);
+        exitBtn.addEventListener('click', () => exitFocusMode(false));
     }
 
     if (refreshBtn) {
