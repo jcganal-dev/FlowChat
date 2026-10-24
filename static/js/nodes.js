@@ -273,22 +273,12 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         if (!groups[refId]) return false;
         const groupObj = groups[refId];
         const gNodes = nodes.filter(n => n.groupId === refId);
-
-        if (groupObj.isCollapsed) {
-            chipLabel = `Summary of <span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
-            gNodes.forEach((n, idx) => {
-                if (n.summaryText && n.summaryText !== "Summary unavailable.") {
-                    refText += `[NODE_${idx}] SUMMARY: ${n.summaryText}\n\n`;
-                }
-            });
-        } else {
-            chipLabel = `<span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
-            gNodes.forEach((n, idx) => {
-                if (n.aiText && n.aiText.trim() !== '') {
-                    refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${n.aiText}\n\n`;
-                }
-            });
-        }
+        chipLabel = `<span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
+        gNodes.forEach((n, idx) => {
+            if (n.aiText && n.aiText.trim() !== '') {
+                refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${n.aiText}\n\n`;
+            }
+        });
 
         // Image and document nodes hold no text of their own, so list them here
         // to make the attachment visible in the reference. The payloads
@@ -323,12 +313,13 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
                 break
         }
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            chipLabel = `${reficon} ${refId}`;
+            const filename = refData.files[0].name;
+            chipLabel = `${refData.isVirtual? `<img src="${getIconpath(filename)}" class='file-icon'>` :reficon} ${refId}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
             if (refId.endsWith('/*')) {
-                chipLabel = `${reficon} ${refId}`;
+                chipLabel = `<img src="/static/icons/folder.svg" class='file-icon'> ${refId}`;
                 const folderName = refId.split('/').slice(1, -1).join('/');
                 refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
                 refData.files.forEach(f => {
@@ -340,13 +331,13 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
                     chipLabel = `${reficon} ${refId}`;
                     refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => {f.name;console.log(f.name)}).join(', ')}]`;
                 } else {
-                    chipLabel = `${reficon} ${refId}`;
+                    chipLabel = `${refData.isVirtual? `<img src="${getIconpath(filename)}" class='file-icon'>` :reficon} ${refId}`;
                     refText = `[DOCUMENT_ATTACHED: ${refData.files[0].name}`;
                 }
             }
             isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
-            chipLabel = `${reficon} Summary of ${refId}`;
+            chipLabel = `Summary of ${reficon} ${refId}`;
             refText = `SUMMARY: ${refData.summaryText}`;
         } else if (refData.type === 'scrape') {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
@@ -381,10 +372,10 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
     range.setStartAfter(chip);
     range.setEndAfter(chip);
 
-    const spaceNode = document.createTextNode('\u00A0');
-    range.insertNode(spaceNode);
-    range.setStartAfter(spaceNode);
-    range.setEndAfter(spaceNode);
+    // const spaceNode = document.createTextNode('\u00A0');
+    // range.insertNode(spaceNode);
+    // range.setStartAfter(spaceNode);
+    // range.setEndAfter(spaceNode);
 
     const sel = window.getSelection();
     sel.removeAllRanges();
