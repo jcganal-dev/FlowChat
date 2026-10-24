@@ -231,9 +231,8 @@ env_path = Path(".env")
 
 if not env_path.exists():
     api_key = input("Enter API_KEY: ").strip()
-    server_url = input("Enter SERVER_URL: ").strip()
     model = input("Enter MODEL (optional, press Enter to use default): ").strip()
-    env_content = f"API_KEY={api_key}\nSERVER_URL={server_url}\n"
+    env_content = f"API_KEY={api_key}\n"
     if model:
         env_content += f"MODEL={model}\n"
     env_path.write_text(env_content)
@@ -241,13 +240,10 @@ if not env_path.exists():
 load_dotenv(dotenv_path=env_path)
 
 API_KEY = os.getenv("API_KEY")
-SERVER_URL: str = os.getenv("SERVER_URL", "")
 MODEL = os.getenv("MODEL", "openrouter/auto")  # Default to OpenRouter auto model selection
 
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file")
-if not SERVER_URL:
-    raise ValueError("SERVER_URL not found in .env file")
 
 tool_list = []
 
@@ -304,7 +300,7 @@ async def chat_endpoint(user_data: ChatPayload):
                 streamed_calls: Dict[int, dict] = {}  # index -> accumulated call
                 had_error = False
 
-                async with client.stream("POST", SERVER_URL, json=payload, headers=headers) as response:
+                async with client.stream("POST", "https://openrouter.ai/api/v1/chat/completions", json=payload, headers=headers) as response:
                     if response.status_code != 200:
                         error_body = await response.aread()
                         try:

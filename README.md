@@ -4,9 +4,9 @@
 
 FlowChat reimagines LLM interaction as a **spatial canvas** where conversations branch, fork, and reference each other visually. Built on FastAPI and vanilla JS, it combines infinite canvas with the power of tool-enabled LLMs.
 
-| Canvas                             | Focus                             |
-| ---------------------------------- | --------------------------------- |
-| ![canvas](image/README/canvas.png) | ![focus](image/README/focus.png)  |
+| Canvas                             | Focus                            |
+| ---------------------------------- | -------------------------------- |
+| ![canvas](image/README/canvas.png) | ![focus](image/README/focus.png) |
 
 ---
 
@@ -86,11 +86,8 @@ cp .env.example .env
 ```ini
 # .env
 API_KEY = 'sk-or-v1-xxxxxxxxxxxxx'         # Your OpenRouter API key
-SERVER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 MODEL = 'anthropic/claude-3.5-sonnet'      # OPTIONAL - will be choosen as default model if set
 ```
-
-> **Note**: The app expects an OpenAI-compatible `/chat/completions` endpoint with `tools`, `stream`, and `include_reasoning` support.
 
 ### Run
 
@@ -204,7 +201,6 @@ FlowChat/
 | Env Var             | Default  | Description                                                         |
 | ------------------- | -------- | ------------------------------------------------------------------- |
 | `API_KEY`         | required | Your OpenRouter API key                                             |
-| `SERVER_URL`      | required | OpenAI-compatible chat completions endpoint                         |
 | `MODEL`           | optional | [Optional] Model identifier (e.g., `anthropic/claude-3.5-sonnet`) |
 | `MAX_TOOL_ROUNDS` | 200      | Max tool-call rounds per request (api.py)                           |
 
