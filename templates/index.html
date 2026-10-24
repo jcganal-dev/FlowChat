@@ -67,7 +67,7 @@
             <a class="btn-bl-tool layout" title="Auto Layout (Alt+L)">
                 <img src="/static/icons/layout.svg" class="file-icon" />
             </a>
-            <a class="btn-bl-tool wipe" title="Wipe State (Alt+W)">
+            <a class="btn-bl-tool wipe danger-btn" title="Wipe State (Alt+W)">
                 <img src="/static/icons/bin.svg" class="file-icon" />
             </a>
         </div>
@@ -134,14 +134,18 @@
                 <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
             </button>
             <div id="focus-nodes-layer" class="focus-nodes-layer"></div>
+            <div id="focus-chat-placeholder" class="focus-chat-placeholder">
+                <h1>Welcome!</h1>
+                <h4>Ask anything.</h4>
+            </div>
             <div id="focus-input-area" class="focus-input-area">
                 <div id="focus-chat-input" class="focus-chat-input"
                     oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true"
                     spellcheck="true" placeholder="Type prompt here..."></div>
                 <div class="focus-chat-input-wrapper">
                     <div class="model-select-container">
-                        <div class="model-select-parent" style="position:fixed;margin-top:-316px;display:flex;flex-direction:column-reverse;gap:0px;max-width: 300px;z-index:11;">
-                            <a class="model-selection focus-model-selection" id="focus-model-selection">Loading Models...</a>
+                        <div class="model-select-parent" style="position:fixed;margin-top:-316px;display:flex;flex-direction:column-reverse;gap:0px;max-width: 300px;z-index:11;pointer-events: none;">
+                            <a class="model-selection focus-model-selection" id="focus-model-selection" style="pointer-events: all;">Loading Models...</a>
                             <div class="model-list" style="visibility: hidden; pointer-events: none;"></div>
                         </div>
                     </div>

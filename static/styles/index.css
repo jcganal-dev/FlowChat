@@ -163,6 +163,10 @@ html {
     background-color: var(--transparent-red);
 }
 
+.danger-btn:hover {
+    background-color: var(--transparent-red) !important;
+}
+
 .palette-header h3 {
     margin: 0;
     font-size: 16px;
@@ -1263,6 +1267,7 @@ div[contentEditable='true'].scrape-node-input,
     flex-direction: column;
     background-color: var(--bg-surface);
     user-select: text;
+    justify-content: center;
 }
 
 .exit-focus-btn {
@@ -1303,6 +1308,27 @@ h6 {
 #focus-nodes-layer > :first-child {
     margin-top: 30px !important;
 }
+#focus-nodes-layer:empty {
+    display: none;
+}
+#focus-nodes-layer:empty ~ .focus-chat-placeholder {
+    display: flex;
+    height: 15%;
+    width: 100%;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+#focus-nodes-layer:empty ~ .focus-input-area {
+    .focus-chat-input, .focus-chat-input-wrapper {
+        width: 550px;
+    }
+}
+.focus-chat-placeholder {
+    display: none;
+}
+
+
 .focus-nodes-layer {
     flex: 1;
     overflow-y: auto;
@@ -1363,7 +1389,6 @@ h6 {
 .focus-input-area {
     padding: 15px 0px 20px 0px;
     background-color: var(--bg-surface);
-    border-top: 1px solid var(--border-base);
     display: flex;
     justify-content: center;
     flex-direction: column;
@@ -1674,6 +1699,7 @@ details > summary {
     overflow: clip;
     background: var(--border-base);
     border: solid 1px var(--border-strong);
+    border-radius: 4px;
 }
 
 div.model-option {

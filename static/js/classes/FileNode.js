@@ -82,10 +82,11 @@ class FileNode extends BaseNode {
             if (this.nodeData.type === 'image') {
                 item.innerHTML = `
                 <div style="width: max-content;position: relative;">
-                    <img src="${f.payload}" class="file-preview" style="display:block; max-width: 100%; max-height: 180px;" />
+                    <img src="${f.payload}" class="file-preview" style="display:block; max-width:120px;max-height:120px;" />
                     <a class="remove-file-btn" data-idx="${idx}" style="top: 12px;right: 0px;"><img src="/static/icons/trash.svg" class="file-icon"></a>
                 </div>
                 `;
+                item.style = 'display: inline-flex;'
             } else {
                 const src = getIconpath(f.name.split('.').pop().toLowerCase());
                 item.innerHTML = `<img src="${src}" class="file-icon"> ${f.name} <a class="remove-file-btn" data-idx="${idx}"><img src="/static/icons/trash.svg" class="file-icon"></a>`;

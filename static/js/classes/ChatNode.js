@@ -261,11 +261,11 @@ class ChatNode extends BaseNode {
         this.modelSelectBtn = this.el.querySelector('.model-selection');
         this.modelSelectBtn.addEventListener('click', () => {
             const modelList = this.el.querySelector('.model-list')
-            modelList.style = modelList.style.visibility == 'hidden' ? 'visibility: visible; pointer-events: all;' : 'visibility: hidden; pointer-events: none;'; 
+            modelList.style = modelList.style.visibility == 'hidden' ? 'visibility: visible; pointer-events: all;' : 'visibility: hidden; pointer-events: none; height: 0px;'; 
         })
         this.modelSelPar = this.el.querySelector('.model-select-parent')
         this.modelSelPar.addEventListener('mouseleave', () => {
-            this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none;'; 
+            this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none; height: 0px;'; 
         })
         this.runBtn = this.el.querySelector('.run-btn');
         this.textarea = this.el.querySelector('.node-input');
@@ -427,7 +427,7 @@ class ChatNode extends BaseNode {
             const target = e.target.closest('.model-option')
             selectBtn.innerHTML = target.innerHTML
             this.nodeData.selectedModel = target.getAttribute('value');
-            this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none;'
+            this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none; height: 0px;'
         });
     }
 

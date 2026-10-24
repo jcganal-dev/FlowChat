@@ -1157,7 +1157,7 @@ async function populateFocusModelSelection() {
                 const selectedOption = selectEl.querySelector(`[value="openrouter/free"]`);
                 if (selectedOption) {
                     selectBtn.innerHTML = selectedOption.innerHTML;
-                    selectBtn.setAttribute('value', activeNodeData.selectedModel);
+                    selectBtn.setAttribute('value', 'openrouter/free');
                 }
             }
         } else {
