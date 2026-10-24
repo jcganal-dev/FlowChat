@@ -156,6 +156,21 @@ function deleteNode(nodeId, deleteBranch) {
         nodes = nodes.filter(n => n.id !== id);
     });
 
+    // Clean up groups: remove deleted node IDs from group nodes arrays
+    // and delete any groups that are now empty
+    const idsToRemoveSet = new Set(idsToRemove);
+    Object.keys(groups).forEach(groupId => {
+        const group = groups[groupId];
+        if (group && Array.isArray(group.nodes)) {
+            // Filter out deleted nodes
+            group.nodes = group.nodes.filter(nid => !idsToRemoveSet.has(nid));
+            // If group is now empty, delete it
+            if (group.nodes.length === 0) {
+                delete groups[groupId];
+            }
+        }
+    });
+
     if (idsToRemove.includes(activeNodeId)) {
         if (nodeData.parentId && nodes.find(n => n.id === nodeData.parentId)) {
             selectNode(nodeData.parentId);

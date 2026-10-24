@@ -742,18 +742,19 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                 const minW = (n.type === 'document' || n.type === 'image') ? 260 : 336;
                 const maxW = 1200;
 
-                // NEW: sets width while keeping the node's horizontal center fixed —
-                // half the delta extends left, half extends right
-                function setWidthCentered(newW) {
+                // Sets width while keeping the node's left edge fixed (layout coordinate).
+                // The visual center may shift slightly, but this keeps n.x consistent
+                // with the layout algorithm which treats n.x as the left edge.
+                function setWidthLeftFixed(newW) {
                     const oldW = el.offsetWidth;
                     const deltaW = newW - oldW;
                     if (deltaW === 0) return;
 
                     el.style.width = `${newW}px`;
-                    n.x -= deltaW / 2;
+                    // NOTE: n.x is NOT modified here — it remains the layout's left-edge coordinate.
+                    // The transform uses n.x directly, so the node stays at its layout position.
 
-                    // Apply the compensating shift immediately (no transition) so the
-                    // node visually grows/shrinks around its center, not its left edge
+                    // Apply the width change immediately (no transition)
                     el.style.transition = 'none';
                     el.style.transform = `translate(${n.x}px, ${n.y}px)`;
                 }
@@ -769,7 +770,7 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                     let targetW = Math.sqrt(area * 1.25);
                     targetW = Math.max(minW, Math.min(targetW, maxW));
 
-                    setWidthCentered(targetW);
+                    setWidthLeftFixed(targetW);
 
                     // Force reflow
                     document.body.offsetHeight;
@@ -783,7 +784,7 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                 q = Math.max(minQ, Math.min(q, maxQ));
                 let finalW = q * GRID_SIZE;
 
-                setWidthCentered(finalW);   // CHANGED: was el.style.width = `${finalW}px`
+                setWidthLeftFixed(finalW);   // CHANGED: was el.style.width = `${finalW}px`
                 n.nodeWidth = finalW;
             }
         }
