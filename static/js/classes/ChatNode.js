@@ -231,7 +231,7 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="user-section">
-                <div contenteditable="${isEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
+                <div contenteditable="${isEditable && !this.nodeData.aiText && !this.nodeData.aiThinking}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
                     <div class="model-select-container">
                         <div class="model-select-parent" style="position:fixed;margin-top:-13px;display:flex;flex-direction:column;gap:0px;max-width: 225px;z-index:11;">
@@ -254,7 +254,7 @@ class ChatNode extends BaseNode {
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
             <div class="handle handle-out"></div>
-            <button class="add-child-btn ${this.nodeData.aiText ? '' : 'hidden'}" title="Branch">+</button>
+            <button class="add-child-btn ${this.nodeData.aiText || this.nodeData.aiThinking? '' : 'hidden'}" title="Branch">+</button>
             <div class="resize-handle"></div>
         `;
 
@@ -669,6 +669,7 @@ class ChatNode extends BaseNode {
                     this.textarea.style.background = "";
                     this.runBtn.style.display = 'flex';
                     this.stopBtn.style.display = 'none';
+                    this.addBtn.classList.remove('hidden')
                 } else aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'error', error, aborted);
             },

@@ -1018,8 +1018,6 @@ window.addEventListener('mousedown', (e) => {
 window.addEventListener('mousemove', (e) => {
     if (isDraggingEdge) {
         updateTempEdge(e);
-    }
-    if (isDraggingEdge) {
 
         let dropTarget = document.elementFromPoint(e.clientX, e.clientY);
         const nodeEl = dropTarget.closest('.node');
