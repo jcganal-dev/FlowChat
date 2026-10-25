@@ -613,26 +613,28 @@ body.shift-pressed.input-focused .node-id {
 
 /* Pushes it to the very bottom */
 
-.think-content {
+/* "Thinking..." indicator inside a focus turn while the stream is empty. */
+.focus-think-header {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Reasoning segments render inline in .ai-content, in the order the model
+   emitted them — styled like the old thoughts block so they stay visually
+   secondary to the answer. */
+.ai-content .think-text {
     color: var(--text-disabled);
     font-size: 0.85em;
     font-style: italic;
-    padding-left: 4px;
-    margin: 8px 12px 8px 0px;
     line-height: 1.5;
-    min-height: 0px;
-    display: flex;
-    flex-direction: column;
-    height: fit-content;
-    /* overflow: auto;
-    scrollbar-width: none; */
-}
-.outer-summary {
-    margin-left: -4px;
-}
-
-.think-content:empty {
-    display: none;
+    border-left: 2px solid var(--border-highlight);
+    padding-left: 10px;
+    margin: 6px 0;
+    white-space: break-spaces;
 }
 
 .turn-node {
@@ -1019,29 +1021,24 @@ body.shift-pressed.input-focused .node-id {
     background-color: var(--transparent-light);
 }
 
-.ai-content p,
-.think-content p {
+.ai-content p {
     margin: 0 0 10px 0;
 }
 
-.ai-content p:last-child,
-.think-content p:last-child {
+.ai-content p:last-child {
     margin-bottom: 0;
 }
 
-.ai-content pre,
-.think-content pre {
+.ai-content pre {
     background: var(--bg-base);
     padding: 10px;
     border-radius: 6px;
     overflow-x: auto;
     margin: 10px 0;
-    /* .think-stream sets break-spaces for the prose; code needs plain pre. */
     white-space: pre;
 }
 
-.ai-content code,
-.think-content code {
+.ai-content code {
     font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
     background: var(--bg-base);
     padding: 2px 4px;
@@ -1049,23 +1046,19 @@ body.shift-pressed.input-focused .node-id {
     font-size: 0.9em;
 }
 
-.ai-content pre code,
-.think-content pre code {
+.ai-content pre code {
     background: transparent;
     padding: 0;
     font-size: 0.95em;
 }
 
 .ai-content ul,
-.ai-content ol,
-.think-content ul,
-.think-content ol {
+.ai-content ol {
     margin: 0 0 10px 20px;
     padding: 0;
 }
 
-.ai-content blockquote,
-.think-content blockquote {
+.ai-content blockquote {
     border-left: 4px solid var(--border-strong);
     margin: 10px 0;
     padding-left: 10px;
@@ -1357,16 +1350,6 @@ h6 {
             margin-bottom: 40px;
         }
 
-        .focus-think {
-            max-width: 90%;
-            align-self: start;
-            padding: 0px 4px;
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 0.85em;
-            line-height: 1.5;
-        }
-
         .focus-ai {
             background-color: transparent;
             width: 90%;
@@ -1479,13 +1462,6 @@ h6 {
     }
 }
 
-.focus-think-body {
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: end;
-}
-
 .focus-tab-selection {
     background-color: var(--bg-input);
     border-right: 1px solid var(--border-strong);
@@ -1556,19 +1532,7 @@ h6 {
 
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
-.think-stream { 
-    border-left: 2px solid var(--border-highlight);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    height: 100%;
-    overflow: auto;
-    white-space: break-spaces;
-    scrollbar-width: none;
-    max-height: 200px;
-    padding-left: 10px;
-}
-.think-stream .tool-chip, .think-content .tool-chip { margin: 10px 0; }
+.ai-content .tool-chip { margin: 10px 0; }
 
 
 /* WebKit (Chrome, Safari, Edge) */
@@ -1601,21 +1565,6 @@ h6 {
     background-color: var(--bg-input);
     padding: 10px 20px;
     border-radius: 10px;
-}
-
-.fade-top {
-    mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px);
-}
-
-.fade-bottom {
-    mask-image: linear-gradient(to bottom, var(--bg-surface) calc(100% - 30px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, var(--bg-surface) calc(100% - 30px), transparent 100%);
-}
-
-.fade-both {
-    mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px, var(--bg-surface) calc(100% - 30px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px, var(--bg-surface) calc(100% - 30px), transparent 100%);
 }
 
 details > summary {
