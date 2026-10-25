@@ -18,11 +18,8 @@ function updateCanvas() {
         const el = document.getElementById(node.id);
         if (!el) return;
 
-        if (el.style.display !== 'none') {
-            node.cachedWidth = el.offsetWidth;
-            node.cachedHeight = el.offsetHeight;
-        }
-
+        // Sizes are pan/zoom-invariant; nodeResizeObserver keeps cachedWidth/cachedHeight
+        // up to date on content changes, so this hot path must never read offsetWidth/Height.
         const w = (node.cachedWidth || node.nodeWidth || 336) * camera.zoom;
         const h = (node.cachedHeight || node.nodeHeight || 200) * camera.zoom;
         const screenX = node.x * camera.zoom + camera.x;
@@ -33,7 +30,7 @@ function updateCanvas() {
         // Never cul the node that currently has an input focused — the user is typing in it,
         // and hiding it would make the browser move focus away (to <body>), which breaks
         // shift+click reference insertion (lastFocusedInput gets cleared by the textarea's blur).
-        const inputEl = el.querySelector('.node-input');
+        const inputEl = node._inputEl || (node._inputEl = el.querySelector('.node-input'));
         const isFocusedInputNode = inputEl && lastFocusedInput && inputEl.contains(lastFocusedInput);
 
         const edgeEl = document.getElementById('edge_' + node.id);
@@ -96,6 +93,23 @@ viewport.addEventListener('mousedown', (e) => {
     }
 });
 
+// Coalesce pan movement to one canvas update per animation frame — mousemove
+// can fire several times per frame, and updateCanvas writes node display styles.
+let panFramePending = false;
+let panTargetX = 0;
+let panTargetY = 0;
+
+function schedulePanFrame() {
+    if (panFramePending) return;
+    panFramePending = true;
+    requestAnimationFrame(() => {
+        panFramePending = false;
+        camera.x = panTargetX;
+        camera.y = panTargetY;
+        updateCanvas();
+    });
+}
+
 window.addEventListener('mousemove', (e) => {
     if (isPanning) {
         if (Math.abs(e.clientX - panStartX) > 3 || Math.abs(e.clientY - panStartY) > 3) {
@@ -103,9 +117,9 @@ window.addEventListener('mousemove', (e) => {
             if (typeof contextMenu !== 'undefined' && contextMenu) contextMenu.style.display = 'none';
             if (typeof sandboxContextMenu !== 'undefined' && sandboxContextMenu) sandboxContextMenu.style.display = 'none';
         }
-        camera.x = e.clientX - startPanX;
-        camera.y = e.clientY - startPanY;
-        updateCanvas();
+        panTargetX = e.clientX - startPanX;
+        panTargetY = e.clientY - startPanY;
+        schedulePanFrame();
     }
 });
 

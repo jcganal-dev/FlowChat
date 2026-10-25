@@ -180,7 +180,28 @@ contextMenu.innerHTML = `
 `;
 document.body.appendChild(contextMenu);
 
-const nodeResizeObserver = new ResizeObserver(() => {
+/**
+ * Keeps node.cachedWidth/cachedHeight in sync with the DOM. Node sizes only
+ * change when their content or width changes, never when the camera pans or
+ * zooms (CSS transforms don't affect offsetWidth/Height), so measuring here —
+ * instead of in updateCanvas's per-frame path — avoids forced layout cascades
+ * while panning. Culled (display:none) entries report 0 and are skipped so
+ * the last known good size survives culling.
+ */
+const nodeResizeObserver = new ResizeObserver((entries) => {
+    entries.forEach(entry => {
+        const el = entry.target;
+        if (!el || el.style.display === 'none') return;
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        if (!w && !h) return;
+        const inst = el.__nodeInstance;
+        const nodeData = inst ? inst.nodeData : nodes.find(n => n.id === el.id);
+        if (!nodeData) return;
+        nodeData.cachedWidth = w;
+        nodeData.cachedHeight = h;
+        nodeData.nodeHeight = h;
+    });
     clearTimeout(layoutDebounceTimeout);
     layoutDebounceTimeout = setTimeout(() => {
         if (typeof drawEdges === 'function') drawEdges();
