@@ -783,7 +783,7 @@ function renderFocusLineage() {
     // Restore the streaming node if we saved it (append at the end since it's the active node)
     if (streamingNodeEl) {
         // cloneNode(true) keeps the streamed DOM text but drops the renderer's
-        // expando caches (_shown/_chipHtml/_streamHtml), so the next incremental
+        // expando caches (_shown/_chipHtml/_segText), so the next incremental
         // renderAiStream pass would mis-reconcile. Rebuild the stream from the
         // node's segments instead — identical markup, caches re-seeded, chip
         // open state preserved via seg.open (same as ChatNode's restore path).
@@ -959,10 +959,19 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     // Shared updater: reconciles the focus stream with ALL of the node's
     // segments so reasoning, chips and answer text interleave in stream order,
     // exactly like the canvas node (renderAiStream comes from ChatNode.js).
-    const syncStream = () => {
+    // Stream events arrive per-delta, far faster than frames — render at most
+    // once per animation frame, mirroring ChatNode's flushUi throttle.
+    let uiPending = false;
+    const renderStreamNow = () => {
+        uiPending = false;
         if (!aiEl || !nodeData || typeof renderAiStream !== 'function') return;
         syncFocusThinkVisibility(turnEl);
         renderAiStream(aiEl, nodeData);
+    };
+    const syncStream = () => {
+        if (uiPending) return;
+        uiPending = true;
+        requestAnimationFrame(renderStreamNow);
     };
 
     if (type === 'reasoning' || type === 'tool_call_start' || type === 'tool_call' || type === 'tool_result' || type === 'content') {
@@ -983,10 +992,10 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         updateFocusModeButtonState('idle');
     } else if (type === 'complete') {
         updateFocusModeButtonState('idle');
-        // Final placeholder-remove + reconcile; the stream stays visible after
-        // completion — reasoning text and "Done" tool chips remain inspectable
-        // in place. Prism is applied to the whole stream.
-        syncStream();
+        // Final render (synchronously, so Prism below sees the finished DOM),
+        // then the stream stays visible after completion — reasoning text and
+        // "Done" tool chips remain inspectable in place.
+        renderStreamNow();
         if (window.Prism && aiEl) {
             Prism.highlightAllUnder(aiEl);
         }

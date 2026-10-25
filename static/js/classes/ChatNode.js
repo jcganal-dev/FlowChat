@@ -160,7 +160,12 @@ function renderAiStream(container, node) {
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            renderReasoningEl(el, seg.text || '');
+            // Reasoning is only appended to while it streams; skip the re-split
+            // entirely for segments that haven't changed since the last flush.
+            if (el._segText !== seg.text) {
+                el._segText = seg.text;
+                renderReasoningEl(el, seg.text || '');
+            }
         } else if (seg.type === 'tool_call') {
             if (!el || el.dataset.segType !== 'tool_call') {
                 const fresh = document.createElement('div');
@@ -181,10 +186,13 @@ function renderAiStream(container, node) {
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            const html = renderAnswerTextHtml(seg.text || '');
-            if (el._streamHtml !== html) {
-                el.innerHTML = html;
-                el._streamHtml = html;
+            // Cache the INPUT text, not just the rendered HTML: markdown
+            // parsing is the expensive step, and only the streaming tail
+            // segment actually changes between flushes. Comparing rendered
+            // HTML would re-parse every finished segment on every flush.
+            if (el._segText !== seg.text) {
+                el._segText = seg.text;
+                el.innerHTML = renderAnswerTextHtml(seg.text || '');
             }
         }
     }
