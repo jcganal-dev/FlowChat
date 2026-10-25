@@ -30,7 +30,10 @@ function updateCanvas() {
         // Never cul the node that currently has an input focused — the user is typing in it,
         // and hiding it would make the browser move focus away (to <body>), which breaks
         // shift+click reference insertion (lastFocusedInput gets cleared by the textarea's blur).
-        const inputEl = node._inputEl || (node._inputEl = el.querySelector('.node-input'));
+        // querySelector doesn't force layout, so this is safe in the pan hot path. The input
+        // element must NOT be cached on nodeData: saveState serializes node objects, and a DOM
+        // element would round-trip as `{}` (truthy garbage) after a reload.
+        const inputEl = el.querySelector('.node-input');
         const isFocusedInputNode = inputEl && lastFocusedInput && inputEl.contains(lastFocusedInput);
 
         const edgeEl = document.getElementById('edge_' + node.id);

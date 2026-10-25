@@ -29,7 +29,7 @@ function renderAnswerTextHtml(text) {
 
 // One segment, whatever type it is: reasoning, tool chip or answer text.
 function renderSegmentHtml(seg) {
-    if (seg.type === 'reasoning') return `<div class="think-text">${renderReasoningHtml(seg.text || '')}</div>`;
+    if (seg.type === 'reasoning') return `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(seg.text || '')}</details>`;
     if (seg.type === 'tool_call') return renderToolChipHtml(seg);
     return `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>`;
 }
@@ -41,7 +41,7 @@ function renderAiStreamHtml(node) {
     const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
     if (!segs.length) {
         // Legacy save without segments: thoughts then answer.
-        let html = node.aiThinking ? `<div class="think-text">${renderReasoningHtml(node.aiThinking)}</div>` : '';
+        let html = node.aiThinking ? `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(node.aiThinking)}</details>` : '';
         if (node.aiText) html += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
         return html;
     }
@@ -154,7 +154,7 @@ function renderAiStream(container, node) {
         let el = container.children[i] || null;
         if (seg.type === 'reasoning') {
             if (!el || el.dataset.segType !== 'reasoning') {
-                const fresh = document.createElement('div');
+                const fresh = document.createElement('details');
                 fresh.className = 'think-text';
                 fresh.dataset.segType = 'reasoning';
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);

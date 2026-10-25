@@ -633,7 +633,6 @@ body.shift-pressed.input-focused .node-id {
     line-height: 1.5;
     border-left: 2px solid var(--border-highlight);
     padding-left: 10px;
-    margin: 6px 0;
     white-space: break-spaces;
 }
 
@@ -1532,7 +1531,15 @@ h6 {
 
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
-.ai-content .tool-chip { margin: 10px 0; }
+.ai-content .tool-chip {
+    color: var(--text-disabled);
+    font-size: 0.85em;
+    font-style: italic;
+    line-height: 1.5;
+    border-left: 2px solid var(--border-highlight);
+    padding-left: 10px;
+    white-space: break-spaces;
+}
 
 
 /* WebKit (Chrome, Safari, Edge) */

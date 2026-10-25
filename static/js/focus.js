@@ -772,6 +772,8 @@ function renderFocusLineage() {
         }
         turnHtml += `<div class="focus-ai ai-content">${aiStreamHtml}</div>`;
 
+        turnDiv.innerHTML = turnHtml
+
         // Restored stream: the markup is already in the DOM, so its code blocks
         // can be highlighted right away (Prism skips already-highlighted code).
         if (window.Prism) {
