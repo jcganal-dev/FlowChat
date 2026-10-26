@@ -631,7 +631,7 @@ body.shift-pressed.input-focused .node-id {
     font-size: 0.85em;
     font-style: italic;
     line-height: 1.5;
-    border-left: 2px solid var(--border-highlight);
+    border-left: 1px solid var(--border-highlight);
     padding-left: 10px;
     white-space: break-spaces;
 }
@@ -1070,9 +1070,15 @@ body.shift-pressed.input-focused .node-id {
     margin-bottom: 10px;
 }
 
+.ai-content > .ai-text:not(:last-child) {
+    border-left: 1px solid var(--border-highlight);
+    padding-left: 10px;
+}
+
 .ai-content {
 
-    overflow: auto;
+    overflow: clip;
+    overflow-clip-margin: 1em;
 
     th,
     tr:not(:last-child) {
@@ -1354,8 +1360,17 @@ h6 {
             width: 90%;
             align-self: start;
             color: var(--text-primary);
-            overflow: auto;
+            overflow: visible;
             scrollbar-width: none;
+
+            summary::before {
+                left: -15px;
+            }
+            .tool-chip {
+                summary::before {
+                    left: -14.4px;
+                }
+            }
         }
     }
 }
@@ -1536,9 +1551,32 @@ h6 {
     font-size: 0.85em;
     font-style: italic;
     line-height: 1.5;
-    border-left: 2px solid var(--border-highlight);
+    border-left: 1px solid var(--border-highlight);
     padding-left: 10px;
     white-space: break-spaces;
+}
+
+/* Collapsible block for runs of consecutive tool calls; the summary counts
+   them and each chip stays individually expandable inside. */
+.ai-content .tool-group {
+    color: var(--text-disabled);
+    font-size: 0.85em;
+    font-style: italic;
+    line-height: 1.5;
+    border-left: 1px solid var(--border-highlight);
+    padding-left: 10px;
+    /* margin: 10px 0; */
+}
+
+.ai-content .tool-group > summary {
+    margin-bottom: 2px;
+}
+
+.ai-content .tool-group .tool-chip {
+    margin-left: 4px;
+    summary::before {
+        left: -14px;
+    }
 }
 
 
@@ -1577,6 +1615,7 @@ h6 {
 details > summary {
     cursor: pointer;
     user-select: none;
+    padding-left: 0px;
 }
 
 .think-block > pre {
@@ -1691,4 +1730,18 @@ div.model-list::-webkit-scrollbar-track {
 .model-select-container {
     display: flex;
     flex-direction: column;
+}
+
+summary {
+  list-style: none;             /* hides the native marker */
+  padding-left: 1.5em;          /* space for the circle */
+  position: relative;           /* positioning context */
+  cursor: pointer;
+}
+summary::-webkit-details-marker { display: none; }  /* old WebKit */
+
+summary::before {
+    content: "●";
+    position: absolute;
+    left: -14.65px;
 }

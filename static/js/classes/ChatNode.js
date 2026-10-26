@@ -19,7 +19,7 @@ function renderToolChipHtml(seg) {
             `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})</div>`;
     }
     return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
-        `<summary>Done: <b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
+        `<summary><b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
         `<pre class="tool-result">${escapeHtml(seg.result || '')}</pre></details>`;
 }
 
@@ -34,6 +34,38 @@ function renderSegmentHtml(seg) {
     return `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>`;
 }
 
+// Groups runs of consecutive tool_call segments into one collapsible block;
+// a lone tool call stays a single chip. Recomputed each flush — cheap, and
+// trailing runs grow as new tool calls stream in. Derived view only: the
+// segment list itself is never touched.
+function buildStreamPlan(segs) {
+    const plan = [];
+    for (let i = 0; i < segs.length; i++) {
+        if (segs[i].type !== 'tool_call') {
+            plan.push({ type: segs[i].type, seg: segs[i] });
+            continue;
+        }
+        let j = i;
+        while (j < segs.length && segs[j].type === 'tool_call') j++;
+        const run = segs.slice(i, j);
+        // if (run.length === 1) plan.push({ type: 'tool_call', seg: run[0] });
+        // else { 
+            plan.push({ type: 'tool_group', run });
+        // }
+        i = j - 1;
+    }
+    return plan;
+}
+
+// Static markup for a group of consecutive tool calls: one collapsible block
+// whose summary counts them, with each chip expandable inside it.
+function renderToolGroupHtml(item) {
+    return `<details class="tool-group" data-seg-type="tool_group">` +
+        `<summary>${item.run.length} tool call${item.run.length>1?'s':''}</summary>` +
+        item.run.map(renderToolChipHtml).join('') +
+        `</details>`;
+}
+
 // Static one-shot stream HTML (restore / first paint): every segment the model
 // produced, in the order it produced it. No segregation — reasoning, tool
 // chips and answer text flow in the same container.
@@ -45,7 +77,9 @@ function renderAiStreamHtml(node) {
         if (node.aiText) html += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
         return html;
     }
-    return segs.map(renderSegmentHtml).join('');
+    return buildStreamPlan(segs).map(item =>
+        item.type === 'tool_group' ? renderToolGroupHtml(item) : renderSegmentHtml(item.seg)
+    ).join('');
 }
 
 const THINK_CAP = 20000;
@@ -139,20 +173,46 @@ function renderReasoningEl(el, text) {
     }
 }
 
+// Reconciles the chip wrappers inside a tool-group <details>. Runs only grow
+// (segments are appended, never reordered), so each wrapper keeps its slot;
+// the per-chip _chipHtml cache means a chip's own <details> open state
+// survives updates to its neighbours.
+function reconcileToolGroup(groupEl, run) {
+    // Children: the <summary>, then one wrapper per run segment.
+    while (groupEl.childElementCount > run.length + 1) groupEl.lastElementChild.remove();
+    for (let k = 0; k < run.length; k++) {
+        const seg = run[k];
+        let wrap = groupEl.children[k + 1];
+        if (!wrap || wrap.dataset.segType !== 'tool_call') {
+            const fresh = document.createElement('div');
+            fresh.dataset.segType = 'tool_call';
+            if (wrap) groupEl.replaceChild(fresh, wrap); else groupEl.appendChild(fresh);
+            wrap = fresh;
+        }
+        const html = renderToolChipHtml(seg);
+        if (wrap._chipHtml !== html) {
+            wrap.innerHTML = html;
+            wrap._chipHtml = html;
+        }
+    }
+}
+
 // Incrementally reconciles container children with ALL of the node's segments,
 // in stream order — reasoning, tool chips and answer text interleave exactly as
-// the model emitted them. Reasoning is appended as text nodes; chips only
-// re-render when their own HTML changes (so a chip's <details> open state
-// survives later updates to other segments); text segments re-render markdown
-// only when their text changed.
+// the model emitted them. Consecutive tool calls are grouped into one
+// collapsible "N tool calls" block; everything else renders one-to-one.
+// Reasoning is appended as text nodes; chips only re-render when their own HTML
+// changes (so a chip's <details> open state survives later updates to other
+// segments); text segments re-render markdown only when their text changed.
 function renderAiStream(container, node) {
     if (!container) return;
     const segs = node.aiSegments || [];
-    while (container.childElementCount > segs.length) container.lastElementChild.remove();
-    for (let i = 0; i < segs.length; i++) {
-        const seg = segs[i];
+    const plan = buildStreamPlan(segs);
+    while (container.childElementCount > plan.length) container.lastElementChild.remove();
+    for (let i = 0; i < plan.length; i++) {
+        const item = plan[i];
         let el = container.children[i] || null;
-        if (seg.type === 'reasoning') {
+        if (item.type === 'reasoning') {
             if (!el || el.dataset.segType !== 'reasoning') {
                 const fresh = document.createElement('details');
                 fresh.className = 'think-text';
@@ -162,22 +222,34 @@ function renderAiStream(container, node) {
             }
             // Reasoning is only appended to while it streams; skip the re-split
             // entirely for segments that haven't changed since the last flush.
-            if (el._segText !== seg.text) {
-                el._segText = seg.text;
-                renderReasoningEl(el, seg.text || '');
+            if (el._segText !== item.seg.text) {
+                el._segText = item.seg.text;
+                renderReasoningEl(el, item.seg.text || '');
             }
-        } else if (seg.type === 'tool_call') {
+        } else if (item.type === 'tool_call') {
             if (!el || el.dataset.segType !== 'tool_call') {
                 const fresh = document.createElement('div');
                 fresh.dataset.segType = 'tool_call';
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            const html = renderToolChipHtml(seg);
+            const html = renderToolChipHtml(item.seg);
             if (el._chipHtml !== html) {
                 el.innerHTML = html;
                 el._chipHtml = html;
             }
+        } else if (item.type === 'tool_group') {
+            if (!el || el.dataset.segType !== 'tool_group') {
+                const fresh = document.createElement('details');
+                fresh.className = 'tool-group';
+                fresh.dataset.segType = 'tool_group';
+                fresh.innerHTML = '<summary></summary>';
+                if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
+                el = fresh;
+            }
+            const label = item.run.length + ' tool calls';
+            if (el.firstElementChild.textContent !== label) el.firstElementChild.textContent = label;
+            reconcileToolGroup(el, item.run);
         } else {
             if (!el || el.dataset.segType !== 'text') {
                 const fresh = document.createElement('div');
@@ -190,9 +262,9 @@ function renderAiStream(container, node) {
             // parsing is the expensive step, and only the streaming tail
             // segment actually changes between flushes. Comparing rendered
             // HTML would re-parse every finished segment on every flush.
-            if (el._segText !== seg.text) {
-                el._segText = seg.text;
-                el.innerHTML = renderAnswerTextHtml(seg.text || '');
+            if (el._segText !== item.seg.text) {
+                el._segText = item.seg.text;
+                el.innerHTML = renderAnswerTextHtml(item.seg.text || '');
             }
         }
     }
