@@ -135,13 +135,16 @@ function updateThinkTextEl(el, text) {
 // Prose blocks are appended as text nodes (cheap, and the text stays selectable
 // while streaming); code blocks are re-rendered as <pre><code> and handed to
 // Prism right after the markup is written — Prism can only highlight code that
-// is already in the DOM.
+// is already in the DOM. The parent <details>'s <summary> is reserved: content
+// blocks are reconciled after it and must never replace or remove it.
 function renderReasoningEl(el, text) {
     const blocks = splitReasoningBlocks(capThinkText(text || ''));
-    while (el.childElementCount > blocks.length) el.lastElementChild.remove();
+    const summary = el.querySelector(':scope > summary');
+    const content = Array.from(el.children).filter(c => c !== summary);
+    while (content.length > blocks.length) content.pop().remove();
     for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
-        let child = el.children[i];
+        let child = content[i];
         if (block.type === 'text') {
             if (!child || child.dataset.blockType !== 'text') {
                 const fresh = document.createElement('div');
@@ -215,6 +218,9 @@ function renderAiStream(container, node) {
         if (item.type === 'reasoning') {
             if (!el || el.dataset.segType !== 'reasoning') {
                 const fresh = document.createElement('details');
+                const summary = document.createElement('summary');
+                summary.innerHTML = "Thoughts";
+                fresh.appendChild(summary)
                 fresh.className = 'think-text';
                 fresh.dataset.segType = 'reasoning';
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
