@@ -129,6 +129,10 @@ const systemReminders = 'Do not overthink, immediately stop thinking after you a
 let nodes = [];
 let groups = {};
 let current_active_lineage = []
+// Set to false to hide the reasoning ("Thoughts") blocks in the stream and
+// merge tool-call runs across them into one collapsed group. Takes effect on
+// the next page load.
+let show_thoughts = false;
 let camera = { x: 0, y: 0, zoom: 1 };
 let selectedNodes = new Set();
 let activeNodeId = null;

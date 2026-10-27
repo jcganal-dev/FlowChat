@@ -1072,13 +1072,14 @@ body.shift-pressed.input-focused .node-id {
 
 .ai-content > .ai-text:not(:last-child) {
     border-left: 1px solid var(--border-highlight);
-    padding-left: 10px;
+    padding: 10px 0px 10px 10px;
 }
 
 .ai-content {
 
     overflow: clip;
     overflow-clip-margin: 1em;
+    position: relative;
 
     th,
     tr:not(:last-child) {
@@ -1744,4 +1745,14 @@ summary::before {
     content: "●";
     position: absolute;
     left: -14.65px;
+}
+
+.ai-text:empty {
+    display: none;
+}
+.ai-text:not(:empty):not(:last-child)::before {
+    content: "●";
+    font-size: 0.85em;
+    position: absolute;
+    left: -3.7px;
 }

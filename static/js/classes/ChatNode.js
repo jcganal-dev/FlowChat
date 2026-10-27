@@ -34,25 +34,38 @@ function renderSegmentHtml(seg) {
     return `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>`;
 }
 
-// Groups runs of consecutive tool_call segments into one collapsible block;
-// a lone tool call stays a single chip. Recomputed each flush — cheap, and
-// trailing runs grow as new tool calls stream in. Derived view only: the
-// segment list itself is never touched.
+// Groups runs of consecutive tool_call segments into one collapsible block.
+// With show_thoughts = false, reasoning segments are hidden AND no longer end
+// a run — tool calls separated only by hidden thoughts merge into one group.
+// Recomputed each flush — cheap, and trailing runs grow as new tool calls
+// stream in. Derived view only: the segment list itself is never touched.
 function buildStreamPlan(segs) {
     const plan = [];
-    for (let i = 0; i < segs.length; i++) {
-        if (segs[i].type !== 'tool_call') {
-            plan.push({ type: segs[i].type, seg: segs[i] });
+    let i = 0;
+    while (i < segs.length) {
+        const seg = segs[i];
+        if (seg.type === 'reasoning') {
+            if (show_thoughts) plan.push({ type: 'reasoning', seg });
+            i++;
             continue;
         }
-        let j = i;
-        while (j < segs.length && segs[j].type === 'tool_call') j++;
-        const run = segs.slice(i, j);
-        // if (run.length === 1) plan.push({ type: 'tool_call', seg: run[0] });
-        // else { 
-            plan.push({ type: 'tool_group', run });
-        // }
-        i = j - 1;
+        if (seg.type !== 'tool_call') {
+            plan.push({ type: 'text', seg });
+            i++;
+            continue;
+        }
+        // Scan the run: tool calls, plus any reasoning that is hidden — hidden
+        // thoughts sit inside the run instead of ending it.
+        const run = [];
+        let k = i;
+        while (k < segs.length) {
+            const s = segs[k];
+            if (s.type === 'tool_call') { run.push(s); k++; }
+            else if (s.type === 'reasoning' && !show_thoughts) k++;
+            else break;
+        }
+        i = k;
+        plan.push({ type: 'tool_group', run });
     }
     return plan;
 }
@@ -73,7 +86,8 @@ function renderAiStreamHtml(node) {
     const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
     if (!segs.length) {
         // Legacy save without segments: thoughts then answer.
-        let html = node.aiThinking ? `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(node.aiThinking)}</details>` : '';
+        let html = '';
+        if (show_thoughts && node.aiThinking) html += `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(node.aiThinking)}</details>`;
         if (node.aiText) html += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
         return html;
     }
@@ -211,7 +225,13 @@ function renderAiStream(container, node) {
     if (!container) return;
     const segs = node.aiSegments || [];
     const plan = buildStreamPlan(segs);
-    while (container.childElementCount > plan.length) container.lastElementChild.remove();
+    // The "Thinking..." placeholder stays while nothing renderable exists yet
+    // (e.g. show_thoughts = false and only reasoning has streamed so far);
+    // onComplete removes it when the stream ends.
+    const hasPlaceholder = !!container.querySelector(':scope > .think-placeholder');
+    if (!(plan.length === 0 && hasPlaceholder)) {
+        while (container.childElementCount > plan.length) container.lastElementChild.remove();
+    }
     for (let i = 0; i < plan.length; i++) {
         const item = plan[i];
         let el = container.children[i] || null;
@@ -253,7 +273,7 @@ function renderAiStream(container, node) {
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            const label = item.run.length + ' tool calls';
+            const label = item.run.length + (item.run.length > 1 ? ' tool calls' : ' tool call');
             if (el.firstElementChild.textContent !== label) el.firstElementChild.textContent = label;
             reconcileToolGroup(el, item.run);
         } else {
@@ -662,7 +682,9 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_result', tr);
             },
             onReasoning: (reasoning) => {
-                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                // With show_thoughts = false the reasoning itself is hidden, so
+                // keep the "Thinking..." indicator up while it streams.
+                if (show_thoughts && thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 this.nodeData.aiThinking += reasoning;
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
@@ -678,6 +700,7 @@ class ChatNode extends BaseNode {
                 if (error.name === 'AbortError' || (error.message && error.message.includes('AbortError'))) {
                     this.nodeData.abortController = null
                     aborted = true;
+                    if (show_thoughts && thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                     aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
                     this.textarea.contentEditable = true;
                     this.textarea.style.border = "";
