@@ -87,6 +87,9 @@ class ScrapeNode extends BaseNode {
                 ${marked.parse(this.nodeData.aiText)}
             </div>
         `;
+        // Already saved to a sandbox file: keep controls gone (incl. after restore)
+        if (this.nodeData.savedToSandbox) return;
+
         const saveCont = document.createElement('div')
         saveCont.style = "display: flex; gap: 8px; justify-content: center; align-items: center; margin: 0px 10px 10px 10px;"
         saveCont.classList.add('save-controls-container')
@@ -117,19 +120,22 @@ class ScrapeNode extends BaseNode {
                 });
 
                 if (res.ok) {
-                    const saveContainer = aiSectionEl.querySelector('.save-controls-container');
+                    // Persist so the controls don't reappear on restore/re-render
+                    this.nodeData.savedToSandbox = true;
+                    if (typeof saveState === 'function') saveState(true);
+                    const saveContainer = this.el.querySelector('.save-controls-container');
                     if (saveContainer) saveContainer.textContent = 'Saved!';
                     saveBtn.style.background = '#2E7D32';
                     setTimeout(() => {
-                        if (saveContainer) saveContainer.style.display = 'none';
-                    }, 1500);
+                        if (saveContainer) saveContainer.remove();
+                    }, 1200);
                     if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
                 } else {
-                    saveBtn.textContent = 'Error';
+                    saveBtn.textContent = `Error: ${res}`;
                     saveBtn.style.background = '#d32f2f';
                 }
             } catch (err) {
-                saveBtn.textContent = 'Error';
+                saveBtn.textContent = `Error: Endpoint Error ${err}`;
                 saveBtn.style.background = '#d32f2f';
             }
         });
@@ -140,6 +146,7 @@ class ScrapeNode extends BaseNode {
         if (!usertext) return;
         this.nodeData.userText = usertext;
         this.nodeData.aiText = "";
+        this.nodeData.savedToSandbox = false;
 
         const aiSection = this.el.querySelector('.ai-section');
         aiSection.style.display = 'block';
