@@ -1793,3 +1793,32 @@ details[open]::details-content {
   block-size: auto;
   content-visibility: visible;
 }
+
+.chat-goto-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100dvw;
+    height: 100dvh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    background-color: var(--shadow-overlay);
+}
+.chat-goto-container > div::before {
+    content: "Go to";
+}
+.chat-goto-container > div {
+    width: 500px;
+    max-height: 250px;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-input);
+    align-items: center;
+    padding: 10px 0px;
+    pointer-events: all;
+    overflow: auto;
+    border: solid 1px var(--border-highlight);
+}

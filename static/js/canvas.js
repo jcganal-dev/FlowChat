@@ -1209,7 +1209,7 @@ window.addEventListener('mouseup', (e) => {
  */
 function centerCanvas() {
     const activeNode = nodes.find(n => n.id === activeNodeId)
-    if (typeof activeNodeId === 'undefined' || !activeNodeId || activeNode.type != 'chat') {
+    if (typeof activeNodeId === 'undefined' || !activeNodeId || activeNode?.type != 'chat') {
         for (let i = nodes.length-1;i>0;i--) {
             if (nodes[i].type==='chat') {
                 document.getElementById(nodes[i].id).click()
@@ -1226,8 +1226,11 @@ function centerCanvas() {
 
     const nX = nodeData.x;
     const nY = nodeData.y;
-    const nWidth = el.offsetWidth;
-    const nHeight = el.offsetHeight;
+    // updateCanvas culls offscreen nodes with display:none, which makes
+    // offsetWidth/offsetHeight read as 0 — centering would then miss by half
+    // the node size. Fall back to the same cached dims the culling path uses.
+    const nWidth = el.offsetWidth || nodeData.cachedWidth || nodeData.nodeWidth || 336;
+    const nHeight = el.offsetHeight || nodeData.cachedHeight || nodeData.nodeHeight || 200;
 
     nodesLayer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
 

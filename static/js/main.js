@@ -76,6 +76,16 @@ async function wipeState() {
     }
 }
 
+async function toggleGoTo() {
+    const gotoCont = document.querySelector('.chat-goto-container')
+    gotoCont.style.display = 'flex'
+    gotoCont.addEventListener('mouseup', (e) => {
+        e.preventDefault()
+        gotoCont.style.display = 'none'
+    })
+    updateChatHistory('chats-goto',false)
+}
+
 window.addEventListener('contextmenu', (e) => {
     const targetNode = e.target.closest('.node-input')
     if (targetNode) {
@@ -333,6 +343,9 @@ window.addEventListener('keydown', (e) => {
     } else if (e.altKey && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         if (typeof toggleFocusMode === 'function') toggleFocusMode();
+    } else if (e.altKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        if (typeof toggleGoTo === 'function') toggleGoTo();
     } 
     // else if(e.shiftKey && e.key === 'Delete') {
     //     const shiftClickEvent = new MouseEvent('click', {

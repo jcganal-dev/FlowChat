@@ -37,7 +37,7 @@ function moveContentEditableCaretToEnd(element) {
 
 let last_active_chat = ''
 
-function addToChatHistory(targetNode) {
+function addToChatHistory(targetNode, parentElement = 'chat-selection', isFocus = true) {
     let textDisplay = ''
     let isThinking = false
     if (targetNode.parentId) {
@@ -96,39 +96,41 @@ function addToChatHistory(targetNode) {
         chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
         last_active_chat = chatEntry
         $(targetNode.id).click();
-        toggleFocusMode(true);
+        if (isFocus) toggleFocusMode(true);
         centerCanvas();
     })
-    $('chat-selection').appendChild(chatEntry)
+    $(parentElement).appendChild(chatEntry)
 }
 
-function updateChatHistory() {
-    $('chat-selection').innerHTML = ''
-    const newChatBtn = document.createElement('div')
-    newChatBtn.classList.add('chat-entry')
-    newChatBtn.style.marginTop = '10px'
-    newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
-    $('chat-selection').appendChild(newChatBtn)
+function updateChatHistory(elementId = 'chat-selection', isFocus = true) {
+    $(elementId).innerHTML = ''
+    if (isFocus) {
+        const newChatBtn = document.createElement('div')
+        newChatBtn.classList.add('chat-entry')
+        newChatBtn.style.marginTop = '10px'
+        newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
+        $(elementId).appendChild(newChatBtn)
+        newChatBtn.addEventListener('click', () => {
+            // Prevent creating new chat while streaming
+            if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
+                return;
+            }
+            createNode()
+            updateChatHistory()
+            toggleFocusMode(true)
+            autoLayout()
+            centerCanvas()
+        })
+    }
     nodes.forEach(node => {
         // P2 Fix: Include nodes that are thinking (have aiThinking but no aiText
         // yet) — show them with a "Thinking..." indicator instead of hiding them.
         // Unexecuted empty leaves stay listed too (that's the node being typed into).
         if (node.type == 'chat' && node.aiText.trim() == '' && node.childNodeIds.length == 0 && node.aiThinking.trim() =='') {
-            if (typeof addToChatHistory == "function") {addToChatHistory(node)}
+            if (typeof addToChatHistory == "function") {addToChatHistory(node, elementId, isFocus)}
         }
     });
 
-    newChatBtn.addEventListener('click', () => {
-        // Prevent creating new chat while streaming
-        if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
-            return;
-        }
-        createNode()
-        updateChatHistory()
-        toggleFocusMode(true)
-        autoLayout()
-        centerCanvas()
-    })
 }
 
 /**
