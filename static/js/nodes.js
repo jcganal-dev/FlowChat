@@ -276,7 +276,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         chipLabel = `<span style="color:${groupObj.color};">${groupIcon(groupObj.color)} ${groupObj.name}</span>`;
         gNodes.forEach((n, idx) => {
             if (n.aiText && n.aiText.trim() !== '') {
-                refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${n.aiText}\n\n`;
+                refText += `[NODE_${idx}]\nUSER: ${n.userText}\nAssistant: ${nodeAnswerText(n)}\n\n`;
             }
         });
 
@@ -342,11 +342,11 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         } else if (refData.type === 'scrape') {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
             chipLabel = `${reficon} ${refId}`;
-            refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
+            refText = `USER: ${refData.userText} \n Assistant: ${nodeAnswerText(refData)}`;
         } else {
             if (!refData.aiText || refData.aiText.trim() === '') return false;
             chipLabel = `${reficon} ${refId}`;
-            refText = `USER: ${refData.userText} \n Assistant: ${refData.aiText}`;
+            refText = `USER: ${refData.userText} \n Assistant: ${nodeAnswerText(refData)}`;
         }
     }
 

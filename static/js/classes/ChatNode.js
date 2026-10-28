@@ -13,32 +13,87 @@ function toolArgsPreview(argsJson) {
 
 // One chip, either state. Used by both the streaming renderer and restore.
 function renderToolChipHtml(seg) {
-    const preview = escapeHtml(seg.argsPreview || '');
+    const rawPreview = seg.argsPreview.split('\n').length > 1 ? seg.argsPreview.split('\n')[0] + '...' : seg.argsPreview;
+    const preview = escapeHtml(rawPreview || '');
     if (seg.status === 'running') {
         return `<div class="tool-chip" data-seg-id="${escapeHtml(seg.id)}">` +
             `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})</div>`;
     }
     return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
-        `<summary>Done: <b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
+        `<summary><b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
         `<pre class="tool-result">${escapeHtml(seg.result || '')}</pre></details>`;
 }
 
-// Kept for any external callers.
-function renderToolChipsHtml(node) {
-    const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
-    return segs.filter(s => s.type === 'tool_call').map(renderToolChipHtml).join('');
+function renderAnswerTextHtml(text) {
+    return (typeof renderMarkdown === 'function') ? renderMarkdown(text) : escapeHtml(text);
 }
 
-// Static one-shot think-stream HTML (restore / first paint).
-function renderThinkStreamHtml(node) {
-    const segs = (Array.isArray(node.aiSegments) ? node.aiSegments : [])
-        .filter(s => s.type === 'reasoning' || s.type === 'tool_call');
-    if (!segs.length) {
-        return node.aiThinking ? `<div class="think-text">${renderReasoningHtml(node.aiThinking)}</div>` : '';
+// One segment, whatever type it is: reasoning, tool chip or answer text.
+function renderSegmentHtml(seg) {
+    if (seg.type === 'reasoning') return `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(seg.text || '')}</details>`;
+    if (seg.type === 'tool_call') return renderToolChipHtml(seg);
+    return seg.text.trim() != '' ? `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>` : '';
+}
+
+// Groups runs of consecutive tool_call segments into one collapsible block.
+// With show_thoughts = false, reasoning segments are hidden AND no longer end
+// a run — tool calls separated only by hidden thoughts merge into one group.
+// Recomputed each flush — cheap, and trailing runs grow as new tool calls
+// stream in. Derived view only: the segment list itself is never touched.
+function buildStreamPlan(segs) {
+    const plan = [];
+    let i = 0;
+    while (i < segs.length) {
+        const seg = segs[i];
+        if (seg.type === 'reasoning') {
+            if (show_thoughts) plan.push({ type: 'reasoning', seg });
+            i++;
+            continue;
+        }
+        if (seg.type !== 'tool_call') {
+            plan.push({ type: 'text', seg });
+            i++;
+            continue;
+        }
+        // Scan the run: tool calls, plus any reasoning that is hidden — hidden
+        // thoughts sit inside the run instead of ending it.
+        const run = [];
+        let k = i;
+        while (k < segs.length) {
+            const s = segs[k];
+            if (s.type === 'tool_call') { run.push(s); k++; }
+            else if (s.type === 'reasoning' && !show_thoughts) k++;
+            else break;
+        }
+        i = k;
+        plan.push({ type: 'tool_group', run });
     }
-    return segs.map(seg => seg.type === 'reasoning'
-        ? `<div class="think-text">${renderReasoningHtml(seg.text || '')}</div>`
-        : renderToolChipHtml(seg)
+    return plan;
+}
+
+// Static markup for a group of consecutive tool calls: one collapsible block
+// whose summary counts them, with each chip expandable inside it.
+function renderToolGroupHtml(item) {
+    return `<details class="tool-group" data-seg-type="tool_group">` +
+        `<summary>${item.run.length} tool call${item.run.length>1?'s':''} ${expandIcon(color='#888')}</summary>` +
+        item.run.map(renderToolChipHtml).join('') +
+        `</details>`;
+}
+
+// Static one-shot stream HTML (restore / first paint): every segment the model
+// produced, in the order it produced it. No segregation — reasoning, tool
+// chips and answer text flow in the same container.
+function renderAiStreamHtml(node) {
+    const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
+    if (!segs.length) {
+        // Legacy save without segments: thoughts then answer.
+        let html = '';
+        if (show_thoughts && node.aiThinking) html += `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(node.aiThinking)}</details>`;
+        if (node.aiText) html += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
+        return html;
+    }
+    return buildStreamPlan(segs).map(item =>
+        item.type === 'tool_group' ? renderToolGroupHtml(item) : renderSegmentHtml(item.seg)
     ).join('');
 }
 
@@ -95,13 +150,16 @@ function updateThinkTextEl(el, text) {
 // Prose blocks are appended as text nodes (cheap, and the text stays selectable
 // while streaming); code blocks are re-rendered as <pre><code> and handed to
 // Prism right after the markup is written — Prism can only highlight code that
-// is already in the DOM.
+// is already in the DOM. The parent <details>'s <summary> is reserved: content
+// blocks are reconciled after it and must never replace or remove it.
 function renderReasoningEl(el, text) {
     const blocks = splitReasoningBlocks(capThinkText(text || ''));
-    while (el.childElementCount > blocks.length) el.lastElementChild.remove();
+    const summary = el.querySelector(':scope > summary');
+    const content = Array.from(el.children).filter(c => c !== summary);
+    while (content.length > blocks.length) content.pop().remove();
     for (let i = 0; i < blocks.length; i++) {
         const block = blocks[i];
-        let child = el.children[i];
+        let child = content[i];
         if (block.type === 'text') {
             if (!child || child.dataset.blockType !== 'text') {
                 const fresh = document.createElement('div');
@@ -133,77 +191,109 @@ function renderReasoningEl(el, text) {
     }
 }
 
-// Incrementally reconciles container children with the node's reasoning +
-// tool_call segments, in stream order. Text is appended as text nodes; chips
-// are only re-rendered when their own HTML changes, so a chip's <details>
-// open state survives later updates to other segments.
-function renderThinkStream(container, node) {
+// Reconciles the chip wrappers inside a tool-group <details>. Runs only grow
+// (segments are appended, never reordered), so each wrapper keeps its slot;
+// the per-chip _chipHtml cache means a chip's own <details> open state
+// survives updates to its neighbours.
+function reconcileToolGroup(groupEl, run) {
+    // Children: the <summary>, then one wrapper per run segment.
+    while (groupEl.childElementCount > run.length + 1) groupEl.lastElementChild.remove();
+    for (let k = 0; k < run.length; k++) {
+        const seg = run[k];
+        let wrap = groupEl.children[k + 1];
+        if (!wrap || wrap.dataset.segType !== 'tool_call') {
+            const fresh = document.createElement('div');
+            fresh.dataset.segType = 'tool_call';
+            if (wrap) groupEl.replaceChild(fresh, wrap); else groupEl.appendChild(fresh);
+            wrap = fresh;
+        }
+        const html = renderToolChipHtml(seg);
+        if (wrap._chipHtml !== html) {
+            wrap.innerHTML = html;
+            wrap._chipHtml = html;
+        }
+    }
+}
+
+// Incrementally reconciles container children with ALL of the node's segments,
+// in stream order — reasoning, tool chips and answer text interleave exactly as
+// the model emitted them. Consecutive tool calls are grouped into one
+// collapsible "N tool calls" block; everything else renders one-to-one.
+// Reasoning is appended as text nodes; chips only re-render when their own HTML
+// changes (so a chip's <details> open state survives later updates to other
+// segments); text segments re-render markdown only when their text changed.
+function renderAiStream(container, node) {
     if (!container) return;
-    const segs = (node.aiSegments || []).filter(s => s.type === 'reasoning' || s.type === 'tool_call');
-    while (container.childElementCount > segs.length) container.lastElementChild.remove();
-    for (let i = 0; i < segs.length; i++) {
-        const seg = segs[i];
+    const segs = node.aiSegments || [];
+    const plan = buildStreamPlan(segs);
+    // The "Thinking..." placeholder stays while nothing renderable exists yet
+    // (e.g. show_thoughts = false and only reasoning has streamed so far);
+    // onComplete removes it when the stream ends.
+    const hasPlaceholder = !!container.querySelector(':scope > .think-placeholder');
+    if (!(plan.length === 0 && hasPlaceholder)) {
+        while (container.childElementCount > plan.length) container.lastElementChild.remove();
+    }
+    for (let i = 0; i < plan.length; i++) {
+        const item = plan[i];
         let el = container.children[i] || null;
-        if (seg.type === 'reasoning') {
+        if (item.type === 'reasoning') {
             if (!el || el.dataset.segType !== 'reasoning') {
-                const fresh = document.createElement('div');
+                const fresh = document.createElement('details');
+                const summary = document.createElement('summary');
+                summary.innerHTML = "Thoughts";
+                fresh.appendChild(summary)
                 fresh.className = 'think-text';
                 fresh.dataset.segType = 'reasoning';
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            renderReasoningEl(el, seg.text || '');
-        } else {
+            // Reasoning is only appended to while it streams; skip the re-split
+            // entirely for segments that haven't changed since the last flush.
+            if (el._segText !== item.seg.text) {
+                el._segText = item.seg.text;
+                renderReasoningEl(el, item.seg.text || '');
+            }
+        } else if (item.type === 'tool_call') {
             if (!el || el.dataset.segType !== 'tool_call') {
                 const fresh = document.createElement('div');
                 fresh.dataset.segType = 'tool_call';
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            const html = renderToolChipHtml(seg);
+            const html = renderToolChipHtml(item.seg);
             if (el._chipHtml !== html) {
                 el.innerHTML = html;
                 el._chipHtml = html;
             }
+        } else if (item.type === 'tool_group') {
+            if (!el || el.dataset.segType !== 'tool_group') {
+                const fresh = document.createElement('details');
+                fresh.className = 'tool-group';
+                fresh.dataset.segType = 'tool_group';
+                fresh.innerHTML = '<summary></summary>';
+                if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
+                el = fresh;
+            }
+            const label = item.run.length + (item.run.length > 1 ? ` tool calls` : ` tool call`) +  expandIcon(color='#888');
+            if (el.firstElementChild.innerHTML !== label) el.firstElementChild.innerHTML = label;
+            reconcileToolGroup(el, item.run);
+        } else {
+            if (!el || el.dataset.segType !== 'text') {
+                const fresh = document.createElement('div');
+                fresh.className = 'ai-text';
+                fresh.dataset.segType = 'text';
+                if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
+                el = fresh;
+            }
+            // Cache the INPUT text, not just the rendered HTML: markdown
+            // parsing is the expensive step, and only the streaming tail
+            // segment actually changes between flushes. Comparing rendered
+            // HTML would re-parse every finished segment on every flush.
+            if (el._segText !== item.seg.text) {
+                el._segText = item.seg.text;
+                el.innerHTML = renderAnswerTextHtml(item.seg.text || '');
+            }
         }
-    }
-}
-
-// Answer = text segments only. Never contains reasoning or chips.
-function renderAnswerHtml(node) {
-    let text = node.aiText || '';
-    if (Array.isArray(node.aiSegments) && node.aiSegments.length) {
-        text = node.aiSegments.filter(s => s.type === 'text').map(s => s.text).join('\n\n');
-    }
-    return (typeof renderMarkdown === 'function') ? renderMarkdown(text) : escapeHtml(text);
-}
-
-// Add fade bottom and top based on scroll height
-function addFade(parentelement, reset=false) {
-    const element = parentelement && parentelement.querySelector('.think-stream')
-    if (!element) return
-    const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight
-    const atTop = element.scrollTop <= 0
-    if (reset) {
-        element.classList.remove('fade-top')
-        element.classList.remove('fade-bottom')
-        element.classList.remove('fade-both')
-        return
-    }
-    if (!atBottom && !atTop) {
-        element.classList.add('fade-both')
-    } else {
-        element.classList.remove('fade-both')
-    }
-    if (!atBottom) {
-        element.classList.add('fade-bottom')
-    } else {
-        element.classList.remove('fade-bottom')
-    }
-    if (!atTop) {
-        element.classList.add('fade-top')
-    } else {
-        element.classList.remove('fade-top')
     }
 }
 
@@ -214,7 +304,7 @@ class ChatNode extends BaseNode {
         const runStyle = this.nodeData.aiText || this.nodeData.aiThinking ? 'display: none;' : '';
         const inputContent = this.config.restoreData ? (this.nodeData.htmlText || this.nodeData.userText) : this.config.initialUserText;
         const isEditable = this.config.restoreData && this.nodeData.aiText ? 'false' : 'true';
-        const thinkHtml = renderThinkStreamHtml(this.nodeData);
+        const streamHtml = renderAiStreamHtml(this.nodeData);
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
             <div class="node-header">
@@ -244,13 +334,7 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="ai-section">
-                <details class="think-content" style="${thinkHtml ? 'display:flex;' : 'display:none'}">
-                    <summary class='outer-summary'>Thoughts</summary>
-                    <div class="think-stream">
-                        ${thinkHtml}
-                    </div>
-                </details>
-                <div class="ai-content">${this.nodeData.aiText ? renderAnswerHtml(this.nodeData) : ''}</div>
+                <div class="ai-content">${streamHtml}</div>
             </div>
             <div class="node-summary-display">${this.nodeData.summaryText ? (typeof renderMarkdown === 'function' ? renderMarkdown(this.nodeData.summaryText) : this.nodeData.summaryText) : ''}</div>
             <div class="handle handle-out"></div>
@@ -296,23 +380,19 @@ class ChatNode extends BaseNode {
             e.stopPropagation();
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
         });
-        this.thinkContent = this.el.querySelector('.think-content');
-        this.thinkStream = this.thinkContent.querySelector('.think-stream');
-        // Restore path: the reasoning markup is already in the DOM, so its code
-        // blocks can be highlighted right away (the streaming path highlights
-        // them as it renders).
-        if (window.Prism) Prism.highlightAllUnder(this.thinkStream);
-        this.thinkStream.addEventListener('scroll', () => {
-            addFade(this.thinkContent)
-        })
-        this.thinkContent.addEventListener('click', () => { 
-            this.nodeData.oldHeight = this.el.offsetHeight
-            setTimeout(() => {
-                addFade(this.thinkContent, !this.thinkContent.open)
-                const deltaY = this.el.offsetHeight-this.nodeData.oldHeight
-                if (typeof shiftChildrenXY === 'function') shiftChildrenXY(this.nodeData.id, 0, deltaY);
-            }, 1)
-        })
+        this.aiStreamEl = this.el.querySelector('.ai-content');
+        // Persist tool-chip <details> open state back into the segment
+        // (toggle doesn't bubble -> capture phase).
+        this.aiStreamEl.addEventListener('toggle', (e) => {
+            const chip = e.target;
+            const id = chip.getAttribute && chip.getAttribute('data-seg-id');
+            const seg = (this.nodeData.aiSegments || []).find(s => s.type === 'tool_call' && s.id === id);
+            if (seg) seg.open = chip.open;
+        }, true);
+        // Restore path: the stream markup is already in the DOM, so its code
+        // blocks (reasoning and answer) can be highlighted right away — the
+        // streaming path highlights them as they render.
+        if (window.Prism) Prism.highlightAllUnder(this.aiStreamEl);
         this.runBtn.addEventListener('click', this.run.bind(this));
         this.textarea.addEventListener('focus', () => {
             lastFocusedInput = this.textarea;
@@ -408,12 +488,13 @@ class ChatNode extends BaseNode {
                 selectEl.innerHTML = models.map(m => 
                     `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
                 ).join('');
-                // Restore previously selected model if any
-                if (this.nodeData.selectedModel) {
-                    selectBtn.innerHTML = selectEl.querySelector(`[value="${this.nodeData.selectedModel}"]`).innerHTML;
-                } else {
-                    selectBtn.innerHTML = selectEl.querySelector(`[value="openrouter/free"]`).innerHTML;
-                }
+                // Restore previously selected model, the .env default, or the first model
+                const wanted = this.nodeData.selectedModel || defaultModel || models[0].id;
+                const option = selectEl.querySelector(`[value="${wanted}"]`) || selectEl.querySelector('.model-option');
+                selectBtn.innerHTML = option.innerHTML;
+                selectBtn.setAttribute('value', option.getAttribute('value'));
+                // Sync the saved model too, so stale/no-longer-listed ids fall back cleanly
+                this.nodeData.selectedModel = option.getAttribute('value');
             } else {
                 selectBtn.innerHTML = 'No free models found';
             }
@@ -426,6 +507,7 @@ class ChatNode extends BaseNode {
         selectEl.addEventListener('click', (e) => {
             const target = e.target.closest('.model-option')
             selectBtn.innerHTML = target.innerHTML
+            selectBtn.setAttribute('value', target.getAttribute('value'));
             this.nodeData.selectedModel = target.getAttribute('value');
             this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none; height: 0px;'
         });
@@ -444,32 +526,17 @@ class ChatNode extends BaseNode {
         this.nodeData.userText = usertext;
         this.nodeData.aiText = "";
         this.nodeData.aiThinking = "";
-        this.nodeData.aiSegments = [{ type: 'text', text: '' }];
+        this.nodeData.aiSegments = [];
         this.nodeData.abortController = new AbortController();
         const signal = this.nodeData.abortController.signal;
         const aiContentEl = this.el.querySelector('.ai-content');
-        const aiThinkEl = this.el.querySelector('.think-content');
         aiContentEl.innerHTML = '';
-        // One streaming container: reasoning text and tool chips interleave in order.
-        // Append as a real element: `innerHTML +=` re-parses the whole subtree, which
-        // would swap out .think-stream and silently drop its scroll listener.
-        const placeholderEl = document.createElement('div');
-        placeholderEl.className = 'think-placeholder';
-        placeholderEl.style.cssText = 'display:flex;flex-direction:row;align-items:center;';
-        placeholderEl.innerHTML = `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...`;
-        aiThinkEl.appendChild(placeholderEl);
-        aiThinkEl.open = true
-        const thinkStreamEl = aiThinkEl.querySelector('.think-stream');
-        this.thinkStream = thinkStreamEl;   // keep the reference pointing at the live element
-        const thinkPlaceholder = aiThinkEl.querySelector('.think-placeholder');
-        // Persist <details> open state back into the segment (toggle doesn't bubble -> capture).
-        thinkStreamEl.addEventListener('toggle', (e) => {
-            const chip = e.target;
-            const id = chip.getAttribute && chip.getAttribute('data-seg-id');
-            const seg = (this.nodeData.aiSegments || []).find(s => s.type === 'tool_call' && s.id === id);
-            if (seg) seg.open = chip.open;
-        }, true);
-        aiThinkEl.style.display = "flex";
+        // "Thinking..." indicator until the first stream event arrives.
+        const thinkPlaceholder = document.createElement('div');
+        thinkPlaceholder.className = 'think-placeholder';
+        thinkPlaceholder.style.cssText = 'display:flex;flex-direction:row;align-items:center;';
+        thinkPlaceholder.innerHTML = `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...`;
+        aiContentEl.appendChild(thinkPlaceholder);
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
         if (this.stopBtn) this.stopBtn.style.display = 'flex';
@@ -515,10 +582,6 @@ class ChatNode extends BaseNode {
         }
         let aborted = false;
         this.textarea.style.border = "none";
-        // this.textarea.style.background = "transparent";
-        // this.textarea.style.height = "auto";
-        // this.textarea.style.color = "#eee";
-        let erased_thoughts = false;
         if (history.length > 0) {
             const lastMsg = history[history.length - 1];
             if (lastMsg.role === 'user') {
@@ -537,27 +600,15 @@ class ChatNode extends BaseNode {
             this.nodeData.selectedModel = selectedModel; // Persist for restore
         }
         let uiDirty = false;
-        const syncThinkVisibility = () => {
-            const segs = this.nodeData.aiSegments || [];
-            const hasReasoning = segs.some(s => s.type === 'reasoning' && s.text && s.text.trim() !== '');
-            const hasChips = segs.some(s => s.type === 'tool_call');
-            aiThinkEl.style.display = (hasReasoning || hasChips) ? 'flex' : 'none';
-        };
         const flushUi = () => {
             uiDirty = false;
-            aiContentEl.innerHTML = renderAnswerHtml(this.nodeData);   // answer ALWAYS goes here
-            if (aiThinkEl.isConnected) {
-                renderThinkStream(thinkStreamEl, this.nodeData);       // reasoning + chips, in stream order
-                // Only auto-scroll if user is already near the bottom (within 100px)
-                const thughtsIsNearBottom = thinkStreamEl.scrollTop + thinkStreamEl.clientHeight >= thinkStreamEl.scrollHeight - 100;
-                if (thughtsIsNearBottom) {
-                    thinkStreamEl.scrollTop = thinkStreamEl.scrollHeight;
-                }
-                const aiSection = this.el.querySelector('.ai-section')
-                const contentIsNearBottom = aiSection.scrollTop + aiSection.clientHeight >= aiSection.scrollHeight - 100;
-                if (contentIsNearBottom) {
-                    aiSection.scrollTop = aiSection.scrollHeight;
-                }
+            // Everything the model emitted — reasoning, tool chips and answer
+            // text — reconciles into one stream, in emission order.
+            renderAiStream(aiContentEl, this.nodeData);
+            const aiSection = this.el.querySelector('.ai-section')
+            const contentIsNearBottom = aiSection.scrollTop + aiSection.clientHeight >= aiSection.scrollHeight - 100;
+            if (contentIsNearBottom) {
+                aiSection.scrollTop = aiSection.scrollHeight;
             }
             if (typeof drawEdges === 'function') drawEdges();
         };
@@ -570,15 +621,6 @@ class ChatNode extends BaseNode {
         await streamChatApi(payload, signal, {
             onContent: (content) => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
-                if (!erased_thoughts) {
-                    erased_thoughts = true;
-                    if (typeof erase_thoughts !== 'undefined' && erase_thoughts) {
-                        // Put think content into a summary tag
-                        const thinkContent = this.el.querySelector('.think-stream')
-                        thinkContent.innerHTML = thinkContent.innerHTML;
-                        this.nodeData.aiSegments = this.nodeData.aiSegments.filter(s => s.type !== 'reasoning');
-                    }
-                }
                 this.nodeData.aiText += content;
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
@@ -587,7 +629,6 @@ class ChatNode extends BaseNode {
                     segs.push(last);
                 }
                 last.text += content;
-                syncThinkVisibility();
                 requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'content', this.nodeData.aiText);
             },
@@ -605,7 +646,6 @@ class ChatNode extends BaseNode {
                     status: 'running',
                     result: ''
                 });
-                syncThinkVisibility();
                 requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_call_start', tc);
             },
@@ -621,7 +661,6 @@ class ChatNode extends BaseNode {
                 seg.name        = tc.name || seg.name;
                 seg.rawArgs     = tc.arguments || '';
                 seg.argsPreview = toolArgsPreview(seg.rawArgs);
-                syncThinkVisibility();
                 requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_call', tc);
             },
@@ -646,7 +685,9 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_result', tr);
             },
             onReasoning: (reasoning) => {
-                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                // With show_thoughts = false the reasoning itself is hidden, so
+                // keep the "Thinking..." indicator up while it streams.
+                if (show_thoughts && thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 this.nodeData.aiThinking += reasoning;
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
@@ -655,7 +696,6 @@ class ChatNode extends BaseNode {
                     segs.push(last);
                 }
                 last.text += reasoning;
-                syncThinkVisibility();
                 requestUiFlush();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'reasoning', this.nodeData.aiThinking);
             },
@@ -663,6 +703,7 @@ class ChatNode extends BaseNode {
                 if (error.name === 'AbortError' || (error.message && error.message.includes('AbortError'))) {
                     this.nodeData.abortController = null
                     aborted = true;
+                    if (show_thoughts && thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                     aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
                     this.textarea.contentEditable = true;
                     this.textarea.style.border = "";
@@ -675,14 +716,10 @@ class ChatNode extends BaseNode {
             },
             onComplete: () => {
                 if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
-                syncThinkVisibility();
                 if (window.Prism) Prism.highlightAllUnder(aiContentEl);
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
-                // Stream stays visible after completion: reasoning + Done chips remain inspectable.
-                // If you want the old wipe-on-finish behavior, uncomment:
-                // this.nodeData.aiThinking = '';
-                // this.nodeData.aiSegments = [];
-                aiThinkEl.open=false
+                // Stream stays visible after completion: reasoning text and
+                // Done chips remain inspectable, right where the model put them.
                 if (this.nodeData.childNodeIds.length === 0) this.el.querySelector('.add-child-btn').click()
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');

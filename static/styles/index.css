@@ -1,4 +1,6 @@
 :root {
+    interpolate-size: allow-keywords;
+
     /* Backgrounds */
     --bg-base: #1e1e1e;
     --bg-surface: #181818;
@@ -613,26 +615,27 @@ body.shift-pressed.input-focused .node-id {
 
 /* Pushes it to the very bottom */
 
-.think-content {
+/* "Thinking..." indicator inside a focus turn while the stream is empty. */
+.focus-think-header {
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Reasoning segments render inline in .ai-content, in the order the model
+   emitted them — styled like the old thoughts block so they stay visually
+   secondary to the answer. */
+.ai-content .think-text {
     color: var(--text-disabled);
     font-size: 0.85em;
     font-style: italic;
-    padding-left: 4px;
-    margin: 8px 12px 8px 0px;
     line-height: 1.5;
-    min-height: 0px;
-    display: flex;
-    flex-direction: column;
-    height: fit-content;
-    /* overflow: auto;
-    scrollbar-width: none; */
-}
-.outer-summary {
-    margin-left: -4px;
-}
-
-.think-content:empty {
-    display: none;
+    border-left: 1px solid var(--border-highlight);
+    padding-left: 10px;
+    white-space: break-spaces;
 }
 
 .turn-node {
@@ -1019,29 +1022,24 @@ body.shift-pressed.input-focused .node-id {
     background-color: var(--transparent-light);
 }
 
-.ai-content p,
-.think-content p {
+.ai-content p {
     margin: 0 0 10px 0;
 }
 
-.ai-content p:last-child,
-.think-content p:last-child {
+.ai-content p:last-child {
     margin-bottom: 0;
 }
 
-.ai-content pre,
-.think-content pre {
+.ai-content pre {
     background: var(--bg-base);
     padding: 10px;
     border-radius: 6px;
     overflow-x: auto;
     margin: 10px 0;
-    /* .think-stream sets break-spaces for the prose; code needs plain pre. */
     white-space: pre;
 }
 
-.ai-content code,
-.think-content code {
+.ai-content code {
     font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
     background: var(--bg-base);
     padding: 2px 4px;
@@ -1049,23 +1047,19 @@ body.shift-pressed.input-focused .node-id {
     font-size: 0.9em;
 }
 
-.ai-content pre code,
-.think-content pre code {
+.ai-content pre code {
     background: transparent;
     padding: 0;
     font-size: 0.95em;
 }
 
 .ai-content ul,
-.ai-content ol,
-.think-content ul,
-.think-content ol {
+.ai-content ol {
     margin: 0 0 10px 20px;
     padding: 0;
 }
 
-.ai-content blockquote,
-.think-content blockquote {
+.ai-content blockquote {
     border-left: 4px solid var(--border-strong);
     margin: 10px 0;
     padding-left: 10px;
@@ -1078,9 +1072,20 @@ body.shift-pressed.input-focused .node-id {
     margin-bottom: 10px;
 }
 
+.ai-content > .ai-text:not(:last-child) {
+    border-left: 1px solid var(--border-highlight);
+    padding: 10px 0px 10px 10px;
+}
+
+.ai-content > .ai-text:first-child {
+    padding: 0px 0px 10px 10px;
+}
+
 .ai-content {
 
-    overflow: auto;
+    overflow: clip;
+    overflow-clip-margin: 1em;
+    position: relative;
 
     th,
     tr:not(:last-child) {
@@ -1167,6 +1172,11 @@ div[contentEditable='true'].scrape-node-input,
     resize: none;
     min-height: unset;
     overflow-x: hidden;
+}
+
+.scrape-node-input:empty::before {
+    content: attr(placeholder);
+    color: var(--text-disabled);
 }
 
 .node-input[contenteditable="false"] {
@@ -1357,23 +1367,22 @@ h6 {
             margin-bottom: 40px;
         }
 
-        .focus-think {
-            max-width: 90%;
-            align-self: start;
-            padding: 0px 4px;
-            color: var(--text-muted);
-            font-style: italic;
-            font-size: 0.85em;
-            line-height: 1.5;
-        }
-
         .focus-ai {
             background-color: transparent;
             width: 90%;
             align-self: start;
             color: var(--text-primary);
-            overflow: auto;
+            overflow: visible;
             scrollbar-width: none;
+
+            summary::before {
+                left: -15px;
+            }
+            .tool-chip {
+                summary::before {
+                    left: -14.4px;
+                }
+            }
         }
     }
 }
@@ -1479,13 +1488,6 @@ h6 {
     }
 }
 
-.focus-think-body {
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: end;
-}
-
 .focus-tab-selection {
     background-color: var(--bg-input);
     border-right: 1px solid var(--border-strong);
@@ -1556,19 +1558,38 @@ h6 {
 
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
-.think-stream { 
-    border-left: 2px solid var(--border-highlight);
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    height: 100%;
-    overflow: auto;
-    white-space: break-spaces;
-    scrollbar-width: none;
-    max-height: 200px;
+.ai-content .tool-chip {
+    color: var(--text-disabled);
+    font-size: 0.85em;
+    font-style: italic;
+    line-height: 1.5;
+    border-left: 1px solid var(--border-highlight);
     padding-left: 10px;
+    white-space: break-spaces;
 }
-.think-stream .tool-chip, .think-content .tool-chip { margin: 10px 0; }
+
+/* Collapsible block for runs of consecutive tool calls; the summary counts
+   them and each chip stays individually expandable inside. */
+.ai-content .tool-group {
+    color: var(--text-disabled);
+    font-size: 0.85em;
+    font-style: italic;
+    line-height: 1.5;
+    border-left: 1px solid var(--border-highlight);
+    padding-left: 10px;
+    /* margin: 10px 0; */
+}
+
+.ai-content .tool-group > summary {
+    margin-bottom: 2px;
+}
+
+.ai-content .tool-group .tool-chip {
+    margin-left: 4px;
+    summary::before {
+        left: -14px;
+    }
+}
 
 
 /* WebKit (Chrome, Safari, Edge) */
@@ -1603,24 +1624,10 @@ h6 {
     border-radius: 10px;
 }
 
-.fade-top {
-    mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px);
-}
-
-.fade-bottom {
-    mask-image: linear-gradient(to bottom, var(--bg-surface) calc(100% - 30px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, var(--bg-surface) calc(100% - 30px), transparent 100%);
-}
-
-.fade-both {
-    mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px, var(--bg-surface) calc(100% - 30px), transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, var(--bg-surface) 30px, var(--bg-surface) calc(100% - 30px), transparent 100%);
-}
-
 details > summary {
     cursor: pointer;
     user-select: none;
+    padding-left: 0px;
 }
 
 .think-block > pre {
@@ -1735,4 +1742,54 @@ div.model-list::-webkit-scrollbar-track {
 .model-select-container {
     display: flex;
     flex-direction: column;
+}
+
+summary {
+  list-style: none;             /* hides the native marker */
+  padding-left: 1.5em;          /* space for the circle */
+  position: relative;           /* positioning context */
+  cursor: pointer;
+}
+summary::-webkit-details-marker { display: none; }  /* old WebKit */
+
+summary::before {
+    content: "●";
+    position: absolute;
+    left: -14.65px;
+}
+
+.ai-text:empty {
+    display: none;
+}
+.ai-text:not(:empty):not(:last-child)::before {
+    content: "●";
+    font-size: 0.85em;
+    position: absolute;
+    left: -3.7px;
+}
+
+details > summary > .file-icon {
+    width: 11px;
+    height: 11px;
+    margin-left: 3px;
+    aspect-ratio: 1 / 1;
+    margin-bottom: 0px;
+    transition: ease-in-out 0.2s;
+}
+details:open > summary > .file-icon {
+    transform: rotateX(180deg);
+}
+
+details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  content-visibility: hidden;
+  transition:
+    block-size 0.2s ease,
+    content-visibility 0.2s allow-discrete;
+}
+
+details[open]::details-content {
+  block-size: auto;
+  content-visibility: visible;
 }

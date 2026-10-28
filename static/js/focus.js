@@ -56,7 +56,7 @@ function addToChatHistory(targetNode) {
             }
             // Check if parent is currently thinking (has reasoning or a running
             // tool call, but no final answer yet) — mirrors ChatNode, where a
-            // running tool chip counts as live think-stream content.
+            // running tool chip counts as live stream content.
             const parentHasRunningTool = Array.isArray(parent.aiSegments) &&
                 parent.aiSegments.some(s => s.type === 'tool_call' && s.status === 'running');
             if ((!parent.aiText || parent.aiText.trim() === '') &&
@@ -660,32 +660,6 @@ async function renderFocusProjectFiles() {
 }
 
 /**
- * Wires the fade-on-scroll behavior for a focus-mode think block.
- *
- * The element that actually scrolls is `.focus-think-body .think-stream`
- * (the <details> itself never scrolls, and scroll events don't bubble, so a
- * listener on the <details> would never fire for the stream's scrolling).
- * The <details> click handler re-runs the fade after the block opens/closes.
- *
- * Must be re-run whenever a think block is (re)created or cloned — cloneNode()
- * drops event listeners, so a cloned turn comes back un-wired.
- */
-function wireFocusThink(thinkEl) {
-    if (!thinkEl || thinkEl._fadeWired) return;
-    thinkEl._fadeWired = true;
-    const onScroll = () => addFade(thinkEl);
-    const stream = thinkEl.querySelector('.focus-think-body .think-stream');
-    if (stream) stream.addEventListener('scroll', onScroll);
-    const body = thinkEl.querySelector('.focus-think-body');
-    if (body) body.addEventListener('scroll', onScroll);
-    thinkEl.addEventListener('click', () => {
-        setTimeout(() => {
-            addFade(thinkEl, !thinkEl.open)
-        }, 1)
-    })
-}
-
-/**
  * Renders the linear message lineage history in the main chat layer.
  * Preserves the currently streaming node (if any) to avoid wiping in-progress content.
  */
@@ -763,42 +737,28 @@ function renderFocusLineage() {
             userHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.userText) : nodeData.userText;
         }
 
-        let aiHtml = '';
+        // The canvas node's .ai-content is the source of truth for the full response
+        // stream — reasoning, tool-call chips and answer text in the exact order
+        // the model emitted them. Copy it verbatim; with no live element (node
+        // restored from history), rebuild the identical markup from the node's
+        // segments via renderAiStreamHtml, the same one-shot renderer ChatNode
+        // uses on restore/first paint.
+        let aiStreamHtml = '';
         if (nodeEl) {
             const contentEl = nodeEl.querySelector('.ai-content');
-            if (contentEl) aiHtml = contentEl.innerHTML.trim();
+            if (contentEl) aiStreamHtml = contentEl.innerHTML.trim();
         }
-        if (!aiHtml && nodeData.aiText) {
-            aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.aiText) : nodeData.aiText;
+        if (!aiStreamHtml && typeof renderAiStreamHtml === 'function') {
+            aiStreamHtml = renderAiStreamHtml(nodeData);
         }
+
         const showSummary = nodeData.summaryText && nodeData.isCollapsed;
         if (showSummary) {
-            aiHtml = `<span style="font-style: italic;opacity: .5;font-size: 14px;line-height: 1;">Summarized response:</span> ${typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText}`
-        }
-
-        const thinking = nodeData.aiThinking ? nodeData.aiThinking.trim() : '';
-
-        // Mirror ChatNode: completed turns keep their full think stream visible —
-        // reasoning text and tool-call chips interleaved in stream order. The
-        // canvas node's .think-stream is the source of truth for that markup
-        // (ChatNode keeps it in the DOM after completion), so copy it verbatim
-        // to get the exact same chips ("Done: name(args)" + expandable result).
-        // With no live .think-stream (node restored from history — ChatNode's
-        // static restore markup sits directly inside .think-content), rebuild
-        // the identical markup from the node's segments via renderThinkStreamHtml,
-        // the same one-shot renderer ChatNode uses on restore/first paint, so
-        // restored turns keep their chips and escaped reasoning text too.
-        let thinkStreamHtml = '';
-        if (nodeEl) {
-            const canvasStream = nodeEl.querySelector('.think-content .think-stream');
-            if (canvasStream) thinkStreamHtml = canvasStream.innerHTML.trim();
-        }
-        if (!thinkStreamHtml && typeof renderThinkStreamHtml === 'function') {
-            thinkStreamHtml = renderThinkStreamHtml(nodeData);
+            aiStreamHtml = `<span style="font-style: italic;opacity: .5;font-size: 14px;line-height: 1;">Summarized response:</span> ${typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText}`
         }
 
         // Skip completely unexecuted trailing node in lineage display
-        if (!userHtml && !aiHtml && !thinking && !thinkStreamHtml) {
+        if (!userHtml && !aiStreamHtml) {
             return;
         }
 
@@ -810,45 +770,14 @@ function renderFocusLineage() {
         if (userHtml) {
             turnHtml += `<div class="focus-user">${userHtml}</div>`;
         }
-        if (thinkStreamHtml) {
-            turnHtml += `
-                <details class="focus-think" style="display: block;">
-                    <summary class='outer-summary'>Thoughts</summary>
-                    <div class="focus-think-body"><div class="think-stream">${thinkStreamHtml}</div></div>
-                </details>
-            `;
-        } else if (thinking) {
-            // Legacy node without segments: keep the same .think-stream DOM
-            // shape the streaming/canvas structure uses.
-            turnHtml += `
-                <details class="focus-think" style="display: block;">
-                    <summary class='outer-summary'>Thoughts</summary>
-                    <div class="focus-think-body"><div class="think-stream">${typeof renderMarkdown === 'function' ? renderMarkdown(thinking) : thinking}</div></div>
-                </details>
-            `;
-        } else {
-            turnHtml += `<details class="focus-think" style="display: none;"></details>`;
-        }
-        if (aiHtml) {
-            turnHtml += `<div class="focus-ai ai-content">${aiHtml}</div>`;
-        } else {
-            turnHtml += `<div class="focus-ai ai-content"></div>`;
-        }
+        turnHtml += `<div class="focus-ai ai-content">${aiStreamHtml}</div>`;
 
-        
-        
-        turnDiv.innerHTML = turnHtml;
-        // Restored think stream: the reasoning markup is already in the DOM, so
-        // its code blocks can be highlighted right away (the streaming path
-        // highlights them as it renders).
+        turnDiv.innerHTML = turnHtml
+
+        // Restored stream: the markup is already in the DOM, so its code blocks
+        // can be highlighted right away (Prism skips already-highlighted code).
         if (window.Prism) {
-            const restoredStream = turnDiv.querySelector('.think-stream');
-            if (restoredStream) Prism.highlightAllUnder(restoredStream);
-        }
-        const focusThink = turnDiv.querySelector('.focus-think')
-
-        if (focusThink) {
-            wireFocusThink(focusThink)
+            Prism.highlightAllUnder(turnDiv.querySelector('.focus-ai'));
         }
         focusNodesLayer.appendChild(turnDiv);
     });
@@ -856,21 +785,19 @@ function renderFocusLineage() {
     // Restore the streaming node if we saved it (append at the end since it's the active node)
     if (streamingNodeEl) {
         // cloneNode(true) keeps the streamed DOM text but drops the renderer's
-        // expando caches (_shown/_chipHtml), so the next incremental
-        // renderThinkStream pass would re-append the full reasoning text and
-        // duplicate it. Rebuild the stream from the node's segments instead —
-        // identical markup, caches re-seeded, chip open state preserved via
-        // seg.open (same as ChatNode's restore path).
-        const clonedStream = streamingNodeEl.querySelector('.focus-think-body .think-stream');
+        // expando caches (_shown/_chipHtml/_segText), so the next incremental
+        // renderAiStream pass would mis-reconcile. Rebuild the stream from the
+        // node's segments instead — identical markup, caches re-seeded, chip
+        // open state preserved via seg.open (same as ChatNode's restore path).
+        const clonedStream = streamingNodeEl.querySelector('.focus-ai');
         const streamingData = nodes.find(n => n.id === focusModeStreamingNodeId);
-        if (clonedStream && streamingData && typeof renderThinkStream === 'function') {
+        const hasSegs = streamingData && Array.isArray(streamingData.aiSegments) && streamingData.aiSegments.length > 0;
+        if (clonedStream && hasSegs && typeof renderAiStream === 'function') {
             clonedStream.innerHTML = '';
-            renderThinkStream(clonedStream, streamingData);
+            renderAiStream(clonedStream, streamingData);
         }
+        // With no segments yet the clone still shows the "Thinking..." header — leave it.
         focusNodesLayer.appendChild(streamingNodeEl);
-        // The streaming turn was cloneNode()'d, which drops every listener it had
-        // (including the fade wiring) — re-wire it on the clone that's now live.
-        wireFocusThink(streamingNodeEl.querySelector('.focus-think'));
     }
 
     focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
@@ -968,17 +895,11 @@ async function sendFocusMessage() {
         turnDiv.id = `focus-turn-${targetNodeId}`;
         turnDiv.innerHTML = `
             <div class="focus-user">${userHtml}</div>
-            <details class="focus-think" style="display: block;" open>
-                <summary class='outer-summary'>Thoughs</summary>
+            <div class="focus-ai ai-content">
                 <div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div>
-                <div class="focus-think-body"><div class="think-stream"></div></div>
-            </details>
-            <div class="focus-ai ai-content"></div>
+            </div>
         `;
         focusNodesLayer.appendChild(turnDiv);
-        // Wire the fade behavior for this live turn — the turn is built from
-        // innerHTML here, so it starts with no listeners at all.
-        wireFocusThink(turnDiv.querySelector('.focus-think'));
         focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
     }
 
@@ -1007,31 +928,22 @@ async function sendFocusMessage() {
 }
 
 /**
- * Mirrors ChatNode's syncThinkVisibility() + think-placeholder lifecycle.
- * ChatNode removes .think-placeholder on the first stream event no matter
- * which kind arrives (onReasoning/onContent/onToolCallStart/onToolCall),
- * then shows the section only while it has reasoning text or tool-call
- * chips. So the "Thinking..." header here is dropped permanently on the
- * first sync — it can never flash back if erase_thoughts later wipes the
- * reasoning segments mid-turn — and the section toggles exactly like the
- * canvas node's .think-content. Only call this from stream events.
+ * Removes the "Thinking..." placeholder header from a focus turn. ChatNode
+ * drops its placeholder on the first stream event; this does the same for the
+ * focus layer. Only call this from stream events.
  */
-function syncFocusThinkVisibility(turnEl, nodeData) {
-    const thinkEl = turnEl && turnEl.querySelector('.focus-think');
-    if (!thinkEl) return;
-    const headerEl = thinkEl.querySelector('.focus-think-header');
+function syncFocusThinkVisibility(turnEl) {
+    const aiEl = turnEl && turnEl.querySelector('.focus-ai');
+    if (!aiEl) return;
+    const headerEl = aiEl.querySelector('.focus-think-header');
     if (headerEl && headerEl.isConnected) headerEl.remove();
-    const segs = nodeData && Array.isArray(nodeData.aiSegments) ? nodeData.aiSegments : [];
-    const hasReasoning = segs.some(s => s.type === 'reasoning' && s.text && s.text.trim() !== '');
-    const hasChips = segs.some(s => s.type === 'tool_call');
-    thinkEl.style.display = (hasReasoning || hasChips) ? 'block' : 'none';
 }
 
 /**
  * Real-time streaming hook invoked by ChatNode.run() to update Focus Mode UI.
- * Mirrors the canvas ChatNode rendering: reasoning text and tool-call chips
- * interleave in stream order inside .focus-think-body .think-stream (via the
- * same renderThinkStream renderer the canvas node uses), running chips show
+ * Mirrors the canvas ChatNode rendering: reasoning text, tool-call chips and
+ * answer text all flow in stream order inside .focus-ai (via the same
+ * renderAiStream renderer the canvas node uses), running chips show
  * "Tool call: name(args)..." and flip to expandable "Done:" chips on result,
  * and the stream stays visible while the answer streams and after completion.
  */
@@ -1042,52 +954,36 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     const turnEl = document.getElementById(`focus-turn-${nodeId}`);
     if (!turnEl) return;
 
-    const thinkEl = turnEl.querySelector('.focus-think');
-    const thinkStreamEl = turnEl.querySelector('.focus-think-body .think-stream');
     const aiEl = turnEl.querySelector('.focus-ai');
     const nodeData = nodes.find(n => n.id === nodeId);
     const nodesLayer = document.getElementById('focus-nodes-layer');
 
-    // Shared updater: reconciles the focus stream with the node's reasoning +
-    // tool_call segments so text and chips interleave in stream order, exactly
-    // like the canvas node (renderThinkStream comes from ChatNode.js).
-    const syncThinkStream = () => {
-        if (!thinkEl || !thinkStreamEl) return;
-        if (nodeData && typeof renderThinkStream === 'function') {
-            renderThinkStream(thinkStreamEl, nodeData);
-            // Mirror ChatNode's flushUi: only auto-scroll the think stream if
-            // the user is already near the bottom (within 100px).
-            const isNearBottom = thinkStreamEl.scrollTop + thinkStreamEl.clientHeight >= thinkStreamEl.scrollHeight - 100;
-            if (isNearBottom) thinkStreamEl.scrollTop = thinkStreamEl.scrollHeight;
-        }
-        syncFocusThinkVisibility(turnEl, nodeData);
+    // Shared updater: reconciles the focus stream with ALL of the node's
+    // segments so reasoning, chips and answer text interleave in stream order,
+    // exactly like the canvas node (renderAiStream comes from ChatNode.js).
+    // Stream events arrive per-delta, far faster than frames — render at most
+    // once per animation frame, mirroring ChatNode's flushUi throttle.
+    let uiPending = false;
+    const renderStreamNow = () => {
+        uiPending = false;
+        if (!aiEl || !nodeData || typeof renderAiStream !== 'function') return;
+        syncFocusThinkVisibility(turnEl);
+        renderAiStream(aiEl, nodeData);
+    };
+    const syncStream = () => {
+        if (uiPending) return;
+        uiPending = true;
+        requestAnimationFrame(renderStreamNow);
     };
 
-    if (type === 'reasoning' || type === 'tool_call_start' || type === 'tool_call' || type === 'tool_result') {
-        // Reasoning text and tool chips render inline in the stream: a running
-        // chip shows "Tool call: name(args)..." and flips to an expandable
-        // "Done:" chip with its result when onToolResult fires (same as canvas).
-        syncThinkStream();
-        updateFocusModeButtonState('streaming', nodeId);
-    } else if (type === 'content') {
-        // ChatNode keeps the think stream visible once the answer starts (it may
-        // collapse here if erase_thoughts wiped the reasoning) — re-reconcile the
-        // stream instead of removing the section, so later tool calls in the same
-        // turn still appear alongside the answer.
-        syncThinkStream();
-        if (aiEl) {
-            // Mirror ChatNode's flushUi: the answer always renders through
-            // renderAnswerHtml (text segments joined with blank lines), so an
-            // answer split around tool calls gets the same paragraph
-            // separation as the canvas node instead of a raw concatenation.
-            if (nodeData && typeof renderAnswerHtml === 'function') {
-                aiEl.innerHTML = renderAnswerHtml(nodeData);
-            } else {
-                aiEl.innerHTML = typeof renderMarkdown === 'function' ? renderMarkdown(data) : data;
-            }
-        }
+    if (type === 'reasoning' || type === 'tool_call_start' || type === 'tool_call' || type === 'tool_result' || type === 'content') {
+        // Everything the model emits renders inline in one stream: reasoning
+        // text, tool chips ("Tool call: name(args)..." flipping to an
+        // expandable "Done:" chip on result) and the answer, in emission order.
+        syncStream();
         updateFocusModeButtonState('streaming', nodeId);
     } else if (type === 'error') {
+        syncFocusThinkVisibility(turnEl);
         if (isAborted) {
             if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
         } else {
@@ -1098,12 +994,10 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         updateFocusModeButtonState('idle');
     } else if (type === 'complete') {
         updateFocusModeButtonState('idle');
-        // Mirror ChatNode's onComplete: a final placeholder-remove + visibility
-        // reconcile, then the think stream stays visible after completion —
-        // reasoning text and "Done" tool chips remain inspectable in place.
-        // Prism is applied to the answer only, same as the canvas node.
-        syncThinkStream();
-        thinkEl.open = false
+        // Final render (synchronously, so Prism below sees the finished DOM),
+        // then the stream stays visible after completion — reasoning text and
+        // "Done" tool chips remain inspectable in place.
+        renderStreamNow();
         if (window.Prism && aiEl) {
             Prism.highlightAllUnder(aiEl);
         }
@@ -1145,19 +1039,15 @@ async function populateFocusModelSelection() {
             selectEl.innerHTML = models.map(m =>
                 `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
             ).join('');
-            // Restore previously selected model if any
+            // Restore previously selected model if any, else the .env default
             const activeNodeData = nodes.find(n => n.id === activeNodeId);
-            if (activeNodeData?.selectedModel) {
-                const selectedOption = selectEl.querySelector(`[value="${activeNodeData.selectedModel}"]`);
-                if (selectedOption) {
-                    selectBtn.innerHTML = selectedOption.innerHTML;
-                    selectBtn.setAttribute('value', activeNodeData.selectedModel);
-                }
-            } else {
-                const selectedOption = selectEl.querySelector(`[value="openrouter/free"]`);
-                if (selectedOption) {
-                    selectBtn.innerHTML = selectedOption.innerHTML;
-                    selectBtn.setAttribute('value', 'openrouter/free');
+            const wanted = activeNodeData?.selectedModel || defaultModel || 'openrouter/free';
+            const selectedOption = selectEl.querySelector(`[value="${wanted}"]`) || selectEl.querySelector('.model-option');
+            if (selectedOption) {
+                selectBtn.innerHTML = selectedOption.innerHTML;
+                selectBtn.setAttribute('value', selectedOption.getAttribute('value'));
+                if (activeNodeData && !activeNodeData.selectedModel) {
+                    activeNodeData.selectedModel = selectedOption.getAttribute('value');
                 }
             }
         } else {
@@ -1330,7 +1220,7 @@ function setupFocusInputListeners() {
 
     // Keep tool-chip <details> open state in sync between the focus layer and
     // the canvas node (capture phase, since 'toggle' does not bubble) — mirrors
-    // the capture-phase toggle listener ChatNode attaches to .think-stream, so
+    // the capture-phase toggle listener ChatNode attaches to .ai-content, so
     // a chip stays open/closed across focus re-renders.
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
     if (focusNodesLayer && !focusNodesLayer._thinkToggleSyncInitialized) {
@@ -1347,7 +1237,7 @@ function setupFocusInputListeners() {
                 const seg = nodeData.aiSegments.find(s => s.type === 'tool_call' && s.id === segId);
                 if (seg) seg.open = chip.open;
             }
-            const canvasChip = document.getElementById(nodeId)?.querySelector(`.think-stream .tool-chip[data-seg-id="${segId}"]`);
+            const canvasChip = document.getElementById(nodeId)?.querySelector(`.ai-content .tool-chip[data-seg-id="${segId}"]`);
             if (canvasChip && canvasChip.open !== chip.open) canvasChip.open = chip.open;
         }, true);
     }

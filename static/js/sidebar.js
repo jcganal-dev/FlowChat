@@ -657,7 +657,7 @@ window.addEventListener('DOMContentLoaded', () => {
             let newTop = e.clientY - dragOffsetY;
             // Right and bottom bounds: right edge and bottom edge must stay inside the viewport
             newLeft = Math.min(newLeft, window.innerWidth - palette.offsetWidth);
-            newTop = Math.min(newTop, window.innerHeight - palette.offsetHeight);
+            newTop = Math.min(newTop, window.innerHeight - palette.querySelector('#sandbox-palette-header').offsetHeight);
             palette.style.left = `${Math.max(0, newLeft)}px`;
             palette.style.top = `${Math.max(0, newTop)}px`;
         } else if (isResizing) {

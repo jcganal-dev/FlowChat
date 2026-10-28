@@ -17,7 +17,6 @@ class BaseNode {
                     payload: this.nodeData.filePayload
                 });
             }
-            if (typeof erase_thoughts !== 'undefined' && erase_thoughts && this.nodeData.aiText) this.nodeData.aiThinking = "";
             nodes.push(this.nodeData);
         } else {
             this.nodeData = {

@@ -1,6 +1,5 @@
 const $ = (id) => document.getElementById(id);
 const $make = (tag) => document.createElement(tag);
-const erase_thoughts = false;
 const GRID_SIZE = 24;
 const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore|svg)$/i;
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
@@ -9,6 +8,8 @@ const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
 // Model cache - fetched once per session
 let cachedModels = null;
 let modelsFetchPromise = null;
+// Default model from the backend (.env MODEL), set by apiFetchModels()
+let defaultModel = null;
 
 /**
  * Fetches and caches the free model list from the backend.
@@ -114,6 +115,14 @@ function chatIcon(color='#38bdf8') {
     `
 }
 
+function expandIcon(color='#ffffff') {
+    return `
+    <?xml version="1.0" encoding="utf-8"?>
+    <!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+    <svg width="800px" class='file-icon' height="800px" viewBox="0 0 1024 1024" class="icon"  version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M903.232 256l56.768 50.432L512 768 64 306.432 120.768 256 512 659.072z" fill="${color}" /></svg>
+    `
+}
+
 /**
  * Returns a comma-separated list of extensions accepted by textWhitelist,
  * suitable for an <input type="file" accept=""> attribute.
@@ -130,6 +139,10 @@ const systemReminders = 'Do not overthink, immediately stop thinking after you a
 let nodes = [];
 let groups = {};
 let current_active_lineage = []
+// Set to false to hide the reasoning ("Thoughts") blocks in the stream and
+// merge tool-call runs across them into one collapsed group. Takes effect on
+// the next page load.
+let show_thoughts = false;
 let camera = { x: 0, y: 0, zoom: 1 };
 let selectedNodes = new Set();
 let activeNodeId = null;
@@ -181,7 +194,28 @@ contextMenu.innerHTML = `
 `;
 document.body.appendChild(contextMenu);
 
-const nodeResizeObserver = new ResizeObserver(() => {
+/**
+ * Keeps node.cachedWidth/cachedHeight in sync with the DOM. Node sizes only
+ * change when their content or width changes, never when the camera pans or
+ * zooms (CSS transforms don't affect offsetWidth/Height), so measuring here —
+ * instead of in updateCanvas's per-frame path — avoids forced layout cascades
+ * while panning. Culled (display:none) entries report 0 and are skipped so
+ * the last known good size survives culling.
+ */
+const nodeResizeObserver = new ResizeObserver((entries) => {
+    entries.forEach(entry => {
+        const el = entry.target;
+        if (!el || el.style.display === 'none') return;
+        const w = el.offsetWidth;
+        const h = el.offsetHeight;
+        if (!w && !h) return;
+        const inst = el.__nodeInstance;
+        const nodeData = inst ? inst.nodeData : nodes.find(n => n.id === el.id);
+        if (!nodeData) return;
+        nodeData.cachedWidth = w;
+        nodeData.cachedHeight = h;
+        nodeData.nodeHeight = h;
+    });
     clearTimeout(layoutDebounceTimeout);
     layoutDebounceTimeout = setTimeout(() => {
         if (typeof drawEdges === 'function') drawEdges();

@@ -207,23 +207,33 @@ async def get_models():
                 return JSONResponse(content={"models": [], "error": "Failed to fetch models"}, status_code=500)
 
             data = response.json()
-            # Filter for models where both prompt and completion costs are zero (free)
-            free_models = []
+            models_by_id = {m.get("id"): m for m in data.get("data", []) if m.get("id")}
+
+            def entry(model):
+                return {
+                    "id": model.get("id"),
+                    "name": model.get("name"),
+                    "context_length": model.get("context_length")
+                }
+
+            models = []
+            # The .env MODEL is always selectable and listed first, even if it isn't free
+            if MODEL and MODEL in models_by_id:
+                models.append(entry(models_by_id[MODEL]))
+
+            # Then the free models (both prompt and completion costs are zero)
             for model in data.get("data", []):
+                modelId = model.get("id", '')
                 pricing = model.get("pricing", {})
                 prompt_cost = pricing.get("prompt", "0")
                 completion_cost = pricing.get("completion", "0")
                 try:
-                    if float(prompt_cost) == 0 and float(completion_cost) == 0:
-                        free_models.insert(0, {
-                            "id": model.get("id"),
-                            "name": model.get("name"),
-                            "context_length": model.get("context_length")
-                        })
+                    if float(prompt_cost) == 0 and float(completion_cost) == 0 and (modelId.split(':')[-1] == 'free' or modelId == 'openrouter/free') and modelId != MODEL:
+                        models.append(entry(model))
                 except (ValueError, TypeError):
                     continue
 
-            return JSONResponse(content={"models": free_models})
+            return JSONResponse(content={"models": models, "default_model": MODEL})
     except Exception as e:
         return JSONResponse(content={"models": [], "error": str(e)}, status_code=500)
 
@@ -240,7 +250,7 @@ if not env_path.exists():
 load_dotenv(dotenv_path=env_path)
 
 API_KEY = os.getenv("API_KEY")
-MODEL = os.getenv("MODEL", "openrouter/auto")  # Default to OpenRouter auto model selection
+MODEL = os.getenv("MODEL", "openrouter/free")  # Default to OpenRouter's free-model router
 
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file")

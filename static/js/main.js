@@ -46,6 +46,9 @@ async function loadState() {
     if (groupsLayer) groupsLayer.innerHTML = '';
 
     state.nodes.forEach(savedNode => {
+        // Older saves may carry DOM caches that JSON-stringified as `{}` (truthy garbage)
+        // — strip them so restored node data never holds fake element references.
+        delete savedNode._inputEl;
         if (savedNode.isVirtual) {
             virtualFileNodes[savedNode.id] = savedNode;
             nodes.push(savedNode);

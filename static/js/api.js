@@ -106,6 +106,7 @@ async function apiFetchModels() {
         const res = await fetch('/api/models');
         if (!res.ok) return null;
         const data = await res.json();
+        if (data.default_model) defaultModel = data.default_model;
         return data.models || [];
     } catch (e) {
         console.error("Failed to fetch models:", e);

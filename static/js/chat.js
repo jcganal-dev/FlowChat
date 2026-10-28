@@ -1,4 +1,22 @@
 /**
+ * Compiles a node's assistant output for the model context. The model may
+ * emit content in several parts (split around reasoning or tool calls), so
+ * every text segment is collected in stream order instead of assuming a
+ * single block. Falls back to aiText for legacy saves without segments.
+ * @param {Object} node - The node data.
+ * @returns {string} The full assistant text for this turn.
+ */
+function nodeAnswerText(node) {
+    if (Array.isArray(node.aiSegments) && node.aiSegments.some(s => s.type === 'text')) {
+        return node.aiSegments
+            .filter(s => s.type === 'text' && s.text)
+            .map(s => s.text)
+            .join('\n\n');
+    }
+    return node.aiText || '';
+}
+
+/**
  * Traverses up the conversation tree from a leaf node to the root, compiling the chat history.
  * @param {string} leafNodeId - The ID of the leaf node.
  * @returns {Array} An array of message objects containing role and content for the LLM.
@@ -24,7 +42,8 @@ function walkContext(leafNodeId) {
                 const images = node.files.map(f => ({ type: "image_url", image_url: { url: f.payload } }));
                 history.push({ role: 'user', content: images });
             } else {
-                if (node.aiText) history.push({ role: 'assistant', content: node.aiText });
+                const aiContent = nodeAnswerText(node);
+                if (aiContent.trim() !== '') history.push({ role: 'assistant', content: aiContent });
                 if (node.userText) history.push({ role: 'user', content: node.userText });
             }
         }
@@ -61,7 +80,7 @@ async function triggerSummarize(groupId) {
     groupNodes.forEach((n, idx) => {
         if (n.type === 'document' || n.type === 'image') return;
         const uText = n.userText || "";
-        const aText = n.aiText || "";
+        const aText = nodeAnswerText(n);
         if (uText.trim() === "" && aText.trim() === "") return;
         if (n.type === 'scrape') {
             rawText += `[NODE_${idx}]\nSource URL: ${uText}\nScraped Content:\n${aText}\n\n`;
@@ -119,7 +138,7 @@ async function triggerSummarize(groupId) {
             groupNodes.forEach((n, idx) => {
                 if (n.type === 'document' || n.type === 'image') return;
                 const uText = n.userText || "";
-                const aText = n.aiText || "";
+                const aText = nodeAnswerText(n);
                 if (uText.trim() === "" && aText.trim() === "") return;
 
                 const el = document.getElementById(n.id);
@@ -165,7 +184,7 @@ async function triggerSingleSummarize(nodeId) {
     if (!node) return;
 
     const uText = node.userText || "";
-    const aText = node.aiText || "";
+    const aText = nodeAnswerText(node);
     if (uText.trim() === "" && aText.trim() === "") return;
     if (node.type === 'document' || node.type === 'image') return;
     if (node.type === 'scrape' && (aText.trim() === "" || aText.startsWith("Error:") || aText.startsWith("Failed"))) return;
