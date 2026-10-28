@@ -87,12 +87,14 @@ class ScrapeNode extends BaseNode {
                 ${marked.parse(this.nodeData.aiText)}
             </div>
         `;
-        this.el.innerHTML += `
-            <div class="save-controls-container" style="display: flex; gap: 8px; justify-content: center; align-items: center; margin: 0px 10px 10px 10px;">
+        const saveCont = document.createElement('div')
+        saveCont.style = "display: flex; gap: 8px; justify-content: center; align-items: center; margin: 0px 10px 10px 10px;"
+        saveCont.classList.add('save-controls-container')
+        saveCont.innerHTML = `
                 <input type="text" class="scrape-filename-input" placeholder="(optional)" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2b2b36; color: white;">
                 <button class="scrape-save-btn" style="padding: 4px 8px; border-radius: 4px; background: #4CAF50; border: none; color: white; cursor: pointer;">Save to Sandbox</button>
-            </div>
         `
+        this.el.appendChild(saveCont)
 
         const saveBtn = this.el.querySelector('.scrape-save-btn');
         const fileInput = this.el.querySelector('.scrape-filename-input');
