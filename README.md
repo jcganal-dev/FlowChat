@@ -4,9 +4,9 @@
 
 FlowChat reimagines LLM interaction as a **spatial canvas** where conversations branch, fork, and reference each other visually. Built on FastAPI and vanilla JS, it combines infinite canvas with the power of tool-enabled LLMs.
 
-| Canvas                             | Focus                            |
-| ---------------------------------- | -------------------------------- |
-| ![canvas](image/README/canvas.png) | ![focus](image/README/focus.png) |
+| Canvas                             | Focus                             |
+| ---------------------------------- | --------------------------------- |
+| ![canvas](image/README/canvas.png) | ![focus](image/README/focus.png)  |
 
 ---
 
