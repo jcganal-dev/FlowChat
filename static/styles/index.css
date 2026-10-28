@@ -1,4 +1,6 @@
 :root {
+    interpolate-size: allow-keywords;
+
     /* Backgrounds */
     --bg-base: #1e1e1e;
     --bg-surface: #181818;
@@ -1075,6 +1077,10 @@ body.shift-pressed.input-focused .node-id {
     padding: 10px 0px 10px 10px;
 }
 
+.ai-content > .ai-text:first-child {
+    padding: 0px 0px 10px 10px;
+}
+
 .ai-content {
 
     overflow: clip;
@@ -1755,4 +1761,30 @@ summary::before {
     font-size: 0.85em;
     position: absolute;
     left: -3.7px;
+}
+
+details > summary > .file-icon {
+    width: 11px;
+    height: 11px;
+    margin-left: 3px;
+    aspect-ratio: 1 / 1;
+    margin-bottom: 0px;
+    transition: ease-in-out 0.2s;
+}
+details:open > summary > .file-icon {
+    transform: rotateX(180deg);
+}
+
+details::details-content {
+  block-size: 0;
+  overflow: hidden;
+  content-visibility: hidden;
+  transition:
+    block-size 0.2s ease,
+    content-visibility 0.2s allow-discrete;
+}
+
+details[open]::details-content {
+  block-size: auto;
+  content-visibility: visible;
 }

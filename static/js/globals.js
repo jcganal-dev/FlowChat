@@ -8,6 +8,8 @@ const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
 // Model cache - fetched once per session
 let cachedModels = null;
 let modelsFetchPromise = null;
+// Default model from the backend (.env MODEL), set by apiFetchModels()
+let defaultModel = null;
 
 /**
  * Fetches and caches the free model list from the backend.
@@ -110,6 +112,14 @@ function chatIcon(color='#38bdf8') {
     return `
 <?xml version="1.0" encoding="utf-8"?><!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
 <svg fill="${color}" class='file-icon' width="800px" height="800px" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20,9H16a1,1,0,0,0-1,1v1H7V7H8A1,1,0,0,0,9,6V2A1,1,0,0,0,8,1H4A1,1,0,0,0,3,2V6A1,1,0,0,0,4,7H5V20a1,1,0,0,0,1,1h9v1a1,1,0,0,0,1,1h4a1,1,0,0,0,1-1V18a1,1,0,0,0-1-1H16a1,1,0,0,0-1,1v1H7V13h8v1a1,1,0,0,0,1,1h4a1,1,0,0,0,1-1V10A1,1,0,0,0,20,9ZM5,3H7V5H5ZM17,19h2v2H17Zm2-6H17V11h2Z"/></svg>
+    `
+}
+
+function expandIcon(color='#ffffff') {
+    return `
+    <?xml version="1.0" encoding="utf-8"?>
+    <!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+    <svg width="800px" class='file-icon' height="800px" viewBox="0 0 1024 1024" class="icon"  version="1.1" xmlns="http://www.w3.org/2000/svg"><path d="M903.232 256l56.768 50.432L512 768 64 306.432 120.768 256 512 659.072z" fill="${color}" /></svg>
     `
 }
 

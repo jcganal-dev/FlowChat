@@ -55,7 +55,6 @@ FlowChat reimagines LLM interaction as a **spatial canvas** where conversations 
 
 - Python 3.10+
 - Vanilla JS
-- An OpenAI-compatible API endpoint (OpenRouter, OpenAI, local vLLM, etc.)
 
 ### Installation
 

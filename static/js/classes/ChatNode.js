@@ -13,7 +13,8 @@ function toolArgsPreview(argsJson) {
 
 // One chip, either state. Used by both the streaming renderer and restore.
 function renderToolChipHtml(seg) {
-    const preview = escapeHtml(seg.argsPreview || '');
+    const rawPreview = seg.argsPreview.split('\n').length > 1 ? seg.argsPreview.split('\n')[0] + '...' : seg.argsPreview;
+    const preview = escapeHtml(rawPreview || '');
     if (seg.status === 'running') {
         return `<div class="tool-chip" data-seg-id="${escapeHtml(seg.id)}">` +
             `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})</div>`;
@@ -31,7 +32,7 @@ function renderAnswerTextHtml(text) {
 function renderSegmentHtml(seg) {
     if (seg.type === 'reasoning') return `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(seg.text || '')}</details>`;
     if (seg.type === 'tool_call') return renderToolChipHtml(seg);
-    return `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>`;
+    return seg.text.trim() != '' ? `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>` : '';
 }
 
 // Groups runs of consecutive tool_call segments into one collapsible block.
@@ -74,7 +75,7 @@ function buildStreamPlan(segs) {
 // whose summary counts them, with each chip expandable inside it.
 function renderToolGroupHtml(item) {
     return `<details class="tool-group" data-seg-type="tool_group">` +
-        `<summary>${item.run.length} tool call${item.run.length>1?'s':''}</summary>` +
+        `<summary>${item.run.length} tool call${item.run.length>1?'s':''} ${expandIcon(color='#888')}</summary>` +
         item.run.map(renderToolChipHtml).join('') +
         `</details>`;
 }
@@ -273,8 +274,8 @@ function renderAiStream(container, node) {
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            const label = item.run.length + (item.run.length > 1 ? ' tool calls' : ' tool call');
-            if (el.firstElementChild.textContent !== label) el.firstElementChild.textContent = label;
+            const label = item.run.length + (item.run.length > 1 ? ` tool calls` : ` tool call`) +  expandIcon(color='#888');
+            if (el.firstElementChild.innerHTML !== label) el.firstElementChild.innerHTML = label;
             reconcileToolGroup(el, item.run);
         } else {
             if (!el || el.dataset.segType !== 'text') {
@@ -487,12 +488,13 @@ class ChatNode extends BaseNode {
                 selectEl.innerHTML = models.map(m => 
                     `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
                 ).join('');
-                // Restore previously selected model if any
-                if (this.nodeData.selectedModel) {
-                    selectBtn.innerHTML = selectEl.querySelector(`[value="${this.nodeData.selectedModel}"]`).innerHTML;
-                } else {
-                    selectBtn.innerHTML = selectEl.querySelector(`[value="openrouter/free"]`).innerHTML;
-                }
+                // Restore previously selected model, the .env default, or the first model
+                const wanted = this.nodeData.selectedModel || defaultModel || models[0].id;
+                const option = selectEl.querySelector(`[value="${wanted}"]`) || selectEl.querySelector('.model-option');
+                selectBtn.innerHTML = option.innerHTML;
+                selectBtn.setAttribute('value', option.getAttribute('value'));
+                // Sync the saved model too, so stale/no-longer-listed ids fall back cleanly
+                this.nodeData.selectedModel = option.getAttribute('value');
             } else {
                 selectBtn.innerHTML = 'No free models found';
             }
@@ -505,6 +507,7 @@ class ChatNode extends BaseNode {
         selectEl.addEventListener('click', (e) => {
             const target = e.target.closest('.model-option')
             selectBtn.innerHTML = target.innerHTML
+            selectBtn.setAttribute('value', target.getAttribute('value'));
             this.nodeData.selectedModel = target.getAttribute('value');
             this.el.querySelector('.model-list').style = 'visibility: hidden; pointer-events: none; height: 0px;'
         });

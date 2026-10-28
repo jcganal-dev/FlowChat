@@ -1039,19 +1039,15 @@ async function populateFocusModelSelection() {
             selectEl.innerHTML = models.map(m =>
                 `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
             ).join('');
-            // Restore previously selected model if any
+            // Restore previously selected model if any, else the .env default
             const activeNodeData = nodes.find(n => n.id === activeNodeId);
-            if (activeNodeData?.selectedModel) {
-                const selectedOption = selectEl.querySelector(`[value="${activeNodeData.selectedModel}"]`);
-                if (selectedOption) {
-                    selectBtn.innerHTML = selectedOption.innerHTML;
-                    selectBtn.setAttribute('value', activeNodeData.selectedModel);
-                }
-            } else {
-                const selectedOption = selectEl.querySelector(`[value="openrouter/free"]`);
-                if (selectedOption) {
-                    selectBtn.innerHTML = selectedOption.innerHTML;
-                    selectBtn.setAttribute('value', 'openrouter/free');
+            const wanted = activeNodeData?.selectedModel || defaultModel || 'openrouter/free';
+            const selectedOption = selectEl.querySelector(`[value="${wanted}"]`) || selectEl.querySelector('.model-option');
+            if (selectedOption) {
+                selectBtn.innerHTML = selectedOption.innerHTML;
+                selectBtn.setAttribute('value', selectedOption.getAttribute('value'));
+                if (activeNodeData && !activeNodeData.selectedModel) {
+                    activeNodeData.selectedModel = selectedOption.getAttribute('value');
                 }
             }
         } else {
