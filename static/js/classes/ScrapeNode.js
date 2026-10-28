@@ -20,7 +20,7 @@ class ScrapeNode extends BaseNode {
                 </div>
             </div>
             <div class="user-section">
-                <div contenteditable="${isEditable}" class="node-input scrape-node-input" spellcheck="false" placeholder="Enter URL to scrape...">${inputContent}</div>
+                <div contenteditable="${isEditable}" class="node-input scrape-node-input" spellcheck="false" placeholder="Enter URL to scrape..." oninput="if (this.innerText.trim() == ''){this.innerHTML = ''}">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
                     <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Scrape</button>
                 </div>
@@ -64,13 +64,13 @@ class ScrapeNode extends BaseNode {
             });
 
             if (this.nodeData.aiText) {
-                this.renderSuccessUI(true);
+                this.renderSuccessUI();
             }
         }, 0);
         this.attachBaseListeners(this.config.restoreData);
     }
 
-    renderSuccessUI(isRestoring = false) {
+    renderSuccessUI() {
         const aiContentEl = this.el.querySelector('.ai-content');
         if (!this.nodeData.aiText) return;
 
@@ -86,14 +86,16 @@ class ScrapeNode extends BaseNode {
             <div class="scraped-md">
                 ${marked.parse(this.nodeData.aiText)}
             </div>
-            <div class="save-controls-container" style="display: ${isRestoring ? 'none' : 'flex'}; gap: 8px; margin-top: 8px; justify-content: center; align-items: center;">
+        `;
+        this.el.innerHTML += `
+            <div class="save-controls-container" style="display: flex; gap: 8px; justify-content: center; align-items: center; margin: 0px 10px 10px 10px;">
                 <input type="text" class="scrape-filename-input" placeholder="(optional)" style="flex: 1; padding: 4px; border-radius: 4px; border: 1px solid #555; background: #2b2b36; color: white;">
                 <button class="scrape-save-btn" style="padding: 4px 8px; border-radius: 4px; background: #4CAF50; border: none; color: white; cursor: pointer;">Save to Sandbox</button>
             </div>
-        `;
+        `
 
-        const saveBtn = aiContentEl.querySelector('.scrape-save-btn');
-        const fileInput = aiContentEl.querySelector('.scrape-filename-input');
+        const saveBtn = this.el.querySelector('.scrape-save-btn');
+        const fileInput = this.el.querySelector('.scrape-filename-input');
 
         fileInput.addEventListener('click', (e) => e.stopPropagation());
         fileInput.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -113,8 +115,8 @@ class ScrapeNode extends BaseNode {
                 });
 
                 if (res.ok) {
-                    const saveContainer = aiContentEl.querySelector('.save-controls-container');
-                    saveContainer.textContent = 'Saved!';
+                    const saveContainer = aiSectionEl.querySelector('.save-controls-container');
+                    if (saveContainer) saveContainer.textContent = 'Saved!';
                     saveBtn.style.background = '#2E7D32';
                     setTimeout(() => {
                         if (saveContainer) saveContainer.style.display = 'none';
@@ -182,7 +184,7 @@ class ScrapeNode extends BaseNode {
             this.nodeData.aiText = `Error: ${err.message}`;
         }
 
-        this.renderSuccessUI(false);
+        this.renderSuccessUI();
 
         const isSuccess = !this.nodeData.aiText.startsWith("Error:") && !this.nodeData.aiText.startsWith("Failed") && this.nodeData.aiText !== "No content returned.";
 

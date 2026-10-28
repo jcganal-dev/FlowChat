@@ -1174,6 +1174,11 @@ div[contentEditable='true'].scrape-node-input,
     overflow-x: hidden;
 }
 
+.scrape-node-input:empty::before {
+    content: attr(placeholder);
+    color: var(--text-disabled);
+}
+
 .node-input[contenteditable="false"] {
     /* background-color: transparent; */
     border: none;
