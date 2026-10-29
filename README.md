@@ -108,7 +108,7 @@ Open **http://localhost:5000** in your browser.
 
 | Action                  | Control                                           |
 | ----------------------- | ------------------------------------------------- |
-| Pan                     | `Right-click` + drag                            |
+| Pan                     | `Middle-mouse` + drag                           |
 | Zoom                    | `Scroll` / `Ctrl` + `Scroll`              |
 | Center on active node   | `Alt` + `C`                                  |
 | Auto-layout             | `Alt` + `L`                                   |

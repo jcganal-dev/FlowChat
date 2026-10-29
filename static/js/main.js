@@ -86,13 +86,6 @@ async function toggleGoTo() {
 }
 
 window.addEventListener('contextmenu', (e) => {
-    // A right-drag is a pan, not a menu request — the contextmenu event fires
-    // after mouseup, so hasMovedDuringPan tells a pan-drag from a right-click.
-    if (hasMovedDuringPan) {
-        e.preventDefault();
-        return;
-    }
-
     const targetNode = e.target.closest('.node-input')
     if (targetNode) {
         if (targetNode && targetNode.isContentEditable && targetNode.tagName === 'DIV') {
@@ -317,6 +310,15 @@ window.addEventListener('click', (e) => {
     if (!e.target.closest('#context-menu')) {
         contextMenu.style.display = 'none';
     }
+});
+
+// Middle-click must never open <a> links — it fires on mouseup, so a drag that
+// passes over a link (e.g. while panning) would otherwise navigate away.
+window.addEventListener('mousedown', (e) => {
+    if (e.button === 1 && e.target.closest('a')) e.preventDefault();
+});
+window.addEventListener('auxclick', (e) => {
+    if (e.button === 1 && e.target.closest('a')) e.preventDefault();
 });
 
 document.addEventListener('paste', (e) => {
@@ -744,4 +746,4 @@ const handler = (e) => {
     const a = e.target.closest('a');
     if (a && !a.target) a.target = '_blank';
 };
-document.addEventListener('click', handler);
+document.addEventListener('mouseup', handler);
