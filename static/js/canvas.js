@@ -1191,7 +1191,7 @@ window.addEventListener('mouseup', (e) => {
                 }
             }
         }
-
+        $(activeNodeId).click()
         if (typeof drawEdges === 'function') drawEdges();
         if (typeof saveState === 'function') saveState();
     }
