@@ -718,7 +718,7 @@ body.shift-pressed.input-focused .node-id {
 .ai-section {
     padding: 12px;
     cursor: default;
-    min-height: 40px;
+    /* min-height: 40px; */
     /* max-height: 1000px; */
     overflow: auto;
     overflow-wrap: break-word;
@@ -1122,7 +1122,6 @@ body.shift-pressed.input-focused .node-id {
     padding: 10px;
     font-style: italic;
     color: var(--text-muted);
-    white-space: pre-wrap;
     background: var(--bg-surface-hover);
     border-radius: 4px;
     margin-top: 5px;
@@ -1372,6 +1371,11 @@ h6 {
 
         .focus-user > div > svg {
             margin-top: -4px;
+        }
+
+        .file-div > div:not(:first-child),
+        .file-div > img:not(:first-child) {
+            margin-left: 5px;
         }
 
         .focus-ai {

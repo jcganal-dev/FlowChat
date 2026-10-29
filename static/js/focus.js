@@ -701,6 +701,7 @@ function renderFocusLineage() {
                 'scrape': scrapeIcon()
             }[nodeData.type];
             let text = ''
+            const showSummary = nodeData.summaryText && nodeData.isCollapsed;
             switch (nodeData.type) {
                 case 'document':
                     icon += 'Document attached: '
@@ -712,11 +713,10 @@ function renderFocusLineage() {
                 case 'image':
                     icon += 'Image attached: '
                     nodeData.files.forEach(file => {
-                        text += `<img src='${file.payload}' class='file-preview' style='display:block; max-height:120px;'>`
+                        text += `<img src='${file.payload}' class='file-preview' style='display:block; max-height:120px; margin-top: 0px;'>`
                     });
                     break
                 case 'scrape':
-                    const showSummary = nodeData.summaryText && nodeData.isCollapsed;
                     let aiHtml = nodeData.aiText;
                     if (nodeData.type === 'scrape') {
                         if (showSummary) {
@@ -726,20 +726,24 @@ function renderFocusLineage() {
                         }
                     }
                     icon += 'Scraped: '
-                    text = `<a style="text-decoration:${nodeData.htmlText? 'underline': 'none'}; color: var(--text-muted);" href="${nodeData.htmlText}">${nodeData.htmlText || 'None'}</a>`
-                    text += `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>`
-                    text += showSummary ? '(Summarized)' : ''
+                    text = `
+                        <details open>
+                            <summary style="color: var(--text-muted);">${nodeData.htmlText || 'None'} ${showSummary ? '(Summarized)' : ''} ${expandIcon('#888')}</summary>
+                            <div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>
+                        </details>
+                    `
                     break
                 default:
                     break
             }
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
+            fileNodeEl.style = 'margin: 40px 0px 10px 0px;';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="margin-bottom: 0px; align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type==='scrape'?'max-width: 100%;':''}">
+                <div class="focus-user" style="margin-bottom: 0px; align-self: end; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type==='scrape' && !showSummary?'max-width: 100%;':'width: 70%;'}">
                     <div style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
-                    <div  ${nodeData.type==='scrape'?'class="scrape-content"':''} style='display: flex; max-width: 100%; overflow: auto; scrollbar-width: none; gap: 10px; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
+                    <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='display: flex; overflow: auto; scrollbar-width: none; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
                 </div>
             `;
             focusNodesLayer.appendChild(fileNodeEl);
