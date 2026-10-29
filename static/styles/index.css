@@ -1018,7 +1018,7 @@ body.shift-pressed.input-focused .node-id {
     text-underline-offset: 3px;
 }
 
-.ai-content a:hover {
+.ai-content > div:not(.scraped-md):not(.focus-scraped-md) a:hover {
     background-color: var(--transparent-light);
 }
 
