@@ -86,6 +86,13 @@ async function toggleGoTo() {
 }
 
 window.addEventListener('contextmenu', (e) => {
+    // A right-drag is a pan, not a menu request — the contextmenu event fires
+    // after mouseup, so hasMovedDuringPan tells a pan-drag from a right-click.
+    if (hasMovedDuringPan) {
+        e.preventDefault();
+        return;
+    }
+
     const targetNode = e.target.closest('.node-input')
     if (targetNode) {
         if (targetNode && targetNode.isContentEditable && targetNode.tagName === 'DIV') {

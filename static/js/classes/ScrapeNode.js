@@ -202,7 +202,7 @@ class ScrapeNode extends BaseNode {
             if (this.nodeData.childNodeIds.length === 0) this.el.querySelector('.add-child-btn').click()
             if (typeof drawEdges === 'function') drawEdges();
             if (typeof saveState === 'function') saveState();
-            if (typeof centerCanvas === 'function') centerCanvas();
+            // if (typeof centerCanvas === 'function') centerCanvas();
             const aiSection = this.el.querySelector('.ai-section')
             aiSection.scrollTo({ top: aiSection.scrollHeight, behavior: 'smooth' });
         } else {

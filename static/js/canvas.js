@@ -80,7 +80,7 @@ let panStartX = 0;
 let panStartY = 0;
 
 viewport.addEventListener('mousedown', (e) => {
-    if (e.button === 1) { // Middle click
+    if (e.button === 2) { // Right click (drag to pan)
         e.preventDefault();
         isPanning = true;
         hasMovedDuringPan = false;
@@ -127,7 +127,7 @@ window.addEventListener('mousemove', (e) => {
 });
 
 window.addEventListener('mouseup', (e) => {
-    if (e.button === 1 && isPanning) {
+    if (e.button === 2 && isPanning) {
         isPanning = false;
         document.body.classList.remove('is-panning');
     }
