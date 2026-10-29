@@ -791,7 +791,7 @@ function renderFocusLineage() {
 
         let turnHtml = '';
         if (userHtml) {
-            turnHtml += `<div class="focus-user">${userHtml}</div>`;
+            turnHtml += `<div class="focus-user" style="flex-direction: row;">${userHtml}</div>`;
         }
         turnHtml += `<div class="focus-ai ai-content">${aiStreamHtml}</div>`;
 
