@@ -189,9 +189,7 @@ async function triggerSingleSummarize(nodeId) {
     if (node.type === 'document' || node.type === 'image') return;
     if (node.type === 'scrape' && (aText.trim() === "" || aText.startsWith("Error:") || aText.startsWith("Failed"))) return;
 
-    let rawText = node.type === 'scrape'
-        ? `Source URL: ${uText}\n\nScraped Content:\n${aText}`
-        : `User: ${uText}\nAI: ${aText}`;
+    let rawText = aText
 
     // P1 Fix: Re-query DOM elements in callbacks to avoid stale references
     const getEl = () => document.getElementById(nodeId);
@@ -213,7 +211,7 @@ async function triggerSingleSummarize(nodeId) {
 
     const payload = {
         messages: [
-            { role: "system", content: `You are a quick and precise summarizer. Write a summary that captures what the AI did/said in response to the user's request. Do NOT include what the user asked for, nor say "The AI produced" nor "The assistant wrote". Plainly state the summarized version of the response. The summary should be as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
+            { role: "system", content: `You are a quick and precise summarizer. The summary should be as concise as possible without losing the meaning of the content. Do NOT include formatting, tags, or labels. ${systemReminders ? `[System Reminder] ${systemReminders} [End System Reminder]`:''}` },
             { role: "user", content: rawText }
         ],
         max_tokens: 150

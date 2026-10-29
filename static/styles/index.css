@@ -1365,11 +1365,18 @@ h6 {
             color: var(--text-primary);
             word-break: break-word;
             margin-bottom: 40px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .focus-user > div > svg {
+            margin-top: -4px;
         }
 
         .focus-ai {
             background-color: transparent;
-            width: 90%;
+            /* width: 90%; */
             align-self: start;
             color: var(--text-primary);
             overflow: visible;
@@ -1809,10 +1816,12 @@ details[open]::details-content {
 .chat-goto-container > div::before {
     content: "Go to";
 }
+.chat-goto-container > div:empty::after {
+    content: "No Chat Node found.";
+}
 .chat-goto-container > div {
     width: 500px;
     max-height: 250px;
-    min-height: 100px;
     display: flex;
     flex-direction: column;
     background-color: var(--bg-input);

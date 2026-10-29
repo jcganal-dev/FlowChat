@@ -695,37 +695,54 @@ function renderFocusLineage() {
         if (nodeData.type === 'document' || nodeData.type === 'image' || nodeData.type === 'scrape') {
             const files = nodeData.files || [];
             const fileList = files.map(f => f.name).join(', ') || 'None';
-            const icon = {
+            let icon = {
                 'document': documentIcon(),
                 'image': imageIcon(),
                 'scrape': scrapeIcon()
             }[nodeData.type];
-            const text = {
-                'document': `Document attached: ${fileList}`,
-                'image': `Image attached: ${fileList}`,
-                'scrape': `Scraped: <span style="text-decoration:${nodeData.htmlText? 'underline': 'none'};">${nodeData.htmlText || 'None'}</span>`,
-            }[nodeData.type];
-            const showSummary = nodeData.summaryText && nodeData.isCollapsed;
-            let aiHtml = nodeData.aiText;
-            if (nodeData.type === 'scrape') {
-                if (showSummary) {
-                    aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText;
-                } else {
-                    aiHtml = marked.parse(nodeData.aiText)
-                }
+            let text = ''
+            switch (nodeData.type) {
+                case 'document':
+                    icon += 'Document attached: '
+                    text = nodeData.files.map(file => `
+                        <div style='display:flex; flex-direction: row; justify-content: center; align-items: center; gap: 3px; flex-shrink: 0;'>
+                            <img src='${getIconpath(file.name)}' class='file-icon' style='margin-top: -5px;'>${file.name}
+                        </div>`)
+                    break
+                case 'image':
+                    icon += 'Image attached: '
+                    nodeData.files.forEach(file => {
+                        text += `<img src='${file.payload}' class='file-preview' style='display:block; max-height:120px;'>`
+                    });
+                    break
+                case 'scrape':
+                    const showSummary = nodeData.summaryText && nodeData.isCollapsed;
+                    let aiHtml = nodeData.aiText;
+                    if (nodeData.type === 'scrape') {
+                        if (showSummary) {
+                            aiHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.summaryText) : nodeData.summaryText;
+                        } else {
+                            aiHtml = marked.parse(nodeData.aiText)
+                        }
+                    }
+                    icon += 'Scraped: '
+                    text = `<a style="text-decoration:${nodeData.htmlText? 'underline': 'none'}; color: var(--text-muted);" href="${nodeData.htmlText}">${nodeData.htmlText || 'None'}</a>`
+                    text += `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>`
+                    text += showSummary ? '(Summarized)' : ''
+                    break
+                default:
+                    break
             }
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: center; gap: 5px;">
-                    ${icon} ${text} ${showSummary ? '(Summarized)' : ''}
+                <div class="focus-user" style="margin-bottom: 0px; align-self: center; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type==='scrape'?'max-width: 100%;':''}">
+                    <div style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
+                    <div  ${nodeData.type==='scrape'?'class="scrape-content"':''} style='display: flex; max-width: 100%; overflow: auto; scrollbar-width: none; gap: 10px; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
                 </div>
-                ${nodeData.type === 'scrape' ? `<div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>` : ''}
             `;
-            fileNodeEl.style = "gap:0px;"
             focusNodesLayer.appendChild(fileNodeEl);
-
             return;
         }
 
