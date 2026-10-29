@@ -458,8 +458,53 @@ async function uploadSandboxFiles(event) {
 }
 
 /**
- * Handles shift-clicking on a sandbox file in the sidebar. 
- * Creates a virtual file node (if it doesn't exist) and injects a reference chip into the active text area.
+ * Builds a self-contained reference chip from a sandbox file payload. Document
+ * content is inlined into the chip text itself (no virtual node is created);
+ * image payloads go into fileRefCache so resolveReferencePayload can attach
+ * them at send time.
+ * @param {string} name - The sandbox file path.
+ * @param {string} payload - The file's text content or image data URL.
+ * @returns {Object} Chip data for insertChipAtRange's prebuilt parameter.
+ */
+function sandboxChipFromPayload(name, payload) {
+    const virtualId = 'sandbox/' + name;
+    const chipLabel = `<img src="${getIconpath(name)}" class='file-icon'> ${virtualId}`;
+    if (name.match(imageWhitelist)) {
+        fileRefCache[virtualId] = { type: 'image', files: [{ name: name, payload: payload }] };
+        return { id: virtualId, chipLabel: chipLabel, refText: `[IMAGE_ATTACHED: ${name}]` };
+    }
+    return {
+        id: virtualId,
+        chipLabel: chipLabel,
+        refText: `[DOCUMENT_ATTACHED: ${name}]\n--- START OF ${name} ---\n${payload}\n--- END OF ${name} ---`
+    };
+}
+
+/**
+ * Fetches a sandbox file and builds its self-contained reference chip data.
+ * @param {string} filepath - The sandbox file path.
+ * @returns {Promise<Object|null>} Chip data, or null if the fetch or type check fails.
+ */
+async function buildSandboxChipData(filepath) {
+    const res = await apiFetchSandboxFile(filepath);
+    if (!res) return null;
+    let payload;
+    if (filepath.match(imageWhitelist)) {
+        const blob = await res.blob();
+        payload = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.readAsDataURL(blob);
+        });
+    } else {
+        payload = await res.text();
+    }
+    return sandboxChipFromPayload(filepath, payload);
+}
+
+/**
+ * Handles shift-clicking on a sandbox file in the sidebar.
+ * Builds a self-contained reference chip (content inlined, no virtual node) and injects it into the active text area.
  * @param {string} filepath - The name of the sandbox file.
  */
 async function handleSandboxFileShiftClick(filepath) {
@@ -502,40 +547,27 @@ async function handleSandboxFileShiftClick(filepath) {
 
             if (expanded.length > 0) {
                 const virtualId = 'sandbox/' + filepath + '/*';
-                if (!virtualFileNodes[virtualId]) {
-                    let folderFiles = [];
-                    let skippedCount = 0;
-                    for (const fp of expanded) {
-                        const isImg = fp.match(imageWhitelist);
-                        const isText = textWhitelist.test(fp) || exactNameWhitelist.test(fp);
-                        if (isImg || !isText) {
-                            skippedCount++;
-                            continue;
-                        }
-                        const r = await apiFetchSandboxFile(fp);
-                        if (r) folderFiles.push({ name: fp, payload: await r.text() });
+                let folderRefText = '';
+                let skippedCount = 0;
+                for (const fp of expanded) {
+                    const isImg = fp.match(imageWhitelist);
+                    const isText = textWhitelist.test(fp) || exactNameWhitelist.test(fp);
+                    if (isImg || !isText) {
+                        skippedCount++;
+                        continue;
                     }
-                    if (folderFiles.length === 0) {
-                        window.customAlert(skippedCount > 0 ? `No valid text documents found in this folder (${skippedCount} non-text files skipped).` : 'No valid text documents found in folder.');
-                        return;
-                    }
-                    const nodeData = {
-                        id: virtualId,
-                        type: 'document',
-                        files: folderFiles,
-                        userText: '',
-                        htmlText: '',
-                        aiText: ' ',
-                        aiThinking: '',
-                        references: [],
-                        childNodeIds: [],
-                        isCollapsed: false,
-                        isVirtual: true
-                    };
-                    virtualFileNodes[virtualId] = nodeData;
-                    if (!nodes.find(n => n.id === virtualId)) nodes.push(nodeData);
+                    const r = await apiFetchSandboxFile(fp);
+                    if (r) folderRefText += `--- START OF ${fp} ---\n${await r.text()}\n--- END OF ${fp} ---\n\n`;
                 }
-                if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false);
+                if (folderRefText === '') {
+                    window.customAlert(skippedCount > 0 ? `No valid text documents found in this folder (${skippedCount} non-text files skipped).` : 'No valid text documents found in folder.');
+                    return;
+                }
+                if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false, {
+                    id: virtualId,
+                    chipLabel: `<img src="/static/icons/folder.svg" class='file-icon'> ${virtualId}`,
+                    refText: `[FOLDER_ATTACHED: ${filepath}]\n${folderRefText}`
+                });
                 return;
             }
         }
@@ -543,57 +575,19 @@ async function handleSandboxFileShiftClick(filepath) {
 
     const isImage = filepath.match(imageWhitelist);
     const isText = textWhitelist.test(filepath) || exactNameWhitelist.test(filepath);
-    const virtualId = 'sandbox/' + filepath;
 
-    if (!virtualFileNodes[virtualId]) {
-        const res = await apiFetchSandboxFile(filepath);
-        if (!res) {
-            window.customAlert('Failed to load file content.');
-            return;
-        }
-
-        if (!isImage && !isText) {
-            window.customAlert('Unsupported file type. Please select a text-based file or an image.');
-            return;
-        }
-
-        let payload = null;
-        let type = 'document';
-
-        if (isImage) {
-            type = 'image';
-            const blob = await res.blob();
-            payload = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-            });
-        } else {
-            type = 'document';
-            payload = await res.text();
-        }
-
-        const nodeData = {
-            id: virtualId,
-            type: type,
-            files: [{ name: filepath, payload: payload }],
-            userText: '',
-            htmlText: '',
-            aiText: ' ',
-            aiThinking: '',
-            references: [],
-            childNodeIds: [],
-            isCollapsed: false,
-            isVirtual: true
-        };
-        virtualFileNodes[virtualId] = nodeData;
-
-        if (!nodes.find(n => n.id === virtualId)) {
-            nodes.push(nodeData);
-        }
+    if (!isImage && !isText) {
+        window.customAlert('Unsupported file type. Please select a text-based file or an image.');
+        return;
     }
 
-    if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false);
+    const chipData = await buildSandboxChipData(filepath);
+    if (!chipData) {
+        window.customAlert('Failed to load file content.');
+        return;
+    }
+
+    if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, chipData.id, false, chipData);
 }
 
 window.addEventListener('DOMContentLoaded', () => {

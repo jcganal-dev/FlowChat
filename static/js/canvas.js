@@ -203,28 +203,21 @@ viewport.addEventListener('drop', async (e) => {
             continue;
         }
 
-        const virtualId = 'sandbox/' + filepath;
         let payload = null;
-        let nodeData = nodes.find(n => n.id === virtualId);
-
-        if (nodeData && nodeData.files && nodeData.files.length > 0) {
-            payload = nodeData.files[0].payload;
+        const res = await apiFetchSandboxFile(filepath);
+        if (!res) {
+            window.customAlert(`Failed to load file content for ${filepath}.`);
+            continue;
+        }
+        if (isImage) {
+            const blob = await res.blob();
+            payload = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
         } else {
-            const res = await apiFetchSandboxFile(filepath);
-            if (!res) {
-                window.customAlert(`Failed to load file content for ${filepath}.`);
-                continue;
-            }
-            if (isImage) {
-                const blob = await res.blob();
-                payload = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
-                });
-            } else {
-                payload = await res.text();
-            }
+            payload = await res.text();
         }
         filesData.push({ name: filepath, payload: payload });
     }
@@ -247,11 +240,11 @@ viewport.addEventListener('drop', async (e) => {
                         window.customAlert('Cannot add references to a finished node!');
                     } else {
                         filesData.forEach(fd => {
-                            const virtualId = 'sandbox/' + fd.name;
                             const range = document.createRange();
                             range.selectNodeContents(inputEl);
                             range.collapse(false);
-                            if (typeof insertChipAtRange === 'function') insertChipAtRange(inputEl, range, virtualId, false);
+                            const chipData = sandboxChipFromPayload(fd.name, fd.payload);
+                            if (typeof insertChipAtRange === 'function') insertChipAtRange(inputEl, range, chipData.id, false, chipData);
                         });
                     }
                 }

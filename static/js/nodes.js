@@ -264,7 +264,7 @@ function selectNode(id, isShiftClick = false, isCtrlClick = false) {
  * @param {string} refId - The target ID of the node or group being referenced.
  * @param {boolean} isGroup - True if the reference is pointing to a group of nodes.
  */
-function insertChipAtRange(textarea, range, refId, isGroup) {
+function insertChipAtRange(textarea, range, refId, isGroup, prebuilt = null) {
     let refText = '';
     let chipLabel = '';
     let isFile = false
@@ -293,6 +293,12 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
         });
 
         if (!refText) return false;
+    } else if (prebuilt) {
+        // Prebuilt sandbox-file chip: the caller resolved the file content
+        // itself, so no virtual node needs to exist in the nodes array.
+        chipLabel = prebuilt.chipLabel;
+        refText = prebuilt.refText;
+        isFile = true;
     } else {
         const refData = nodes.find(n => n.id === refId);
         if (!refData) return false;
@@ -313,27 +319,17 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
                 break
         }
         if (refData.type === 'image' && refData.files && refData.files.length > 0) {
-            const filename = refData.files[0].name;
-            chipLabel = `${refData.isVirtual? `<img src="${getIconpath(filename)}" class='file-icon'>` :reficon} ${refId}`;
+            chipLabel = `${reficon} ${refId}`;
             refText = `[IMAGE_ATTACHED: ${refData.files.map(f => f.name).join(', ')}]`;
             isFile = true
         } else if (refData.type === 'document' && refData.files && refData.files.length > 0) {
-            if (refId.endsWith('/*')) {
-                chipLabel = `<img src="/static/icons/folder.svg" class='file-icon'> ${refId}`;
-                const folderName = refId.split('/').slice(1, -1).join('/');
-                refText = `[FOLDER_ATTACHED: ${folderName}]\n`;
-                refData.files.forEach(f => {
-                    refText += `--- START OF ${f.name} ---\n${f.payload}\n--- END OF ${f.name} ---\n\n`;
-                });
+            const filename = refData.files[0].name;
+            if (refData.files.length > 1) {
+                chipLabel = `${reficon} ${refId}`;
+                refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => {f.name;console.log(f.name)}).join(', ')}]`;
             } else {
-                const filename = refData.files[0].name;
-                if (refData.files.length > 1) {
-                    chipLabel = `${reficon} ${refId}`;
-                    refText = `[DOCUMENT_ATTACHED: ${refData.files.map(f => {f.name;console.log(f.name)}).join(', ')}]`;
-                } else {
-                    chipLabel = `${refData.isVirtual? `<img src="${getIconpath(filename)}" class='file-icon'>` :reficon} ${refId}`;
-                    refText = `[DOCUMENT_ATTACHED: ${refData.files[0].name}`;
-                }
+                chipLabel = `${reficon} ${refId}`;
+                refText = `[DOCUMENT_ATTACHED: ${refData.files[0].name}`;
             }
             isFile = true
         } else if (refData.isCollapsed && refData.summaryText && refData.summaryText !== "Summary unavailable.") {
@@ -395,7 +391,7 @@ function insertChipAtRange(textarea, range, refId, isGroup) {
  * @param {string} refId - The id of the referenced node or group.
  * @returns {{text: string[], images: Array<Object>}} Text directives and image attachments.
  */
-function resolveReferencePayload(refId) {
+async function resolveReferencePayload(refId) {
     const payload = { text: [], images: [] };
 
     const collectNode = (n, label) => {
@@ -424,7 +420,35 @@ function resolveReferencePayload(refId) {
         });
     } else {
         const n = nodes.find(x => x.id === refId);
-        if (n) collectNode(n, '');
+        if (n) {
+            collectNode(n, '');
+        } else if (refId.startsWith('sandbox/')) {
+            // Sandbox file chips are self-contained — document content lives in
+            // the chip text itself. Only image payloads (and legacy payloads
+            // from old saves) need resolving here.
+            const cached = fileRefCache[refId];
+            if (cached && cached.type === 'image' && cached.files) {
+                cached.files.forEach(f => {
+                    if (f.payload) payload.images.push({ type: "image_url", image_url: { url: f.payload } });
+                });
+                payload.text.push(`[IMAGE ATTACHED: ${cached.files.map(f => f.name || 'Image').join(', ')}]`);
+            } else if (!cached && !refId.endsWith('/*') && refId.slice('sandbox/'.length).match(imageWhitelist)) {
+                // Image content can't be inlined in chip text, so refetch the
+                // payload when no cache entry exists (e.g. after a reload).
+                const path = refId.slice('sandbox/'.length);
+                const res = await apiFetchSandboxFile(path);
+                if (res) {
+                    const blob = await res.blob();
+                    const dataUrl = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                    payload.images.push({ type: "image_url", image_url: { url: dataUrl } });
+                    payload.text.push(`[IMAGE ATTACHED: ${path}]`);
+                }
+            }
+        }
     }
 
     return payload;

@@ -157,7 +157,10 @@ let layoutDebounceTimeout;
 
 let lastFocusedInput = null;
 let lastSelectionRange = null;
-let virtualFileNodes = {};
+// In-memory payload cache for sandbox file reference chips. Never persisted:
+// document chips carry their content inline in the chip text, and image
+// payloads are re-fetched on demand when a chip resolves at send time.
+let fileRefCache = {};
 
 window.addEventListener('keydown', (e) => {
     if (e.key === 'Shift') document.body.classList.add('shift-pressed');

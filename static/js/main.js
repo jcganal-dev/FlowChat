@@ -49,10 +49,9 @@ async function loadState() {
         // Older saves may carry DOM caches that JSON-stringified as `{}` (truthy garbage)
         // — strip them so restored node data never holds fake element references.
         delete savedNode._inputEl;
-        if (savedNode.isVirtual) {
-            virtualFileNodes[savedNode.id] = savedNode;
-            nodes.push(savedNode);
-        } else {
+        // Legacy virtual sandbox nodes are discarded — reference chips are
+        // self-contained now, so their payloads no longer resolve from nodes.
+        if (!savedNode.isVirtual) {
             createNode(null, null, null, null, null, null, null, savedNode);
         }
     });

@@ -547,17 +547,17 @@ class ChatNode extends BaseNode {
             let hasImageRefs = false;
             const imageContents = [];
             let hasTextRefs = false;
-            refs.forEach(rId => {
+            for (const rId of refs) {
                 // A reference can point at a single node or at a group; a group
                 // expands to its member nodes so their files come along too.
-                const refPayload = resolveReferencePayload(rId);
+                const refPayload = await resolveReferencePayload(rId);
                 refPayload.text.forEach(t => systemDirectives += `\n${t}\n`);
                 if (refPayload.text.length > 0) hasTextRefs = true;
                 if (refPayload.images.length > 0) {
                     hasImageRefs = true;
                     refPayload.images.forEach(img => imageContents.push(img));
                 }
-            });
+            }
             if (hasTextRefs) {
                 if (history.length > 0 && history[0].role === 'system') history[0].content += "\n\n" + systemDirectives;
                 else history.unshift({ role: 'system', content: systemDirectives });
