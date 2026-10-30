@@ -1,4 +1,4 @@
-function escapeHtml(s) {
+﻿function escapeHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
@@ -460,6 +460,7 @@ class ChatNode extends BaseNode {
                 newData.nodeWidth = data.nodeWidth;
                 newEl.style.width = data.nodeWidth + 'px';
             }
+            selectNode(newId);
         });
         this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
         this.el.addEventListener('click', (e) => {
@@ -528,15 +529,11 @@ class ChatNode extends BaseNode {
         this.nodeData.aiThinking = "";
         this.nodeData.aiSegments = [];
         this.nodeData.abortController = new AbortController();
+        this.nodeData.isStreaming = true; // Focus mode uses this to adopt canvas-initiated streams
+        this.el.classList.add('streaming'); // Style hook for the live-stream state
         const signal = this.nodeData.abortController.signal;
         const aiContentEl = this.el.querySelector('.ai-content');
         aiContentEl.innerHTML = '';
-        // "Thinking..." indicator until the first stream event arrives.
-        const thinkPlaceholder = document.createElement('div');
-        thinkPlaceholder.className = 'think-placeholder';
-        thinkPlaceholder.style.cssText = 'display:flex;flex-direction:row;align-items:center;';
-        thinkPlaceholder.innerHTML = `<img src="/static/icons/hourglass.svg" class='file-icon'> Thinking...`;
-        aiContentEl.appendChild(thinkPlaceholder);
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
         if (this.stopBtn) this.stopBtn.style.display = 'flex';
@@ -600,8 +597,10 @@ class ChatNode extends BaseNode {
             this.nodeData.selectedModel = selectedModel; // Persist for restore
         }
         let uiDirty = false;
+        let settled = false; // Set once the stream ends; queued flushes must not overwrite the final DOM
         const flushUi = () => {
             uiDirty = false;
+            if (settled) return;
             // Everything the model emitted — reasoning, tool chips and answer
             // text — reconciles into one stream, in emission order.
             renderAiStream(aiContentEl, this.nodeData);
@@ -620,7 +619,6 @@ class ChatNode extends BaseNode {
 
         await streamChatApi(payload, signal, {
             onContent: (content) => {
-                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 this.nodeData.aiText += content;
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
@@ -633,7 +631,6 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'content', this.nodeData.aiText);
             },
             onToolCallStart: (tc) => {
-                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 const segs = this.nodeData.aiSegments;
                 // Avoid dupes if the same id somehow announces twice
                 if (segs.some(s => s.type === 'tool_call' && s.id === tc.id)) return;
@@ -650,7 +647,6 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_call_start', tc);
             },
             onToolCall: (tc) => {
-                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 const segs = this.nodeData.aiSegments;
                 let seg = segs.find(s => s.type === 'tool_call' && s.id === tc.id);
                 if (!seg) {
@@ -685,9 +681,6 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_result', tr);
             },
             onReasoning: (reasoning) => {
-                // With show_thoughts = false the reasoning itself is hidden, so
-                // keep the "Thinking..." indicator up while it streams.
-                if (show_thoughts && thinkPlaceholder.isConnected) thinkPlaceholder.remove();
                 this.nodeData.aiThinking += reasoning;
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
@@ -700,36 +693,57 @@ class ChatNode extends BaseNode {
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'reasoning', this.nodeData.aiThinking);
             },
             onError: (error) => {
-                if (error.name === 'AbortError' || (error.message && error.message.includes('AbortError'))) {
+                settled = true;
+                this.nodeData.isStreaming = false;
+                this.el.classList.remove('streaming');
+                const isAbort = error.name === 'AbortError' || (error.message && error.message.includes('AbortError'));
+                if (isAbort) {
                     this.nodeData.abortController = null
                     aborted = true;
-                    if (show_thoughts && thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                    // Final reconcile before appending the notice: a queued
+                    // flushUi is now a no-op (settled), so nothing wipes it.
+                    renderAiStream(aiContentEl, this.nodeData);
                     aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
-                    this.textarea.contentEditable = true;
-                    this.textarea.style.border = "";
-                    this.textarea.style.background = "";
-                    this.runBtn.style.display = 'flex';
-                    this.stopBtn.style.display = 'none';
-                    this.addBtn.classList.remove('hidden')
-                } else aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
-                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'error', error, aborted);
+                } else {
+                    aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
+                }
+                // The node is finished either way: restore its input and
+                // buttons, and fork the next turn — same as onComplete.
+                this.textarea.contentEditable = true;
+                this.textarea.style.border = "";
+                this.textarea.style.background = "";
+                this.runBtn.style.display = 'flex';
+                this.stopBtn.style.display = 'none';
+                this.addBtn.classList.remove('hidden')
+                if (this.nodeData.childNodeIds.length === 0) this.onFork(null, { selectNew: activeNodeId === this.id });
+                const btnRow = this.el.querySelector('.button-row');
+                if (btnRow) btnRow.style.display = 'none';
+                if (typeof saveState === 'function') saveState();
+                if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'error', error, isAbort);
             },
             onComplete: () => {
-                if (thinkPlaceholder.isConnected) thinkPlaceholder.remove();
+                settled = true;
+                this.nodeData.isStreaming = false;
+                this.el.classList.remove('streaming');
+                // Release the controller so run() can be re-entered later
+                // (it's kept only while the stream is live).
+                this.nodeData.abortController = null;
+                // Final synchronous reconcile so Prism highlights the finished
+                // DOM even if the last incremental flush was still queued.
+                renderAiStream(aiContentEl, this.nodeData);
                 if (window.Prism) Prism.highlightAllUnder(aiContentEl);
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 // Stream stays visible after completion: reasoning text and
                 // Done chips remain inspectable, right where the model put them.
-                if (this.nodeData.childNodeIds.length === 0) this.el.querySelector('.add-child-btn').click()
+                if (this.nodeData.childNodeIds.length === 0) this.onFork(null, { selectNew: activeNodeId === this.id });
+                const btnRow = this.el.querySelector('.button-row');
+                if (btnRow) btnRow.style.display = 'none';
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
                 autoLayout(true, this.nodeData.id);
+                updateChatHistory()
             }
         }, selectedModel);
-        if (!aborted) {
-            const btnRow = this.el.querySelector('.button-row');
-            if (btnRow) btnRow.style.display = 'none';
-        }
         if (!this.textarea.disabled) this.textarea.disabled = false;
     }
 }

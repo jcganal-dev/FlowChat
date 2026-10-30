@@ -615,16 +615,6 @@ body.shift-pressed.input-focused .node-id {
 
 /* Pushes it to the very bottom */
 
-/* "Thinking..." indicator inside a focus turn while the stream is empty. */
-.focus-think-header {
-    color: var(--text-muted);
-    font-style: italic;
-    font-size: 0.9em;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
 /* Reasoning segments render inline in .ai-content, in the order the model
    emitted them — styled like the old thoughts block so they stay visually
    secondary to the answer. */
@@ -1037,6 +1027,7 @@ body.shift-pressed.input-focused .node-id {
     overflow-x: auto;
     margin: 10px 0;
     white-space: pre;
+    scrollbar-width: none;
 }
 
 .ai-content code {
@@ -1173,7 +1164,7 @@ div[contentEditable='true'].scrape-node-input,
     overflow-x: hidden;
 }
 
-.scrape-node-input:empty::before {
+.scrape-node-input[contenteditable="false"]:empty::before {
     content: attr(placeholder);
     color: var(--text-disabled);
 }
@@ -1364,9 +1355,7 @@ h6 {
             color: var(--text-primary);
             word-break: break-word;
             margin-bottom: 40px;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
+            display: inline;
         }
 
         .focus-user > div > svg {
@@ -1380,7 +1369,7 @@ h6 {
 
         .focus-ai {
             background-color: transparent;
-            /* width: 90%; */
+            width: 100%;
             align-self: start;
             color: var(--text-primary);
             overflow: visible;
@@ -1834,4 +1823,18 @@ details[open]::details-content {
     pointer-events: all;
     overflow: auto;
     border: solid 1px var(--border-highlight);
+}
+
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.streaming .ai-content::after {
+    content: "Thinking...";
+    animation: blink 1.5s infinite;
+    font-weight: normal;
+    font-style: normal;
+    margin-left: 8px;
+    color: var(--text-muted);
 }

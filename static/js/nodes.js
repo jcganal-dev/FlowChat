@@ -185,7 +185,7 @@ function deleteNode(nodeId, deleteBranch) {
     }
     if (nodes.length === 0) {
         setTimeout(() => {
-            createNode(null, 0,0);
+            selectNode(createNode(null, 0, 0));
         }, 20);
     }
 

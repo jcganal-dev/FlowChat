@@ -277,28 +277,28 @@ $('menu-add-node').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
     const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
-    createNode(null, x, y, '', 1, 0, 'Chat_Node', null, 'chat');
+    selectNode(createNode(null, x, y, '', 1, 0, 'Chat_Node', null, 'chat'));
 });
 
 $('menu-add-image').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
     const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
-    createNode(null, x, y, '', 1, 0, 'Image_Node', null, 'image');
+    selectNode(createNode(null, x, y, '', 1, 0, 'Image_Node', null, 'image'));
 });
 
 $('menu-add-file').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
     const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
-    createNode(null, x, y, '', 1, 0, 'Document_Node', null, 'document');
+    selectNode(createNode(null, x, y, '', 1, 0, 'Document_Node', null, 'document'));
 });
 
 $('menu-add-scrape').addEventListener('click', () => {
     contextMenu.style.display = 'none';
     const x = parseFloat(contextMenu.dataset.clickX || camera.x + 100);
     const y = parseFloat(contextMenu.dataset.clickY || camera.y + 100);
-    createNode(null, x, y, '', 1, 0, 'Scrape_Node', null, 'scrape');
+    selectNode(createNode(null, x, y, '', 1, 0, 'Scrape_Node', null, 'scrape'));
 });
 
 $('menu-focus-mode').addEventListener('click', () => {
@@ -733,7 +733,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const loaded = await loadState();
     if (!loaded) {
-        if (typeof createNode === 'function') createNode();
+        // Fresh canvas — select the bootstrapped root node.
+        selectNode(createNode());
     }
 
     if (typeof refreshNodeCulling === 'function') refreshNodeCulling();

@@ -7,6 +7,7 @@ class BaseNode {
             this.nodeData = restoreData;
             this.id = this.nodeData.id;
             this.nodeData.abortController = null;
+            this.nodeData.isStreaming = false; // Never restore a mid-stream flag from a saved state
             if (!Array.isArray(this.nodeData.childNodeIds)) this.nodeData.childNodeIds = [];
             delete this.nodeData.hasChild;
             delete this.nodeData.muted;
@@ -52,7 +53,10 @@ class BaseNode {
         if (typeof nodeResizeObserver !== 'undefined') nodeResizeObserver.observe(this.el);
         const resizer = this.el.querySelector('.resize-handle');
         if (resizer) resizer.addEventListener('mousedown', this.onResizeStart.bind(this));
-        if (!restoreData) selectNode(this.id);
+        // New nodes do NOT grab the active selection here — callers decide
+        // (user-initiated creation selects explicitly; auto-spawned children
+        // from a finished stream must not steal focus while the user works
+        // elsewhere).
     }
 
     onDragStart(e) {
@@ -198,8 +202,8 @@ class BaseNode {
         if (typeof saveState === 'function') saveState();
     }
 
-    onFork(e) {
-        e.stopPropagation();
+    onFork(e, { selectNew = true } = {}) {
+        if (e) e.stopPropagation();
         forkOffsetCounter += 1;
         const data = nodes.find(n => n.id === this.el.id);
         const bottomY = data.y + this.el.offsetHeight;
@@ -223,6 +227,9 @@ class BaseNode {
             rootParent = nodes.find(n => n.id === rootParent).parentId
         }
         autoLayout(true, rootParent)
+        // Only user-initiated forks move the active selection to the child;
+        // programmatic spawns pass selectNew: false so they don't steal focus.
+        if (selectNew) selectNode(newId);
         // The new child is registered on the parent's child id list by createNode().
         if (typeof saveState === 'function') saveState();
     }

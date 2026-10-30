@@ -281,11 +281,13 @@ viewport.addEventListener('drop', async (e) => {
 
         const baseTitle = originalFilepaths.length === 1 ? originalFilepaths[0].split('/').pop() : `${filesData.length} items`;
 
+        let lastCreatedId = null;
         if (imageFiles.length > 0) {
             const title = imageFiles.length === filesData.length ? baseTitle : `${baseTitle} (Images)`;
             const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, 'image');
             const newNode = nodes.find(n => n.id === newId);
             if (newNode) newNode.files = imageFiles;
+            lastCreatedId = newId;
             dropX += 300;
         }
 
@@ -294,7 +296,11 @@ viewport.addEventListener('drop', async (e) => {
             const newId = createNode(null, dropX, dropY, '', 1, 0, title, null, 'document');
             const newNode = nodes.find(n => n.id === newId);
             if (newNode) newNode.files = documentFiles;
+            lastCreatedId = newId;
         }
+
+        // A drop is a user-initiated creation — make the new node active.
+        if (lastCreatedId) selectNode(lastCreatedId);
 
         if (typeof saveState === 'function') saveState();
     }
@@ -1201,7 +1207,7 @@ window.addEventListener('mouseup', (e) => {
 /**
  * Pans and zooms the camera to center exactly on the last active node.
  */
-function centerCanvas() {
+function centerCanvas(animate=true) {
     const activeNode = nodes.find(n => n.id === activeNodeId)
     if (typeof activeNodeId === 'undefined' || !activeNodeId || activeNode?.type != 'chat') {
         for (let i = nodes.length-1;i>0;i--) {
@@ -1226,12 +1232,11 @@ function centerCanvas() {
     const nWidth = el.offsetWidth || nodeData.cachedWidth || nodeData.nodeWidth || 336;
     const nHeight = el.offsetHeight || nodeData.cachedHeight || nodeData.nodeHeight || 200;
 
-    nodesLayer.style.transition = 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    nodesLayer.style.transition = animate?'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)':'';
 
     camera.zoom = 1;
     camera.x = vWidth / 2 - (nX + nWidth / 2) * camera.zoom;
     camera.y = vHeight / 2 - (nY + nHeight / 2) * camera.zoom;
-
     
     updateCanvas();
     

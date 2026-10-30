@@ -86,10 +86,6 @@ function addToChatHistory(targetNode, parentElement = 'chat-selection', isFocus 
     if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
 
     chatEntry.addEventListener('click', () => {
-        // Prevent switching away from an in-progress streaming response
-        if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
-            return;
-        }
         if (last_active_chat) {
             last_active_chat.querySelector('.chat-entry-text').style.backgroundColor = 'transparent'
         }
@@ -111,11 +107,7 @@ function updateChatHistory(elementId = 'chat-selection', isFocus = true) {
         newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
         $(elementId).appendChild(newChatBtn)
         newChatBtn.addEventListener('click', () => {
-            // Prevent creating new chat while streaming
-            if (typeof isFocusModeStreaming !== 'undefined' && isFocusModeStreaming) {
-                return;
-            }
-            createNode()
+            selectNode(createNode())
             updateChatHistory()
             toggleFocusMode(true)
             autoLayout()
@@ -126,7 +118,7 @@ function updateChatHistory(elementId = 'chat-selection', isFocus = true) {
         // P2 Fix: Include nodes that are thinking (have aiThinking but no aiText
         // yet) — show them with a "Thinking..." indicator instead of hiding them.
         // Unexecuted empty leaves stay listed too (that's the node being typed into).
-        if (node.type == 'chat' && node.aiText.trim() == '' && node.childNodeIds.length == 0 && node.aiThinking.trim() =='') {
+        if (node.type == 'chat' && node.childNodeIds.length == 0 && ((node.aiText.trim() == '' && node.aiThinking.trim() =='') || node.isStreaming == true)) {
             if (typeof addToChatHistory == "function") {addToChatHistory(node, elementId, isFocus)}
         }
     });
@@ -152,6 +144,24 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
 
     function checkIfEmpty(node) {
         return (node.aiText.trim() == '' && node.type == 'chat' && node.aiThinking.trim() == '')
+    }
+
+    // A stream started on the canvas can be adopted into focus mode at any
+    // time — the same free enter/exit a stream started inside focus mode gets.
+    // Marking this before the entry restrictions so the streaming node isn't
+    // treated as a completed turn that needs an empty child or add button.
+    if (activeData && activeData.isStreaming) {
+        isFocusModeStreaming = true;
+        focusModeStreamingNodeId = activeData.id;
+    } else if (isFocusModeStreaming &&
+               (!focusModeStreamingNodeId || focusModeStreamingNodeId !== targetId ||
+                !nodes.find(n => n.id === focusModeStreamingNodeId)?.isStreaming)) {
+        // Entering focus on a different node, or on the tracked node after its
+        // stream already ended: drop the tracking so the running stream's turn
+        // doesn't leak into this branch's view and the input stays usable.
+        // The stream itself keeps running on the canvas.
+        isFocusModeStreaming = false;
+        focusModeStreamingNodeId = null;
     }
 
     // If not in focus mode but streaming, allow re-entry to restore streaming view
@@ -194,15 +204,40 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
 
     if (!targetId) {
         if (nodes.length > 0) {
-            selectNode(nodes[nodes.length - 1].id);
+            targetId = nodes[nodes.length - 1].id;
         } else {
-            createNode();
+            targetId = createNode();
         }
+        selectNode(targetId);
     }
 
-    const nodeData = nodes.find(n=>n.id==targetId)  
+    const nodeData = nodes.find(n=>n.id==targetId)
     nodeData.userText = document.getElementById(targetId).querySelector('.node-input').innerText
     nodeData.htmlText = document.getElementById(targetId).querySelector('.node-input').innerHTML
+
+    // Adopted canvas stream: sendFocusMessage normally creates the focus turn
+    // element; build the equivalent here so the in-progress response shows in
+    // the focus layer instead of an empty conversation. Created before
+    // renderFocusLineage so its preserve-and-reappend path keeps it.
+    if (isFocusModeStreaming && focusModeStreamingNodeId === targetId) {
+        const nodesLayer = document.getElementById('focus-nodes-layer');
+        if (nodesLayer && !document.getElementById(`focus-turn-${targetId}`)) {
+            const turnDiv = document.createElement('div');
+            turnDiv.className = 'focus-node streaming';
+            turnDiv.id = `focus-turn-${targetId}`;
+            turnDiv.innerHTML = `
+                <div class="focus-user" style="flex-direction: row;">${nodeData.htmlText}</div>
+                <div class="focus-ai ai-content"></div>
+            `;
+            nodesLayer.appendChild(turnDiv);
+            const aiEl = turnDiv.querySelector('.focus-ai');
+            if (Array.isArray(nodeData.aiSegments) && nodeData.aiSegments.length > 0 && typeof renderAiStream === 'function') {
+                renderAiStream(aiEl, nodeData);
+                syncFocusThinkVisibility(turnDiv);
+                if (window.Prism) Prism.highlightAllUnder(aiEl);
+            }
+        }
+    }
 
     updateChatHistory()
 
@@ -246,11 +281,14 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
             chatInput.removeEventListener('input', chatInput._syncListener);
         }
         chatInput._syncListener = () => {
-            const canvasInput = document.getElementById(targetId)?.querySelector('.node-input');
+            // Resolve the canvas node dynamically: targetId at entry goes stale
+            // once a turn completes and the next turn begins, which would sync
+            // the new prompt into the previous turn's node (prompt override bug).
+            const canvasInput = document.getElementById(activeNodeId)?.querySelector('.node-input');
             if (canvasInput && !isFocusModeStreaming) {
                 canvasInput.innerHTML = chatInput.innerHTML;
                 // Update nodeData for saveState
-                const nodeData = nodes.find(n => n.id === targetId);
+                const nodeData = nodes.find(n => n.id === activeNodeId);
                 if (nodeData) nodeData.htmlText = chatInput.innerHTML;
             }
         };
@@ -669,9 +707,13 @@ function renderFocusLineage() {
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
     if (!focusNodesLayer) return;
 
-    // Save the streaming node element if it exists, so we can restore it after re-render
+    // Save the streaming node element if it exists, so we can restore it after
+    // re-render — but only when the streamed node belongs to the branch being
+    // viewed, otherwise its turn would leak into unrelated conversations.
+    const streamingInLineage = isFocusModeStreaming && focusModeStreamingNodeId &&
+        current_active_lineage.includes(focusModeStreamingNodeId);
     let streamingNodeEl = null;
-    if (isFocusModeStreaming && focusModeStreamingNodeId) {
+    if (streamingInLineage) {
         streamingNodeEl = document.getElementById(`focus-turn-${focusModeStreamingNodeId}`);
         if (streamingNodeEl) {
             // Detach it temporarily to preserve its state
@@ -688,6 +730,10 @@ function renderFocusLineage() {
         // Skip the last node (the active/input node) - it's rendered separately by sendFocusMessage()
         // and preserved via cloning when streaming. The loop only renders completed ancestor turns.
         if (nodeId === activeNodeId) return;
+        // The streaming node is rendered via the preserved live element below
+        // (only when its live element actually exists — otherwise fall through
+        // and render a snapshot like any other turn).
+        if (nodeId === focusModeStreamingNodeId && streamingNodeEl) return;
 
         const nodeEl = document.getElementById(nodeId);
 
@@ -786,7 +832,7 @@ function renderFocusLineage() {
         }
 
         const turnDiv = document.createElement('div');
-        turnDiv.className = 'focus-node';
+        turnDiv.className = nodeData.isStreaming ? 'focus-node streaming' : 'focus-node';
         turnDiv.id = `focus-turn-${nodeId}`;
 
         let turnHtml = '';
@@ -819,7 +865,8 @@ function renderFocusLineage() {
             clonedStream.innerHTML = '';
             renderAiStream(clonedStream, streamingData);
         }
-        // With no segments yet the clone still shows the "Thinking..." header — leave it.
+        // With no segments yet the clone shows an empty .focus-ai until the
+        // first stream event arrives (thinking indicator is CSS-driven now).
         focusNodesLayer.appendChild(streamingNodeEl);
     }
 
@@ -914,13 +961,11 @@ async function sendFocusMessage() {
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
     if (focusNodesLayer) {
         const turnDiv = document.createElement('div');
-        turnDiv.className = 'focus-node';
+        turnDiv.className = 'focus-node streaming';
         turnDiv.id = `focus-turn-${targetNodeId}`;
         turnDiv.innerHTML = `
             <div class="focus-user">${userHtml}</div>
-            <div class="focus-ai ai-content">
-                <div class="focus-think-header"><img src="/static/icons/hourglass.svg" class="file-icon"> Thinking...</div>
-            </div>
+            <div class="focus-ai ai-content"></div>
         `;
         focusNodesLayer.appendChild(turnDiv);
         focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;
@@ -951,9 +996,9 @@ async function sendFocusMessage() {
 }
 
 /**
- * Removes the "Thinking..." placeholder header from a focus turn. ChatNode
- * drops its placeholder on the first stream event; this does the same for the
- * focus layer. Only call this from stream events.
+ * Removes a "Thinking..." header from a focus turn, if one is present.
+ * The built-in placeholder is gone (the thinking indicator is CSS-driven
+ * now), so this is a safe no-op kept for any future header-based indicator.
  */
 function syncFocusThinkVisibility(turnEl) {
     const aiEl = turnEl && turnEl.querySelector('.focus-ai');
@@ -972,10 +1017,22 @@ function syncFocusThinkVisibility(turnEl) {
  */
 function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     const focusBg = document.getElementById('focus-bg');
-    if (!focusBg || focusBg.style.display === 'none') return;
+    const focusVisible = focusBg && focusBg.style.display !== 'none' && focusBg.style.display !== '';
+    if (!focusVisible) {
+        // Focus mode is closed but the stream keeps running on the canvas —
+        // still reset the focus streaming state when it ends, otherwise a
+        // stale isFocusModeStreaming blocks re-entry, sending and new chats.
+        if (type === 'complete' || type === 'error') updateFocusModeButtonState('idle');
+        return;
+    }
 
     const turnEl = document.getElementById(`focus-turn-${nodeId}`);
-    if (!turnEl) return;
+    if (!turnEl) {
+        // No focus turn to update, but the stream still ends — reset the
+        // focus state or the input stays disabled forever.
+        if (type === 'error' || type === 'complete') updateFocusModeButtonState('idle');
+        return;
+    }
 
     const aiEl = turnEl.querySelector('.focus-ai');
     const nodeData = nodes.find(n => n.id === nodeId);
@@ -986,17 +1043,25 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     // exactly like the canvas node (renderAiStream comes from ChatNode.js).
     // Stream events arrive per-delta, far faster than frames — render at most
     // once per animation frame, mirroring ChatNode's flushUi throttle.
-    let uiPending = false;
+    let rafId = null;
     const renderStreamNow = () => {
-        uiPending = false;
+        rafId = null;
         if (!aiEl || !nodeData || typeof renderAiStream !== 'function') return;
         syncFocusThinkVisibility(turnEl);
         renderAiStream(aiEl, nodeData);
     };
     const syncStream = () => {
-        if (uiPending) return;
-        uiPending = true;
-        requestAnimationFrame(renderStreamNow);
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(renderStreamNow);
+    };
+    // Final synchronous render: cancels any queued incremental flush first so
+    // it can't fire afterwards and wipe an end-of-stream notice appended on top.
+    const settleStream = () => {
+        if (rafId !== null) {
+            cancelAnimationFrame(rafId);
+            rafId = null;
+        }
+        renderStreamNow();
     };
 
     if (type === 'reasoning' || type === 'tool_call_start' || type === 'tool_call' || type === 'tool_result' || type === 'content') {
@@ -1004,8 +1069,11 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         // text, tool chips ("Tool call: name(args)..." flipping to an
         // expandable "Done:" chip on result) and the answer, in emission order.
         syncStream();
+        turnEl.classList.add('streaming');
         updateFocusModeButtonState('streaming', nodeId);
     } else if (type === 'error') {
+        settleStream();
+        turnEl.classList.remove('streaming');
         syncFocusThinkVisibility(turnEl);
         if (isAborted) {
             if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
@@ -1017,10 +1085,11 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         updateFocusModeButtonState('idle');
     } else if (type === 'complete') {
         updateFocusModeButtonState('idle');
+        turnEl.classList.remove('streaming');
         // Final render (synchronously, so Prism below sees the finished DOM),
         // then the stream stays visible after completion — reasoning text and
         // "Done" tool chips remain inspectable in place.
-        renderStreamNow();
+        settleStream();
         if (window.Prism && aiEl) {
             Prism.highlightAllUnder(aiEl);
         }
@@ -1143,6 +1212,9 @@ function setupFocusInputListeners() {
                     nodeData.abortController.abort();
                 }
             }
+            // Unblock the input immediately — the abort's error event will
+            // still arrive and append the "[Stopped by User]" notice.
+            updateFocusModeButtonState('idle');
         });
     }
 
