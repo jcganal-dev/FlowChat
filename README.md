@@ -161,40 +161,7 @@ Open **http://localhost:5000** in your browser.
   * **create_folder** - create a new folder
   * **move_files** - move files/folders within the sandbox
   * **copy_files** - copy files/folders within the sandbox
-
----
-
-## Project Structure
-
-```
-FlowChat/
-├── api.py                 # FastAPI backend, tool registry, SSE chat endpoint
-├── tools.py               # Tool implementations (search, scrape, file ops)
-├── requirements.txt       # Python dependencies
-├── .env.example           # Environment template
-├── flowchat.db            # SQLite state (auto-created)
-├── sandbox/               # Isolated filesystem for LLM tools
-├── static/
-│   ├── styles/index.css   # All styling (CSS custom properties)
-│   ├── js/
-│   │   ├── globals.js     # Shared state, utilities, renderMarkdown
-│   │   ├── api.js         # Frontend API client (SSE parsing)
-│   │   ├── canvas.js      # Canvas rendering, pan/zoom, edges, groups
-│   │   ├── nodes.js       # Focus mode, lineage, node lifecycle
-│   │   ├── chat.js        # Summarization (group & single node)
-│   │   ├── sidebar.js     # Floating sandbox palette
-│   │   ├── toolbar.js     # Bottom-left toolbar (zoom, save, focus, layout, wipe)
-│   │   ├── main.js        # Boot, event wiring, context menu
-│   │   └── classes/
-│   │       ├── BaseNode.js      # Drag, resize, header, cleanup
-│   │       ├── ChatNode.js      # LLM execution, streaming UI
-│   │       ├── FileNode.js      # Document/image display
-│   │       └── ScrapeNode.js    # URL scraping, markdown render
-├── templates/
-│   └── index.html         # Main HTML shell, chat history UI
-```
-
----
+  * **run_command** - runs commands in console
 
 ## Configuration Options
 

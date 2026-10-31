@@ -166,67 +166,31 @@
         </div>
     </div>
 
-    <style>
-        .settings {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100dvw;
-            height: 100dvh;
-            background-color: transparent;
-            display: flex;
-            flex-direction: row;
-            pointer-events: none;
-            /* background-color: var(--bg-base); */
-        }
-        .settings > side {
-            background-color: transparent;
-            /* background-color: var(--bg-input); */
-            min-width: 47.75px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 0px;
-        }
-        .settings > main {
-            min-width: 80dvw;
-            width: 100%;
-            height: 100%;
-            display: none;
-            flex-direction: column;
-            background-color: var(--bg-surface);
-            user-select: text;
-            padding: 10px;
-        }
-        .settings > side > .tab-btn {
-            pointer-events: all !important;
-        }
-    </style>
-
     <div id="settings" class="settings">
         <side class="side">
             <a class="tab-btn" onclick="showSettings()" title="FlowChat"><img src="/static/icons/icon.svg" class="tab-icon"/></a>
         </side>
         <main class="main">
             <h2>Settings</h2>
-            <div>
-
+            <div class="settings-section">
+                <h3>API Configuration</h3>
+                <p class="settings-hint">Stored in the local <code>.env</code> file and used only to proxy requests to OpenRouter — the key is never exposed to the page. Changes apply immediately, no restart needed.</p>
+                <div class="settings-field">
+                    <label for="settings-api-key">OpenRouter API Key</label>
+                    <input type="password" id="settings-api-key" class="modal-input" placeholder="paste a new key to replace the current one"
+                        autocomplete="off" spellcheck="false" />
+                    <span id="settings-api-key-status" class="settings-hint"></span>
+                </div>
+                <div class="settings-field">
+                    <label for="settings-model">Default Model</label>
+                    <input type="text" id="settings-model" class="modal-input" placeholder="openrouter/free"
+                        spellcheck="false" />
+                    <span class="settings-hint">Optional — leave empty to keep the current value (default: OpenRouter free-model router).</span>
+                </div>
+                <button id="settings-save-btn" class="modal-btn primary" type="button">Save</button>
             </div>
-            
         </main>
     </div>
-    <script>
-        const settings = document.getElementById('settings')
-        const side = settings.querySelector('.side')
-        const main = settings.querySelector('.main')
-        let inSettings = false
-        function showSettings() {
-            side.style.backgroundColor = inSettings?'transparent':'var(--bg-input)';
-            main.style.display = inSettings?'none':'flex';
-            inSettings = !inSettings
-        }
-    </script>
 </body>
 
 </html>
@@ -240,6 +204,7 @@
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js"></script>
 
 <script src="/static/js/globals.js"></script>
+<script src="/static/js/settings.js"></script>
 <script src="/static/js/api.js"></script>
 <script src="/static/js/canvas.js"></script>
 <script src="/static/js/classes/BaseNode.js"></script>

@@ -503,8 +503,13 @@ class ChatNode extends BaseNode {
                 const option = selectEl.querySelector(`[value="${wanted}"]`) || selectEl.querySelector('.model-option');
                 selectBtn.innerHTML = option.innerHTML;
                 selectBtn.setAttribute('value', option.getAttribute('value'));
-                // Sync the saved model too, so stale/no-longer-listed ids fall back cleanly
-                this.nodeData.selectedModel = option.getAttribute('value');
+                // Only sync back when the node already had an explicit choice
+                // (e.g. a restored id that no longer exists falls back cleanly).
+                // Never pin the default into nodeData — nodes without a pick
+                // must keep following the current default when it changes.
+                if (this.nodeData.selectedModel) {
+                    this.nodeData.selectedModel = option.getAttribute('value');
+                }
             } else {
                 selectBtn.innerHTML = 'No free models found';
             }

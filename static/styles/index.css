@@ -1233,7 +1233,7 @@ div[contentEditable='true'].scrape-node-input,
     background-color: var(--bg-input);
     display: none;
     flex-direction: column;
-    border-right: 1px solid var(--border-base);
+    border-left: 1px solid var(--border-base);
 }
 
 .focus-sidebar-header {
@@ -1490,7 +1490,7 @@ h6 {
 
 .focus-tab-selection {
     background-color: var(--bg-input);
-    border-right: 1px solid var(--border-strong);
+    /* border-right: 1px solid var(--border-strong); */
     min-width: 47.75px;
     display: flex;
     flex-direction: column;
@@ -1506,7 +1506,7 @@ h6 {
   .focus-sidebar {
         position: fixed;
         top: 0;
-        left: 48.75px;
+        left: 48px;
         height: 100dvh;
         z-index: 12;
   }
@@ -1842,4 +1842,68 @@ details[open]::details-content {
 }
 .streaming .ai-content:empty::after {
     content: "Thinking...";
+}
+
+.settings {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100dvw;
+    height: 100dvh;
+    background-color: transparent;
+    display: flex;
+    flex-direction: row;
+    pointer-events: none;
+    /* background-color: var(--bg-base); */
+}
+.settings > side {
+    background-color: transparent;
+    /* background-color: var(--bg-input); */
+    min-width: 47.75px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0px;
+}
+.settings > main {
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    background-color: var(--bg-surface);
+    user-select: text;
+    padding: 10px 25px;
+    pointer-events: all;
+}
+.settings > side > .tab-btn {
+    pointer-events: all !important;
+}
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 520px;
+}
+.settings-section h3 {
+    margin: 0;
+}
+.settings-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.settings-field label {
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+.settings-hint {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.settings-hint code {
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: var(--transparent-lighter);
 }

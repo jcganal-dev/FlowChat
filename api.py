@@ -26,7 +26,7 @@ agent_tools = agent_tools_module.Tools()
 
 TOOL_REGISTRY, TOOLS_SCHEMA = agent_tools_module.build_tools(
     agent_tools,
-    exclude=["run_command"],   # remove this once you trust the agent's behavior
+    # exclude=["run_command"],   # remove this once you trust the agent's behavior
 )
 
 MAX_TOOL_ROUNDS = 200
@@ -63,10 +63,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    # Same-origin only. The frontend is served from one of these, so nothing
+    # breaks — but a random website can no longer call this API from a
+    # browser and read responses (e.g. sandbox files, /api/settings).
+    allow_origins=["http://localhost:5000", "http://127.0.0.1:5000"],
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -303,6 +305,96 @@ MODEL = os.getenv("MODEL", "openrouter/free")  # Default to OpenRouter's free-mo
 
 if not API_KEY:
     raise ValueError("API_KEY not found in .env file")
+
+def mask_secret(secret: str) -> str:
+    """Render a secret safe to display: enough to recognize it, not enough to use it."""
+    if not secret:
+        return ""
+    if len(secret) <= 12:
+        return "*" * len(secret)
+    return f"{secret[:8]}...{secret[-4:]}"
+
+def _clean_env_value(value: str, label: str) -> str:
+    """Validate a value destined for .env — reject anything that could break the file format."""
+    value = value.strip()
+    if not value:
+        raise HTTPException(status_code=400, detail=f"{label} cannot be empty")
+    if any(c in value for c in "\n\r\"'"):
+        raise HTTPException(status_code=400, detail=f"{label} contains invalid characters (quotes/newlines)")
+    return value
+
+def update_env_file(updates: Dict[str, str]) -> None:
+    """Persist key=value pairs into .env, preserving every other line (comments included).
+    Writes atomically so a crash mid-write can't corrupt the file."""
+    lines = []
+    seen = set()
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped and not stripped.startswith("#") and "=" in stripped:
+                    key = stripped.split("=", 1)[0].strip()
+                    if key in updates:
+                        lines.append(f"{key}={updates[key]}\n")
+                        seen.add(key)
+                        continue
+                lines.append(line)
+    for key, value in updates.items():
+        if key not in seen:
+            lines.append(f"{key}={value}\n")
+    tmp_path = env_path.with_name(env_path.name + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+    os.replace(tmp_path, env_path)
+
+class SettingsPayload(BaseModel):
+    api_key: Optional[str] = None
+    model: Optional[str] = None
+
+@app.get("/api/settings")
+async def get_settings():
+    """Current backend settings. The API key is returned masked — the full
+    value never leaves the server."""
+    return JSONResponse(content={
+        "api_key_set": bool(API_KEY),
+        "api_key_masked": mask_secret(API_KEY or ""),
+        "model": MODEL,
+    })
+
+@app.post("/api/settings")
+async def update_settings(payload: SettingsPayload):
+    """Update API key and/or default model at runtime — no restart needed.
+    Only the fields provided (and non-empty) are changed."""
+    global API_KEY, MODEL
+    updates = {}
+
+    if payload.api_key is not None and payload.api_key.strip():
+        key = _clean_env_value(payload.api_key, "API key")
+        if not key.startswith("sk-or-"):
+            raise HTTPException(status_code=400, detail="API key must start with 'sk-or-' (OpenRouter key)")
+        updates["API_KEY"] = key
+        API_KEY = key
+
+    if payload.model is not None and payload.model.strip():
+        model = _clean_env_value(payload.model, "Model")
+        updates["MODEL"] = model
+        MODEL = model
+
+    if not updates:
+        return JSONResponse(content={
+            "message": "Nothing to update",
+            "api_key_set": bool(API_KEY),
+            "api_key_masked": mask_secret(API_KEY or ""),
+            "model": MODEL,
+        })
+
+    await asyncio.to_thread(update_env_file, updates)
+    return JSONResponse(content={
+        "message": "Settings saved",
+        "api_key_set": bool(API_KEY),
+        "api_key_masked": mask_secret(API_KEY or ""),
+        "model": MODEL,
+    })
 
 tool_list = []
 
