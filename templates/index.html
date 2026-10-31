@@ -8,13 +8,12 @@
     <link rel="stylesheet" href="/static/styles/index.css">
     <link rel="icon" href="/static/icons/icon.svg" type="image/png">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <link href="https://cdn.jsdelivr.net/gh/PrismJS/prism-themes@master/themes/prism-vsc-dark-plus.css"
-        rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/gh/PrismJS/prism-themes@master/themes/prism-vsc-dark-plus.css" rel="stylesheet" />
     <script src="/static/js/prism.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
-<body class="no-select" onload="Prism.highlightAll();zoom(0);centerCanvas(false)">
+<body class="no-select" onload="zoom(0);Prism.highlightAll();setTimeout(()=>{centerCanvas(false)},1)">
     <div class="chat-goto-container" style="display: none;">
         <div id="chats-goto"></div>
     </div>
