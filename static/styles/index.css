@@ -1174,7 +1174,8 @@ div[contentEditable='true'].scrape-node-input,
     /* background-color: transparent; */
     border: none;
     overflow-wrap: break-word;
-    line-height: 1;
+    line-height: 1.25;
+    padding: 8px 8px;
 }
 
 
