@@ -421,16 +421,23 @@ function updateFocusFileSelection() {
  * Renders the project files tree inside #focus-file-tree.
  * Full parity with the floating sidebar palette: selection (single, Shift-range, Ctrl-toggle),
  * drag/drop between folders, context menu, and Shift+Click-to-reference when input is focused.
+ * @param {boolean} showLoading - When false (background refreshes), keep the current tree
+ * visible until new data arrives instead of flashing the loading indicator.
  */
-async function renderFocusProjectFiles() {
+async function renderFocusProjectFiles(showLoading = true) {
     const treeContainer = document.getElementById('focus-file-tree');
     if (!treeContainer) return;
 
-    treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/hourglass.svg" class="file-icon"> Loading files...</div>';
+    if (showLoading) {
+        treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/hourglass.svg" class="file-icon"> Loading files...</div>';
+    }
 
     const data = await apiFetchSandboxFiles();
     if (!data) {
-        treeContainer.innerHTML = '<div class="focus-loading-files" style="color:#ef4444;">Failed to load project files</div>';
+        // On a background refresh, keep the stale tree rather than wiping it with an error
+        if (showLoading) {
+            treeContainer.innerHTML = '<div class="focus-loading-files" style="color:#ef4444;">Failed to load project files</div>';
+        }
         return;
     }
 

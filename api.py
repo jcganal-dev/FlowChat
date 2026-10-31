@@ -1,4 +1,5 @@
 import json
+import hashlib
 import httpx
 import sqlite3
 import os
@@ -174,6 +175,54 @@ async def serve_canvas(request: Request):
 class SaveSandboxFileRequest(BaseModel):
     filename: str
     content: str
+
+def sandbox_fingerprint() -> str:
+    """Cheap snapshot of the sandbox tree (paths + sizes + mtimes), hashed.
+    Used by /api/sandbox/events to detect changes from any source."""
+    parts = []
+    for root, dirnames, filenames in os.walk("sandbox"):
+        rel_dir = os.path.relpath(root, "sandbox")
+        if rel_dir == ".":
+            rel_dir = ""
+        for dirname in dirnames:
+            dirpath = os.path.join(rel_dir, dirname).replace("\\", "/")
+            try:
+                st = os.stat(os.path.join(root, dirname))
+                parts.append(f"d:{dirpath}:{st.st_mtime_ns}")
+            except OSError:
+                parts.append(f"d:{dirpath}")
+        for filename in filenames:
+            filepath = os.path.join(rel_dir, filename).replace("\\", "/")
+            try:
+                st = os.stat(os.path.join(root, filename))
+                parts.append(f"f:{filepath}:{st.st_size}:{st.st_mtime_ns}")
+            except OSError:
+                parts.append(f"f:{filepath}")
+    parts.sort()
+    return hashlib.md5("\n".join(parts).encode("utf-8", "replace")).hexdigest()
+
+@app.get("/api/sandbox/events")
+async def sandbox_events(request: Request):
+    """SSE stream that notifies clients whenever the sandbox tree changes,
+    whether the change came from the app or from a manual edit on disk."""
+    async def event_stream():
+        last = None
+        while True:
+            if await request.is_disconnected():
+                return
+            current = await asyncio.to_thread(sandbox_fingerprint)
+            if last is not None and current != last:
+                yield "event: sandbox-changed\ndata: {}\n\n"
+            last = current
+            # Comment line: keeps the connection warm and flushes the headers
+            yield ": ping\n\n"
+            await asyncio.sleep(1.0)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
 
 @app.post("/api/sandbox/save")
 async def save_sandbox_file(req: SaveSandboxFileRequest):
