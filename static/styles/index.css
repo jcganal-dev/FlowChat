@@ -397,7 +397,7 @@ body.is-panning * {
 }
 
 /* Infinite X and Y Axes */
-#nodes-layer::before {
+/* #nodes-layer::before {
     content: '';
     position: absolute;
     left: -1000000px;
@@ -419,7 +419,7 @@ body.is-panning * {
     background: var(--transparent-lighter);
     pointer-events: none;
     z-index: 0;
-}
+} */
 
 /* Node Styles */
 .node {
