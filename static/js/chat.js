@@ -9,7 +9,7 @@
 function nodeAnswerText(node) {
     if (Array.isArray(node.aiSegments) && node.aiSegments.some(s => s.type === 'text')) {
         return node.aiSegments
-            .filter(s => s.type === 'text' && s.text)
+            .filter(s => s.type === 'text' && s.text && s.text.trim() !== '')
             .map(s => s.text)
             .join('\n\n');
     }

@@ -51,7 +51,10 @@ function buildStreamPlan(segs) {
             continue;
         }
         if (seg.type !== 'tool_call') {
-            plan.push({ type: 'text', seg });
+            // Whitespace-only text segments (legacy saves keep '\n' chunks some
+            // models emit between tool calls) render nothing — skip them so
+            // they can't split a run of tool calls into separate groups.
+            if (seg.text && seg.text.trim() !== '') plan.push({ type: 'text', seg });
             i++;
             continue;
         }
@@ -636,6 +639,10 @@ class ChatNode extends BaseNode {
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
                 if (!last || last.type !== 'text') {
+                    // Whitespace-only chunks (e.g. '\n' some models emit between
+                    // tool calls) never start a segment — they would only split
+                    // the tool-call group and render as empty output.
+                    if (content.trim() === '') return;
                     last = { type: 'text', text: '' };
                     segs.push(last);
                 }

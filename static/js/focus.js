@@ -227,7 +227,7 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
             turnDiv.className = 'focus-node streaming';
             turnDiv.id = `focus-turn-${targetId}`;
             turnDiv.innerHTML = `
-                <div class="focus-user" style="flex-direction: row;">${nodeData.htmlText}</div>
+                <div class="focus-user">${nodeData.htmlText}</div>
                 <div class="focus-ai ai-content"></div>
             `;
             nodesLayer.appendChild(turnDiv);
@@ -806,7 +806,7 @@ function renderFocusLineage() {
             fileNodeEl.style = 'margin: 40px 0px 10px 0px;';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="margin-bottom: 0px; align-self: end; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type ==='scrape'?'':'max-'}width: 70%;">
+                <div class="focus-user" style="flex-direction: column;margin-bottom: 0px; align-self: end; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type ==='scrape'?'':'max-'}width: 70%;">
                     <div style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
                     <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='display: flex; overflow: auto; scrollbar-width: none; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
                 </div>
