@@ -913,7 +913,19 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                         bounds.maxY + pad > pb.minY
                     ) {
                         hasOverlap = true;
-                        let shiftAmount = (pb.maxX + pad) - bounds.minX;
+                        // Shift AWAY from the obstacle's center, not always to the right.
+                        // If current root is left of obstacle center → shift left (negative).
+                        // If current root is right of obstacle center → shift right (positive).
+                        const boundsCenterX = (bounds.minX + bounds.maxX) / 2;
+                        const pbCenterX = (pb.minX + pb.maxX) / 2;
+                        let shiftAmount;
+                        if (boundsCenterX < pbCenterX) {
+                            // Current root is to the left → push it further left
+                            shiftAmount = (pb.minX - pad) - bounds.maxX;
+                        } else {
+                            // Current root is to the right → push it further right
+                            shiftAmount = (pb.maxX + pad) - bounds.minX;
+                        }
                         shiftSubtree(root, shiftAmount, 0);
                         bounds = getSubtreeBounds(root);
                         break;
