@@ -1028,6 +1028,7 @@ body.shift-pressed.input-focused .node-id {
     margin: 10px 0;
     white-space: pre;
     scrollbar-width: none;
+    line-height: 1;
 }
 
 .ai-content code {
@@ -1173,6 +1174,7 @@ div[contentEditable='true'].scrape-node-input,
     /* background-color: transparent; */
     border: none;
     overflow-wrap: break-word;
+    line-height: 1;
 }
 
 

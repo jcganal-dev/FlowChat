@@ -410,7 +410,8 @@ SYSTEM_INSTRUCTIONS = [
     "If a search fails, tell the user rather than retrying indefinitely.",
     "Once you arrive at an answer, give the answer to the user. Do not overthink.",
     "You are already inside the sandbox directory. If you want to access a file, ommit 'sandbox/' from your path (just use file.txt instead of sandbox/file.txt",
-    "Make sure to tell the user what you did after finishing your task."
+    "Make sure to tell the user what you did after finishing your task.",
+    "Strictly work ONLY inside sandbox, do not modify any global instances (e.g. if using python create a venv etc.)"
 ]
 
 BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
