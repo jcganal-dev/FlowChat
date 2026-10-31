@@ -1831,10 +1831,15 @@ details[open]::details-content {
   50% { opacity: 0.5; }
 }
 .streaming .ai-content::after {
-    content: "Thinking...";
     animation: blink 1.5s infinite;
     font-weight: normal;
     font-style: normal;
     margin-left: 8px;
     color: var(--text-muted);
+}
+.streaming .ai-content:not(:empty)::after {
+    content: "Working...";
+}
+.streaming .ai-content:empty::after {
+    content: "Thinking...";
 }

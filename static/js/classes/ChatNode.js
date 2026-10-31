@@ -376,6 +376,15 @@ class ChatNode extends BaseNode {
             this.addBtn.classList.remove('add-child-btn-active')
             this.addBtn.classList.remove('add-child-btn-inactive')
         })
+        const aiSection = this.el.querySelector('.ai-section');
+        // Auto-scroll state: true = user is at/near bottom, keep following new content
+        this.autoscroll = true;
+
+        aiSection.addEventListener('scroll', () => {
+            const nearBottom = aiSection.scrollTop + aiSection.clientHeight >= aiSection.scrollHeight - 50;
+            this.autoscroll = nearBottom;
+        });
+
         this.stopBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
@@ -604,9 +613,8 @@ class ChatNode extends BaseNode {
             // Everything the model emitted — reasoning, tool chips and answer
             // text — reconciles into one stream, in emission order.
             renderAiStream(aiContentEl, this.nodeData);
-            const aiSection = this.el.querySelector('.ai-section')
-            const contentIsNearBottom = aiSection.scrollTop + aiSection.clientHeight >= aiSection.scrollHeight - 100;
-            if (contentIsNearBottom) {
+            const aiSection = this.el.querySelector('.ai-section');
+            if (this.autoscroll) {
                 aiSection.scrollTop = aiSection.scrollHeight;
             }
             if (typeof drawEdges === 'function') drawEdges();

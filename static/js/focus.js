@@ -5,6 +5,7 @@
 let isFocusModeActive = false;
 let isFocusModeStreaming = false; // Tracks if we're currently streaming a response
 let focusModeStreamingNodeId = null; // The nodeId currently being streamed
+let focusAutoscroll = true; // When true, follow new content in focus-nodes-layer
 
 let lastOpenedTab = ''
 function showSidebar(target) {
@@ -237,6 +238,17 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
                 if (window.Prism) Prism.highlightAllUnder(aiEl);
             }
         }
+    }
+
+    // Auto-scroll guard for focus-nodes-layer: mirrors ChatNode behavior.
+    // Scrolling up to read history disables auto-follow; scrolling near bottom re-enables.
+    const nodesLayerForScroll = document.getElementById('focus-nodes-layer');
+    if (nodesLayerForScroll && !nodesLayerForScroll._autoscrollListener) {
+        nodesLayerForScroll._autoscrollListener = true;
+        nodesLayerForScroll.addEventListener('scroll', () => {
+            const nearBottom = nodesLayerForScroll.scrollTop + nodesLayerForScroll.clientHeight >= nodesLayerForScroll.scrollHeight - 50;
+            focusAutoscroll = nearBottom;
+        });
     }
 
     updateChatHistory()
@@ -1110,11 +1122,7 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
     }
 
     if (nodesLayer) {
-        // Mirror ChatNode's near-bottom auto-scroll guard: keep the newest
-        // content in view while the user is at the bottom, but never yank the
-        // layer away while they scroll back to read earlier thoughts.
-        const isNearBottom = nodesLayer.scrollTop + nodesLayer.clientHeight >= nodesLayer.scrollHeight - 100;
-        if (isNearBottom) nodesLayer.scrollTop = nodesLayer.scrollHeight;
+        if (focusAutoscroll) nodesLayer.scrollTop = nodesLayer.scrollHeight;
     }
 }
 
