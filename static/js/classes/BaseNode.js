@@ -226,7 +226,7 @@ class BaseNode {
         while (nodes.find(n => n.id === rootParent).parentId) {
             rootParent = nodes.find(n => n.id === rootParent).parentId
         }
-        autoLayout(true, rootParent)
+        autoLayout(true)
         // Only user-initiated forks move the active selection to the child;
         // programmatic spawns pass selectNew: false so they don't steal focus.
         if (selectNew) selectNode(newId);

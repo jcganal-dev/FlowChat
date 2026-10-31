@@ -608,6 +608,28 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
         }
     });
 
+    // Helper: walk up parent chain to find the top-most ancestor (root) of a node
+    function findRoot(nodeId) {
+        let curr = nodes.find(n => n.id === nodeId);
+        while (curr && curr.parentId && nodes.some(p => p.id === curr.parentId && !p.isVirtual)) {
+            curr = nodes.find(p => p.id === curr.parentId);
+        }
+        return curr;
+    }
+
+    // When preserveRoots=true, prioritize the active node's root: put it first
+    // in the roots array so its position is preserved and other roots adjust around it.
+    if (preserveRoots && !isTargeted && activeNodeId) {
+        const activeRoot = findRoot(activeNodeId);
+        if (activeRoot) {
+            const idx = roots.findIndex(r => r.id === activeRoot.id);
+            if (idx > 0) {
+                roots.splice(idx, 1);
+                roots.unshift(activeRoot);
+            }
+        }
+    }
+
     function calculateSubtreeMetrics(nodeData) {
         const children = childrenMap[nodeData.id] || [];
         const el = document.getElementById(nodeData.id);
