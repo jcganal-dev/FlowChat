@@ -538,7 +538,7 @@ class ChatNode extends BaseNode {
             const models = await getCachedModels();
             if (models && models.length > 0) {
                 selectEl.innerHTML = models.map(m => 
-                    `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
+                    `<div class="model-option" value="${m.id}" title="${(displayModelName? m.name: null) || m.id}">${(displayModelName? m.name: null) || m.id}</div>`
                 ).join('');
                 // Restore previously selected model, the .env default, or the first model
                 const wanted = this.nodeData.selectedModel || defaultModel || models[0].id;

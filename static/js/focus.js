@@ -890,7 +890,7 @@ async function populateFocusModelSelection() {
         const models = await getCachedModels();
         if (models && models.length > 0) {
             selectEl.innerHTML = models.map(m =>
-                `<div class="model-option" value="${m.id}" title="${m.name || m.id}">${m.name || m.id}</div>`
+                `<div class="model-option" value="${m.id}" title="${(displayModelName?m.name:null) || m.id}">${(displayModelName?m.name:null) || m.id}</div>`
             ).join('');
             // Restore previously selected model if any, else the .env default.
             // No write-back here: nodes without an explicit pick must keep
