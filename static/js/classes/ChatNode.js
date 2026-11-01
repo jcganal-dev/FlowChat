@@ -393,6 +393,41 @@ class ChatNode extends BaseNode {
             if (this.nodeData && this.nodeData.abortController) this.nodeData.abortController.abort();
         });
         this.aiStreamEl = this.el.querySelector('.ai-content');
+        // Expanding content inside the node — a tool group, a chip's result, a
+        // thoughts block — makes the node taller, so the nodes hanging below it
+        // move with it, the same shift the summary toggle performs. Two things
+        // make this a follow rather than a single measurement: the height is
+        // animated (details::details-content transitions block-size over 0.2s),
+        // and the toggle event lands before layout catches up. So the height
+        // before the click is recorded, then each frame's new height is applied
+        // as its own shift until the animation settles.
+        let lastObservedHeight = 0;
+        let followToken = 0;
+        const followHeightChange = () => {
+            const token = ++followToken;
+            const startedAt = performance.now();
+            const step = () => {
+                if (token !== followToken) return;   // a newer toggle owns the loop
+                const height = this.el.offsetHeight;
+                if (height !== lastObservedHeight) {
+                    if (typeof shiftChildrenXY === 'function') shiftChildrenXY(this.id, 0, height - lastObservedHeight);
+                    lastObservedHeight = height;
+                }
+                if (performance.now() - startedAt < 400) {
+                    requestAnimationFrame(step);
+                    return;
+                }
+                if (typeof drawEdges === 'function') drawEdges();
+                if (typeof drawGroups === 'function') drawGroups();
+                if (typeof updateCanvas === 'function') updateCanvas();
+                if (typeof saveState === 'function') saveState();
+            };
+            requestAnimationFrame(step);
+        };
+
+        this.aiStreamEl.addEventListener('click', (e) => {
+            if (e.target.closest && e.target.closest('summary')) lastObservedHeight = this.el.offsetHeight;
+        }, true);
         // Persist tool-chip <details> open state back into the segment
         // (toggle doesn't bubble -> capture phase).
         this.aiStreamEl.addEventListener('toggle', (e) => {
@@ -400,6 +435,10 @@ class ChatNode extends BaseNode {
             const id = chip.getAttribute && chip.getAttribute('data-seg-id');
             const seg = (this.nodeData.aiSegments || []).find(s => s.type === 'tool_call' && s.id === id);
             if (seg) seg.open = chip.open;
+
+            // Leaf nodes have nothing below them to move.
+            if (!lastObservedHeight || !nodes.some(n => n.parentId === this.id)) return;
+            followHeightChange();
         }, true);
         // Restore path: the stream markup is already in the DOM, so its code
         // blocks (reasoning and answer) can be highlighted right away — the
