@@ -143,7 +143,12 @@ let current_active_lineage = []
 // merge tool-call runs across them into one collapsed group. Takes effect on
 // the next page load.
 let show_thoughts = false;
-let camera = { x: 0, y: 0, zoom: 1 };
+
+const viewportWidth = window.innerWidth;
+const viewportHeight = window.innerHeight;
+let camera = { x: (viewportWidth-336)/2, y: (viewportHeight-170)/2, zoom: 1 };
+
+
 let selectedNodes = new Set();
 let activeNodeId = null;
 let targetNodeIdForMenu = null;
