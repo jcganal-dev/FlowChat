@@ -430,21 +430,29 @@ function updateFocusFileSelection() {
 }
 
 /**
- * Renders the project files tree inside #focus-file-tree.
- * Full parity with the floating sidebar palette: selection (single, Shift-range, Ctrl-toggle),
- * drag/drop between folders, context menu, and Shift+Click-to-reference when input is focused.
+ * Renders the project files tree inside #focus-file-tree through the shared
+ * sandbox tree renderer (sidebar.js), so both trees get the same lazy folder
+ * expansion, selection, drag/drop behaviour and context menu.
+ *
+ * Bails out while focus mode is closed — the tree is rebuilt on entry, so
+ * re-rendering a hidden tree on every background refresh bought nothing.
  * @param {boolean} showLoading - When false (background refreshes), keep the current tree
  * visible until new data arrives instead of flashing the loading indicator.
+ * @param {Object} [preloadedData] - A listing the caller already fetched, so a refresh
+ * covering both trees only costs one round trip.
  */
-async function renderFocusProjectFiles(showLoading = true) {
+async function renderFocusProjectFiles(showLoading = true, preloadedData = null) {
     const treeContainer = document.getElementById('focus-file-tree');
     if (!treeContainer) return;
+
+    const focusBg = document.getElementById('focus-bg');
+    if (!focusBg || focusBg.style.display === 'none') return;
 
     if (showLoading) {
         treeContainer.innerHTML = '<div class="focus-loading-files"><img src="/static/icons/hourglass.svg" class="file-icon"> Loading files...</div>';
     }
 
-    const data = await apiFetchSandboxFiles();
+    const data = preloadedData || await loadSandboxFileData();
     if (!data) {
         // On a background refresh, keep the stale tree rather than wiping it with an error
         if (showLoading) {
@@ -453,269 +461,7 @@ async function renderFocusProjectFiles(showLoading = true) {
         return;
     }
 
-    treeContainer.innerHTML = '';
-    const items = data.items || data.files.map(f => ({ path: f, type: 'file' }));
-    const sRoot = { name: 'Sandbox (S:)', path: '', type: 'directory', children: {}, isSandboxRoot: true };
-    const treeRoot = { name: '', path: '', type: 'directory', children: { 'S:/': sRoot } };
-
-    items.forEach(item => {
-        const parts = item.path.split('/');
-        let current = sRoot;
-        for (let i = 0; i < parts.length - 1; i++) {
-            if (!current.children[parts[i]]) {
-                current.children[parts[i]] = { name: parts[i], path: parts.slice(0, i + 1).join('/'), type: 'directory', children: {} };
-            }
-            current = current.children[parts[i]];
-        }
-        const name = parts[parts.length - 1];
-        if (item.type === 'directory') {
-            if (!current.children[name]) {
-                current.children[name] = { name, path: item.path, type: 'directory', children: {} };
-            }
-        } else {
-            current.children[name] = { name, path: item.path, type: 'file' };
-        }
-    });
-
-    currentSandboxFiles = []; // Reset and rebuild in visual order
-
-    function renderNode(node, container, depth = 0) {
-        const children = Object.values(node.children).sort((a, b) => {
-            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
-            return a.name.localeCompare(b.name);
-        });
-
-        children.forEach(child => {
-            const itemWrapper = document.createElement('div');
-            itemWrapper.className = 'tree-item-wrapper';
-
-            const item = document.createElement('div');
-            item.className = 'file-item';
-            item.style.paddingLeft = `${depth * 16 + 8}px`;
-            item.style.paddingTop = '4px';
-            item.style.paddingBottom = '4px';
-            item.style.paddingRight = '8px';
-            item.style.borderRadius = '4px';
-            item.style.cursor = 'pointer';
-
-            const filepath = child.path;
-            currentSandboxFiles.push(filepath);
-            const index = currentSandboxFiles.length - 1;
-
-            item.dataset.path = filepath;
-
-            if (child.type === 'directory') {
-                const isCollapsed = collapsedSandboxFolders.has(child.path);
-                const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
-                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
-
-                const childrenContainer = document.createElement('div');
-                childrenContainer.className = 'folder-children';
-                if (isCollapsed) childrenContainer.style.display = 'none';
-
-                itemWrapper.appendChild(item);
-                itemWrapper.appendChild(childrenContainer);
-                container.appendChild(itemWrapper);
-                renderNode(child, childrenContainer, depth + 1);
-            } else {
-                const iconSrc = typeof getIconpath === 'function' ? getIconpath(child.name) : '/static/icons/file.svg';
-                item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${iconSrc}">${child.name}`;
-                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
-
-                item.addEventListener('dblclick', () => {
-                    window.open('/sandbox/' + filepath, '_blank');
-                });
-
-                itemWrapper.appendChild(item);
-                container.appendChild(itemWrapper);
-            }
-
-            // --- Shared events for selection, drag/drop, and context menu ---
-
-            // Prevent text-selection on modifier clicks
-            item.addEventListener('mousedown', (e) => {
-                if (child.isSandboxRoot) return;
-                if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                }
-            });
-
-            // Drag-over / drag-leave for move targets
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                item.style.backgroundColor = 'var(--bg-hover)';
-            });
-            item.addEventListener('dragleave', () => {
-                item.style.backgroundColor = selectedSandboxFiles.has(filepath) ? 'rgba(255, 255, 255, 0.15)' : '';
-            });
-
-            // Drop to move files between folders
-            item.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                item.style.backgroundColor = '';
-                const raw = e.dataTransfer.getData('text/plain');
-                try {
-                    const paths = JSON.parse(raw);
-                    let targetDir = child.type === 'directory' ? filepath : (filepath.includes('/') ? filepath.substring(0, filepath.lastIndexOf('/')) : "");
-                    if (paths.some(p => targetDir === p || targetDir.startsWith(p + '/'))) return;
-                    const success = await apiMoveSandboxFiles(paths, targetDir);
-                    if (success) {
-                        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
-                            let parts = targetDir.split('/');
-                            let currentPath = '';
-                            for (let part of parts) {
-                                currentPath += (currentPath ? '/' : '') + part;
-                                collapsedSandboxFolders.delete(currentPath);
-                            }
-                            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-                        }
-                        selectedSandboxFiles.clear();
-                        renderFocusProjectFiles();
-                    }
-                } catch (err) { }
-            });
-
-            // Drag start
-            item.draggable = !child.isSandboxRoot;
-            item.addEventListener('dragstart', (e) => {
-                if (child.isSandboxRoot) { e.preventDefault(); return; }
-                if (!selectedSandboxFiles.has(filepath)) {
-                    selectedSandboxFiles.clear();
-                    selectedSandboxFiles.add(filepath);
-                    lastSelectedSandboxFileIndex = index;
-                    updateFocusFileSelection();
-                }
-                e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
-                e.dataTransfer.effectAllowed = 'copy';
-            });
-            item.addEventListener('dragend', () => {
-                selectedSandboxFiles.clear();
-                lastSelectedSandboxFileIndex = -1;
-                if (typeof updateSidebarSelection === 'function') updateSidebarSelection();
-                updateFocusFileSelection();
-            });
-
-            // Context menu (right-click)
-            item.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (child.isSandboxRoot) return;
-                if (!selectedSandboxFiles.has(filepath)) {
-                    selectedSandboxFiles.clear();
-                    selectedSandboxFiles.add(filepath);
-                    lastSelectedSandboxFileIndex = index;
-                    updateFocusFileSelection();
-                }
-                targetSandboxFile = filepath;
-
-                const delMenu = document.getElementById('menu-delete-sandbox-file');
-                if (delMenu) {
-                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
-                }
-
-                const ctxMenu = document.getElementById('sandbox-context-menu') || (typeof sandboxContextMenu !== 'undefined' ? sandboxContextMenu : null);
-                if (ctxMenu) {
-                    ctxMenu.style.display = 'block';
-                    ctxMenu.style.left = `${e.clientX}px`;
-                    ctxMenu.style.top = `${e.clientY}px`;
-                }
-            });
-
-            // Click handler: reference insertion OR selection
-            item.addEventListener('click', (e) => {
-                // If an input is focused and Shift is held, insert a reference chip
-                if (e.shiftKey && lastFocusedInput) {
-                    e.preventDefault();
-                    handleSandboxFileShiftClick(filepath);
-                    return;
-                }
-
-                // Directory toggle (plain click only)
-                if (child.type === 'directory') {
-                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-                        e.stopPropagation();
-                        const childrenContainer = itemWrapper.querySelector('.folder-children');
-                        const chevron = item.querySelector('.chevron');
-                        if (childrenContainer.style.display === 'none') {
-                            childrenContainer.style.display = 'block';
-                            chevron.innerHTML = `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
-                            collapsedSandboxFolders.delete(filepath);
-                        } else {
-                            childrenContainer.style.display = 'none';
-                            chevron.innerHTML = `<img src="/static/icons/chevron-right.svg" class="file-icon">`;
-                            collapsedSandboxFolders.add(filepath);
-                        }
-                        localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-                    }
-                }
-
-                if (child.isSandboxRoot) return;
-
-                // Shift+Click range selection (no input focused)
-                if (e.shiftKey) {
-                    if (lastSelectedSandboxFileIndex === -1) {
-                        selectedSandboxFiles.add(filepath);
-                        lastSelectedSandboxFileIndex = index;
-                    } else {
-                        const visibleItems = Array.from(treeContainer.querySelectorAll('.file-item'))
-                            .filter(el => el.offsetParent !== null)
-                            .map(el => el.dataset.path);
-                        const lastPath = currentSandboxFiles[lastSelectedSandboxFileIndex];
-                        const startIdx = visibleItems.indexOf(lastPath);
-                        const endIdx = visibleItems.indexOf(filepath);
-
-                        if (startIdx !== -1 && endIdx !== -1) {
-                            const start = Math.min(startIdx, endIdx);
-                            const end = Math.max(startIdx, endIdx);
-                            selectedSandboxFiles.clear();
-                            for (let i = start; i <= end; i++) {
-                                selectedSandboxFiles.add(visibleItems[i]);
-                            }
-                        } else {
-                            selectedSandboxFiles.add(filepath);
-                        }
-                    }
-                } else if (e.ctrlKey || e.metaKey) {
-                    // Ctrl/Cmd toggle
-                    if (selectedSandboxFiles.has(filepath)) {
-                        selectedSandboxFiles.delete(filepath);
-                    } else {
-                        selectedSandboxFiles.add(filepath);
-                        lastSelectedSandboxFileIndex = index;
-                    }
-                } else {
-                    // Plain click – single select
-                    selectedSandboxFiles.clear();
-                    selectedSandboxFiles.add(filepath);
-                    lastSelectedSandboxFileIndex = index;
-                }
-                updateFocusFileSelection();
-            });
-        });
-    }
-
-    renderNode(treeRoot, treeContainer);
-
-    // Root-level drop to move files to root
-    treeContainer.addEventListener('dragover', (e) => {
-        e.preventDefault();
-    });
-    treeContainer.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        if (e.defaultPrevented) return;
-        const raw = e.dataTransfer.getData('text/plain');
-        try {
-            const paths = JSON.parse(raw);
-            if (!Array.isArray(paths)) return;
-            const itemsToMove = paths.filter(p => p.includes('/'));
-            if (itemsToMove.length === 0) return;
-            const success = await apiMoveSandboxFiles(itemsToMove, "");
-            if (success) {
-                selectedSandboxFiles.clear();
-                renderFocusProjectFiles();
-            }
-        } catch (err) { }
-    });
+    renderSandboxTree(treeContainer, data, updateFocusFileSelection);
 }
 
 /**

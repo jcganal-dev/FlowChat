@@ -119,6 +119,8 @@ async function apiFetchModels() {
  * @returns {Object|null} An object containing the list of files, or null if it fails.
  */
 async function apiFetchSandboxFiles() {
+    // The backend prunes noisy folders (venv/__pycache__/node_modules/…) from
+    // this listing — see SHOW_ALL_FILES in api.py.
     const res = await fetch('/api/sandbox/files');
     if (!res.ok) return null;
     return await res.json();

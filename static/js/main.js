@@ -271,6 +271,9 @@ $('menu-open-palette').addEventListener('click', () => {
     palette.style.display = 'flex';
     palette.style.left = contextMenu.style.left;
     palette.style.top = contextMenu.style.top;
+    // Trees refresh on demand now (no background watcher), so opening the
+    // palette picks up anything changed while it was closed.
+    if (typeof refreshSandboxTrees === 'function') refreshSandboxTrees();
 });
 
 $('menu-add-node').addEventListener('click', () => {

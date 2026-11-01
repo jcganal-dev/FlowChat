@@ -129,7 +129,7 @@ class ScrapeNode extends BaseNode {
                     setTimeout(() => {
                         if (saveContainer) saveContainer.remove();
                     }, 1200);
-                    if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
+                    if (typeof requestSandboxRefresh === 'function') requestSandboxRefresh();
                 } else {
                     saveBtn.textContent = `Error: ${res}`;
                     saveBtn.style.background = '#d32f2f';

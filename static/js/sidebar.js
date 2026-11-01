@@ -19,8 +19,37 @@ document.body.appendChild(sandboxContextMenu);
 let targetSandboxFile = null;
 let selectedSandboxFiles = new Set();
 let lastSelectedSandboxFileIndex = -1;
+// Paths of the rows currently rendered in a tree, in visual (DFS) order — the
+// basis for Shift-range selection. Collapsed folders are not rendered, so this
+// holds the visible subset; allSandboxPaths holds everything the last fetch
+// returned and is what existence checks use.
 let currentSandboxFiles = [];
-let collapsedSandboxFolders = new Set(JSON.parse(localStorage.getItem('collapsedSandboxFolders') || '[]'));
+let allSandboxPaths = new Set();
+
+// Folders build their children only once expanded (lazy) and start collapsed,
+// so a sandbox with tens of thousands of files only ever pays for the rows on
+// screen. Persisted so expansion survives a reload.
+let expandedSandboxFolders = new Set(JSON.parse(localStorage.getItem('expandedSandboxFolders') || '[]'));
+
+function saveExpandedSandboxFolders() {
+    localStorage.setItem('expandedSandboxFolders', JSON.stringify(Array.from(expandedSandboxFolders)));
+}
+
+/**
+ * Expands `path` and every folder above it, so a folder that was just created,
+ * uploaded into, or dropped into is actually reachable in a collapsed tree.
+ * @param {string} path - Sandbox-relative folder path.
+ */
+function expandSandboxFoldersTo(path) {
+    if (!path) return;
+    const parts = path.split('/');
+    let currentPath = '';
+    for (const part of parts) {
+        currentPath += (currentPath ? '/' : '') + part;
+        expandedSandboxFolders.add(currentPath);
+    }
+    saveExpandedSandboxFolders();
+}
 
 function updateSidebarSelection() {
     const tree = document.getElementById('file-tree');
@@ -62,12 +91,7 @@ document.getElementById('menu-delete-sandbox-file').addEventListener('click', as
         if (allSuccess) {
             selectedSandboxFiles.clear();
             lastSelectedSandboxFileIndex = -1;
-            const focusBg = document.getElementById('focus-bg');
-            if (focusBg && focusBg.style.display !== 'none' && typeof renderFocusProjectFiles === 'function') {
-                renderFocusProjectFiles();
-            } else {
-                fetchSandboxFiles();
-            }
+            refreshSandboxTrees();
         } else {
             window.customAlert('Failed to delete one or more files.');
         }
@@ -88,24 +112,46 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// --- Sandbox tree rendering -------------------------------------------------
+//
+// Both trees (the floating sidebar palette and focus mode) render through the
+// functions below. Folders are lazy: children are built the first time a folder
+// is expanded, and folders start collapsed, so a sandbox holding tens of
+// thousands of files only ever pays for the rows that are on screen.
+
+const SANDBOX_CHEVRON_DOWN = '<img src="/static/icons/chevron-down.svg" class="file-icon">';
+const SANDBOX_CHEVRON_RIGHT = '<img src="/static/icons/chevron-right.svg" class="file-icon">';
+
+let sandboxDataPromise = null;
+
 /**
- * Fetches the list of files in the user's sandbox directory and renders them in the sidebar file tree.
+ * Fetches the sandbox listing, sharing one in-flight request between callers so
+ * refreshing both trees costs a single round trip.
+ * @returns {Promise<Object|null>} {items, files} payload, or null on failure.
  */
-async function fetchSandboxFiles() {
-    const data = await apiFetchSandboxFiles();
-    if (!data) return;
+function loadSandboxFileData() {
+    if (!sandboxDataPromise) {
+        sandboxDataPromise = (async () => {
+            const data = await apiFetchSandboxFiles();
+            if (data) {
+                const items = data.items || (data.files || []).map(f => ({ path: f, type: 'file' }));
+                allSandboxPaths = new Set(items.map(i => i.path));
+            }
+            return data;
+        })().finally(() => { sandboxDataPromise = null; });
+    }
+    return sandboxDataPromise;
+}
 
-    const tree = document.getElementById('file-tree');
-    if (!tree) return;
-
-    tree.innerHTML = '';
-    currentSandboxFiles = data.files;
-    selectedSandboxFiles.clear();
-    lastSelectedSandboxFileIndex = -1;
-
+/**
+ * Turns a flat listing into the nested {name, path, type, children} model the
+ * renderer walks.
+ * @param {Array} items - [{path, type}] entries from the backend.
+ * @returns {Object} Root model node.
+ */
+function buildSandboxTreeModel(items) {
     const sRoot = { name: 'Sandbox (S:)', path: '', type: 'directory', children: {}, isSandboxRoot: true };
     const treeRoot = { name: '', path: '', type: 'directory', children: { 'S:/': sRoot } };
-    const items = data.items || data.files.map(f => ({ path: f, type: 'file' }));
 
     items.forEach(item => {
         const parts = item.path.split('/');
@@ -122,246 +168,315 @@ async function fetchSandboxFiles() {
                 current.children[name] = { name, path: item.path, type: 'directory', children: {} };
             }
         } else {
-            current.children[name] = { name, path: item.path, type: 'file', index: currentSandboxFiles.indexOf(item.path) };
+            current.children[name] = { name, path: item.path, type: 'file' };
         }
     });
 
-    currentSandboxFiles = []; // Reset and rebuild in visual order
+    return treeRoot;
+}
 
-    function renderTree(node, container, depth = 0) {
-        const children = Object.values(node.children).sort((a, b) => {
-            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
-            return a.name.localeCompare(b.name);
-        });
+// Root-level drops are wired once per container. Doing it inside the render
+// stacked another pair of listeners on the tree on every single refresh.
+const sandboxRootDropWired = new WeakSet();
 
-        children.forEach(child => {
-            const itemWrapper = document.createElement('div');
-            itemWrapper.className = 'tree-item-wrapper';
+function wireSandboxTreeRoot(container) {
+    if (sandboxRootDropWired.has(container)) return;
+    sandboxRootDropWired.add(container);
 
-            const item = document.createElement('div');
-            item.className = 'file-item';
-            item.style.paddingLeft = `${depth * 16 + 8}px`;
-            item.style.paddingTop = '4px';
-            item.style.paddingBottom = '4px';
-            item.style.paddingRight = '8px';
-            item.style.borderRadius = '4px';
-
-            const filepath = child.path;
-            currentSandboxFiles.push(filepath);
-            const index = currentSandboxFiles.length - 1;
-
-            item.dataset.path = filepath;
-            item.style.cursor = 'pointer';
-
-            if (child.type === 'directory') {
-                const isCollapsed = collapsedSandboxFolders.has(child.path);
-                const chevronChar = isCollapsed ? `<img src="/static/icons/chevron-right.svg" class="file-icon">` : `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
-                item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${chevronChar}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
-
-                const childrenContainer = document.createElement('div');
-                childrenContainer.className = 'folder-children';
-                if (isCollapsed) {
-                    childrenContainer.style.display = 'none';
-                }
-
-                itemWrapper.appendChild(item);
-                itemWrapper.appendChild(childrenContainer);
-                container.appendChild(itemWrapper);
-
-
-                renderTree(child, childrenContainer, depth + 1);
-            } else {
-
-                item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${getIconpath(child.name)}">${child.name}`;
-                item.title = 'Double-click to open. Shift+Click in textbox to reference.';
-
-                item.addEventListener('dblclick', () => {
-                    window.open('/sandbox/' + filepath, '_blank');
-                });
-
-                itemWrapper.appendChild(item);
-                container.appendChild(itemWrapper);
-            }
-
-            // Shared events for selection, drag/drop, and context menu
-            item.addEventListener('mousedown', (e) => {
-                if (child.isSandboxRoot) return;
-                if (e.shiftKey || e.ctrlKey || e.metaKey) {
-                    e.preventDefault();
-                }
-            });
-
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                item.style.backgroundColor = 'var(--bg-hover)';
-            });
-            item.addEventListener('dragleave', (e) => {
-                item.style.backgroundColor = selectedSandboxFiles.has(filepath) ? 'rgba(255, 255, 255, 0.15)' : '';
-            });
-            item.addEventListener('drop', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                item.style.backgroundColor = '';
-                const data = e.dataTransfer.getData('text/plain');
-                try {
-                    const paths = JSON.parse(data);
-                    let targetDir = child.type === 'directory' ? filepath : (filepath.includes('/') ? filepath.substring(0, filepath.lastIndexOf('/')) : "");
-
-                    // Prevent moving into itself or its own subdirectories
-                    if (paths.some(p => targetDir === p || targetDir.startsWith(p + '/'))) {
-                        return;
-                    }
-                    const success = await apiMoveSandboxFiles(paths, targetDir);
-                    if (success) {
-                        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
-                            let parts = targetDir.split('/');
-                            let currentPath = '';
-                            for (let part of parts) {
-                                currentPath += (currentPath ? '/' : '') + part;
-                                collapsedSandboxFolders.delete(currentPath);
-                            }
-                            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-                        }
-                        selectedSandboxFiles.clear();
-                        fetchSandboxFiles();
-                    }
-                } catch (err) { }
-            });
-
-            item.draggable = !child.isSandboxRoot;
-            item.addEventListener('dragstart', (e) => {
-                if (child.isSandboxRoot) { e.preventDefault(); return; }
-                if (!selectedSandboxFiles.has(filepath)) {
-                    selectedSandboxFiles.clear();
-                    selectedSandboxFiles.add(filepath);
-                    lastSelectedSandboxFileIndex = index;
-                    updateSidebarSelection();
-                }
-                e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
-                e.dataTransfer.effectAllowed = 'copy';
-            });
-            item.addEventListener('dragend', () => {
-                selectedSandboxFiles.clear();
-                lastSelectedSandboxFileIndex = -1;
-                updateSidebarSelection();
-                if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
-            });
-
-            item.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (child.isSandboxRoot) return;
-                if (!selectedSandboxFiles.has(filepath)) {
-                    selectedSandboxFiles.clear();
-                    selectedSandboxFiles.add(filepath);
-                    lastSelectedSandboxFileIndex = index;
-                    updateSidebarSelection();
-                }
-                targetSandboxFile = filepath;
-
-                const delMenu = document.getElementById('menu-delete-sandbox-file');
-                if (delMenu) {
-                    delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
-                }
-
-                sandboxContextMenu.style.display = 'block';
-                sandboxContextMenu.style.left = `${e.clientX}px`;
-                sandboxContextMenu.style.top = `${e.clientY}px`;
-            });
-
-            item.addEventListener('click', (e) => {
-                if (e.shiftKey && lastFocusedInput) {
-                    e.preventDefault();
-                    handleSandboxFileShiftClick(filepath);
-                    return;
-                }
-
-                if (child.type === 'directory') {
-                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey) {
-                        e.stopPropagation();
-                        const childrenContainer = itemWrapper.querySelector('.folder-children');
-                        const chevron = item.querySelector('.chevron');
-                        if (childrenContainer.style.display === 'none') {
-                            childrenContainer.style.display = 'block';
-                            chevron.innerHTML = `<img src="/static/icons/chevron-down.svg" class="file-icon">`;
-                            collapsedSandboxFolders.delete(filepath);
-                        } else {
-                            childrenContainer.style.display = 'none';
-                            chevron.innerHTML = `<img src="/static/icons/chevron-right.svg" class="file-icon">`;
-                            collapsedSandboxFolders.add(filepath);
-                        }
-                        localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-                    }
-                }
-
-                if (child.isSandboxRoot) return;
-
-                if (e.shiftKey) {
-                    if (lastSelectedSandboxFileIndex === -1) {
-                        selectedSandboxFiles.add(filepath);
-                        lastSelectedSandboxFileIndex = index;
-                    } else {
-                        const visibleItems = Array.from(document.querySelectorAll('.file-item'))
-                            .filter(el => el.offsetParent !== null)
-                            .map(el => el.dataset.path);
-                        const lastPath = currentSandboxFiles[lastSelectedSandboxFileIndex];
-                        const startIndex = visibleItems.indexOf(lastPath);
-                        const endIndex = visibleItems.indexOf(filepath);
-
-                        if (startIndex !== -1 && endIndex !== -1) {
-                            const start = Math.min(startIndex, endIndex);
-                            const end = Math.max(startIndex, endIndex);
-                            selectedSandboxFiles.clear();
-                            for (let i = start; i <= end; i++) {
-                                selectedSandboxFiles.add(visibleItems[i]);
-                            }
-                        } else {
-                            selectedSandboxFiles.add(filepath);
-                        }
-                    }
-                } else if (e.ctrlKey || e.metaKey) {
-                    if (selectedSandboxFiles.has(filepath)) {
-                        selectedSandboxFiles.delete(filepath);
-                    } else {
-                        selectedSandboxFiles.add(filepath);
-                        lastSelectedSandboxFileIndex = index;
-                    }
-                } else {
-                    selectedSandboxFiles.clear();
-                    selectedSandboxFiles.add(filepath);
-                    lastSelectedSandboxFileIndex = index;
-                }
-                updateSidebarSelection();
-            });
-        });
-    }
-
-    renderTree(treeRoot, tree);
-
-    // Allow dropping on the root container itself to move to root directory
-    tree.addEventListener('dragover', (e) => {
+    container.addEventListener('dragover', (e) => e.preventDefault());
+    container.addEventListener('drop', async (e) => {
+        // Item drops call stopPropagation, so reaching here means the drop
+        // landed on empty space in the tree: move the files to the sandbox root.
         e.preventDefault();
-    });
-    tree.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        // If the drop was already handled by a subdirectory, don't do it again
-        if (e.defaultPrevented) return;
-
-        const data = e.dataTransfer.getData('text/plain');
+        const raw = e.dataTransfer.getData('text/plain');
         try {
-            const paths = JSON.parse(data);
+            const paths = JSON.parse(raw);
             if (!Array.isArray(paths)) return;
-
-            // Avoid moving root-level items to root
             const itemsToMove = paths.filter(p => p.includes('/'));
             if (itemsToMove.length === 0) return;
-
             const success = await apiMoveSandboxFiles(itemsToMove, "");
             if (success) {
                 selectedSandboxFiles.clear();
-                fetchSandboxFiles();
+                refreshSandboxTrees();
             }
         } catch (err) { }
     });
+}
+
+/** Repaints the selection highlight in every tree on screen. */
+function updateSandboxSelection() {
+    updateSidebarSelection();
+    if (typeof updateFocusFileSelection === 'function') updateFocusFileSelection();
+}
+
+/**
+ * Renders a sandbox tree into `container`, rebuilding only the rows that are
+ * visible: a collapsed folder costs one row no matter how much is inside it.
+ * @param {HTMLElement} container - #file-tree or #focus-file-tree.
+ * @param {Object} data - Listing payload from loadSandboxFileData().
+ * @param {Function} onSelectionChange - Repaints this tree's selection highlight.
+ */
+function renderSandboxTree(container, data, onSelectionChange) {
+    const items = data.items || (data.files || []).map(f => ({ path: f, type: 'file' }));
+    const treeRoot = buildSandboxTreeModel(items);
+    const scrollTop = container.scrollTop;
+
+    container.innerHTML = '';
+    currentSandboxFiles = [];   // rebuilt below, in visual order, for rendered rows
+
+    function sortChildren(node) {
+        return Object.values(node.children).sort((a, b) => {
+            if (a.type !== b.type) return a.type === 'directory' ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+    }
+
+    // Collects the rendered paths into `out` in DFS order, so Shift-range
+    // selection walks exactly the rows the user can see.
+    function renderChildren(node, parentEl, depth, out) {
+        sortChildren(node).forEach(child => renderItem(child, parentEl, depth, out));
+    }
+
+    function renderItem(child, parentEl, depth, out) {
+        const itemWrapper = document.createElement('div');
+        itemWrapper.className = 'tree-item-wrapper';
+
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.style.paddingLeft = `${depth * 16 + 8}px`;
+        item.style.paddingTop = '4px';
+        item.style.paddingBottom = '4px';
+        item.style.paddingRight = '8px';
+        item.style.borderRadius = '4px';
+        item.style.cursor = 'pointer';
+
+        const filepath = child.path;
+        item.dataset.path = filepath;
+        out.push(filepath);
+        const index = out.length - 1;
+
+        let childrenContainer = null;
+
+        if (child.type === 'directory') {
+            // The sandbox root always renders — it is the only way in.
+            const expanded = child.isSandboxRoot || expandedSandboxFolders.has(filepath);
+            item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${expanded ? SANDBOX_CHEVRON_DOWN : SANDBOX_CHEVRON_RIGHT}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
+
+            childrenContainer = document.createElement('div');
+            childrenContainer.className = 'folder-children';
+            if (expanded) {
+                childrenContainer.dataset.rendered = '1';
+                renderChildren(child, childrenContainer, depth + 1, out);
+            } else {
+                childrenContainer.style.display = 'none';
+            }
+
+            itemWrapper.appendChild(item);
+            itemWrapper.appendChild(childrenContainer);
+        } else {
+            item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${getIconpath(child.name)}">${child.name}`;
+            item.title = 'Double-click to open. Shift+Click in textbox to reference.';
+
+            item.addEventListener('dblclick', () => {
+                window.open('/sandbox/' + filepath, '_blank');
+            });
+
+            itemWrapper.appendChild(item);
+        }
+
+        parentEl.appendChild(itemWrapper);
+
+        /** Expands or collapses this folder, building its children on first expand. */
+        function setFolderExpanded(expand) {
+            if (!childrenContainer) return;
+            if (expand) {
+                if (!childrenContainer.dataset.rendered) {
+                    const added = [];
+                    renderChildren(child, childrenContainer, depth + 1, added);
+                    childrenContainer.dataset.rendered = '1';
+                    // Slot the new paths in right after their folder so the visual
+                    // order Shift-range selection relies on stays correct.
+                    const at = currentSandboxFiles.indexOf(filepath);
+                    if (at === -1) currentSandboxFiles.push(...added);
+                    else currentSandboxFiles.splice(at + 1, 0, ...added);
+                }
+                childrenContainer.style.display = 'block';
+                item.querySelector('.chevron').innerHTML = SANDBOX_CHEVRON_DOWN;
+                expandedSandboxFolders.add(filepath);
+            } else {
+                childrenContainer.style.display = 'none';
+                item.querySelector('.chevron').innerHTML = SANDBOX_CHEVRON_RIGHT;
+                expandedSandboxFolders.delete(filepath);
+            }
+            saveExpandedSandboxFolders();
+        }
+
+        // --- Shared events for selection, drag/drop, and context menu ---
+
+        // Prevent text-selection on modifier clicks
+        item.addEventListener('mousedown', (e) => {
+            if (child.isSandboxRoot) return;
+            if (e.shiftKey || e.ctrlKey || e.metaKey) {
+                e.preventDefault();
+            }
+        });
+
+        // Drag-over / drag-leave for move targets
+        item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            item.style.backgroundColor = 'var(--bg-hover)';
+        });
+        item.addEventListener('dragleave', () => {
+            item.style.backgroundColor = selectedSandboxFiles.has(filepath) ? 'rgba(255, 255, 255, 0.15)' : '';
+        });
+
+        // Drop to move files between folders
+        item.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            item.style.backgroundColor = '';
+            const data = e.dataTransfer.getData('text/plain');
+            try {
+                const paths = JSON.parse(data);
+                let targetDir = child.type === 'directory' ? filepath : (filepath.includes('/') ? filepath.substring(0, filepath.lastIndexOf('/')) : "");
+
+                // Prevent moving into itself or its own subdirectories
+                if (paths.some(p => targetDir === p || targetDir.startsWith(p + '/'))) {
+                    return;
+                }
+                const success = await apiMoveSandboxFiles(paths, targetDir);
+                if (success) {
+                    expandSandboxFoldersTo(targetDir);
+                    selectedSandboxFiles.clear();
+                    refreshSandboxTrees();
+                }
+            } catch (err) { }
+        });
+
+        // Drag start
+        item.draggable = !child.isSandboxRoot;
+        item.addEventListener('dragstart', (e) => {
+            if (child.isSandboxRoot) { e.preventDefault(); return; }
+            if (!selectedSandboxFiles.has(filepath)) {
+                selectedSandboxFiles.clear();
+                selectedSandboxFiles.add(filepath);
+                lastSelectedSandboxFileIndex = index;
+                onSelectionChange();
+            }
+            e.dataTransfer.setData('text/plain', JSON.stringify(Array.from(selectedSandboxFiles)));
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+        item.addEventListener('dragend', () => {
+            selectedSandboxFiles.clear();
+            lastSelectedSandboxFileIndex = -1;
+            updateSandboxSelection();
+        });
+
+        // Context menu (right-click)
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (child.isSandboxRoot) return;
+            if (!selectedSandboxFiles.has(filepath)) {
+                selectedSandboxFiles.clear();
+                selectedSandboxFiles.add(filepath);
+                lastSelectedSandboxFileIndex = index;
+                onSelectionChange();
+            }
+            targetSandboxFile = filepath;
+
+            const delMenu = document.getElementById('menu-delete-sandbox-file');
+            if (delMenu) {
+                delMenu.innerHTML = selectedSandboxFiles.size > 1 ? `<img src="/static/icons/trash.svg" class="file-icon"> Delete ${selectedSandboxFiles.size} Items` : `<img src="/static/icons/trash.svg" class="file-icon"> Delete`;
+            }
+
+            const ctxMenu = document.getElementById('sandbox-context-menu') || (typeof sandboxContextMenu !== 'undefined' ? sandboxContextMenu : null);
+            if (ctxMenu) {
+                ctxMenu.style.display = 'block';
+                ctxMenu.style.left = `${e.clientX}px`;
+                ctxMenu.style.top = `${e.clientY}px`;
+            }
+        });
+
+        // Click handler: reference insertion OR selection / folder toggle
+        item.addEventListener('click', (e) => {
+            // If an input is focused and Shift is held, insert a reference chip
+            if (e.shiftKey && lastFocusedInput) {
+                e.preventDefault();
+                handleSandboxFileShiftClick(filepath);
+                return;
+            }
+
+            // Directory toggle (plain click only)
+            if (child.type === 'directory' && !e.shiftKey && !e.ctrlKey && !e.metaKey) {
+                e.stopPropagation();
+                setFolderExpanded(!expandedSandboxFolders.has(filepath));
+            }
+
+            if (child.isSandboxRoot) return;
+
+            // Shift+Click range selection
+            if (e.shiftKey) {
+                if (lastSelectedSandboxFileIndex === -1) {
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                } else {
+                    const visibleItems = Array.from(container.querySelectorAll('.file-item'))
+                        .filter(el => el.offsetParent !== null)
+                        .map(el => el.dataset.path);
+                    const lastPath = currentSandboxFiles[lastSelectedSandboxFileIndex];
+                    const startIndex = visibleItems.indexOf(lastPath);
+                    const endIndex = visibleItems.indexOf(filepath);
+
+                    if (startIndex !== -1 && endIndex !== -1) {
+                        const start = Math.min(startIndex, endIndex);
+                        const end = Math.max(startIndex, endIndex);
+                        selectedSandboxFiles.clear();
+                        for (let i = start; i <= end; i++) {
+                            selectedSandboxFiles.add(visibleItems[i]);
+                        }
+                    } else {
+                        selectedSandboxFiles.add(filepath);
+                    }
+                }
+            } else if (e.ctrlKey || e.metaKey) {
+                // Ctrl/Cmd toggle
+                if (selectedSandboxFiles.has(filepath)) {
+                    selectedSandboxFiles.delete(filepath);
+                } else {
+                    selectedSandboxFiles.add(filepath);
+                    lastSelectedSandboxFileIndex = index;
+                }
+            } else {
+                // Plain click — single select
+                selectedSandboxFiles.clear();
+                selectedSandboxFiles.add(filepath);
+                lastSelectedSandboxFileIndex = index;
+            }
+            onSelectionChange();
+        });
+    }
+
+    renderChildren(treeRoot, container, 0, currentSandboxFiles);
+    wireSandboxTreeRoot(container);
+    container.scrollTop = scrollTop;
+    onSelectionChange();
+}
+
+/**
+ * Fetches the sandbox listing and renders the sidebar palette tree, clearing the
+ * current selection. Callers that must keep the selection use
+ * refreshSandboxTrees() (watcher.js) instead.
+ */
+async function fetchSandboxFiles() {
+    const data = await loadSandboxFileData();
+    if (!data) return;
+
+    const tree = document.getElementById('file-tree');
+    if (!tree) return;
+
+    selectedSandboxFiles.clear();
+    lastSelectedSandboxFileIndex = -1;
+    renderSandboxTree(tree, data, updateSidebarSelection);
 }
 
 async function promptCreateFolder() {
@@ -388,17 +503,10 @@ async function promptCreateFolder() {
 
     const success = await apiCreateSandboxFolder(finalFolderName);
     if (success) {
-        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
-            let parts = targetDir.split('/');
-            let currentPath = '';
-            for (let part of parts) {
-                currentPath += (currentPath ? '/' : '') + part;
-                collapsedSandboxFolders.delete(currentPath);
-            }
-            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-        }
-        renderFocusProjectFiles();
-        fetchSandboxFiles();
+        // Reveal the folder it was created in; the new folder itself starts
+        // collapsed like any other.
+        expandSandboxFoldersTo(targetDir);
+        refreshSandboxTrees();
     } else {
         window.customAlert('Failed to create folder.');
     }
@@ -440,17 +548,9 @@ async function uploadSandboxFiles(event) {
 
     const success = await apiUploadSandboxFiles(formData);
     if (success) {
-        if (targetDir && collapsedSandboxFolders.has(targetDir)) {
-            let parts = targetDir.split('/');
-            let currentPath = '';
-            for (let part of parts) {
-                currentPath += (currentPath ? '/' : '') + part;
-                collapsedSandboxFolders.delete(currentPath);
-            }
-            localStorage.setItem('collapsedSandboxFolders', JSON.stringify(Array.from(collapsedSandboxFolders)));
-        }
-        renderFocusProjectFiles();
-        fetchSandboxFiles();
+        // Show the destination folder (uploaded folders stay collapsed inside it)
+        expandSandboxFoldersTo(targetDir);
+        refreshSandboxTrees();
     } else {
         window.customAlert('Upload failed!');
     }

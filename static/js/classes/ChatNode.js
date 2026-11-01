@@ -693,10 +693,10 @@ class ChatNode extends BaseNode {
                 }
                 requestUiFlush();   // chip flips to Done in place — nothing around it re-renders
 
-                // Refresh sandbox UI if a file-modifying tool was used
-                if (['write_file', 'edit_file', 'delete_file'].includes(tr.name)) {
-                    if (typeof fetchSandboxFiles === 'function') fetchSandboxFiles();
-                    if (typeof renderFocusProjectFiles === 'function') renderFocusProjectFiles();
+                // Refresh the sandbox trees if a tool touched the filesystem.
+                // Debounced, because one turn typically runs several of these.
+                if (typeof SANDBOX_MUTATING_TOOLS !== 'undefined' && SANDBOX_MUTATING_TOOLS.includes(tr.name)) {
+                    if (typeof requestSandboxRefresh === 'function') requestSandboxRefresh();
                 }
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'tool_result', tr);
             },
