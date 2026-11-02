@@ -383,7 +383,7 @@ BASE_SYSTEM_PROMPT = "\n".join(SYSTEM_INSTRUCTIONS)
 
 class ChatPayload(BaseModel):
     messages: List[Any]
-    max_tokens: int = 500
+    max_tokens: int = 500   # currently unused
     model: Optional[str] = None
 
 @app.post("/api/chat")

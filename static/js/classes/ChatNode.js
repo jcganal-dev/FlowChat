@@ -332,8 +332,12 @@ class ChatNode extends BaseNode {
                             <div class="model-list" style="visibility: hidden; pointer-events: none;"></div>
                         </div>
                     </div>
-                    <button class="run-btn"><img src="/static/icons/send.svg" class="file-icon" style="margin:0px"> Send</button>
-                    <button class="stop-btn" style="display: none; background: #ff5555; color: white;"><img src="/static/icons/stop.svg" class="file-icon" style="margin:0px"> Stop</button>
+                    <button class="run-btn">
+                        <img src="/static/icons/send.svg" class="file-icon" style="margin:0px">
+                    </button>
+                    <button class="stop-btn" style="display: none; background: #ff5555; color: white;">
+                        <img src="/static/icons/stop.svg" class="file-icon" style="margin:0px">
+                    </button>
                 </div>
             </div>
             <div class="ai-section">
@@ -645,7 +649,7 @@ class ChatNode extends BaseNode {
                 }
             }
         }
-        const payload = { messages: history, max_tokens: 1000 };
+        const payload = { messages: history, max_tokens: max_response_tokens };
         // Get selected model from dropdown
         const modelSelect = this.el.querySelector('.model-selection');
         const selectedModel = modelSelect ? modelSelect.getAttribute('value') : '';

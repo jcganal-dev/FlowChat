@@ -1370,6 +1370,10 @@ h6 {
             margin-left: 5px;
         }
 
+        .file-div:empty::before {
+            content: "None";
+        }
+
         .focus-ai {
             background-color: transparent;
             width: 100%;
