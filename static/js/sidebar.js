@@ -634,60 +634,70 @@ async function handleSandboxFileShiftClick(filepath) {
         range.collapse(false);
     }
 
+    // Try to fetch the specific file directly — avoids a full sandbox listing
+    // round trip for the common single-file case.
+    const directRes = await apiFetchSandboxFile(filepath);
+
+    if (directRes && directRes.ok) {
+        // It's a file (not a folder). Build the chip directly.
+        const isImage = filepath.match(imageWhitelist);
+        const isText = textWhitelist.test(filepath) || exactNameWhitelist.test(filepath);
+
+        if (!isImage && !isText) {
+            window.customAlert('Unsupported file type. Please select a text-based file or an image.');
+            return;
+        }
+
+        const chipData = await buildSandboxChipData(filepath);
+        if (!chipData) {
+            window.customAlert('Failed to load file content.');
+            return;
+        }
+
+        if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, chipData.id, false, chipData);
+        return;
+    }
+
+    // If direct fetch failed (404), it might be a folder — fall back to listing
+    // to find and expand all files inside it.
     const sandboxData = await apiFetchSandboxFiles();
     if (sandboxData && sandboxData.files) {
-        if (!sandboxData.files.includes(filepath)) {
-            const prefix = filepath + '/';
-            let expanded = [];
-            for (const sf of sandboxData.files) {
-                if (sf.startsWith(prefix)) {
-                    expanded.push(sf);
-                }
+        const prefix = filepath + '/';
+        let expanded = [];
+        for (const sf of sandboxData.files) {
+            if (sf.startsWith(prefix)) {
+                expanded.push(sf);
             }
+        }
 
-            if (expanded.length > 0) {
-                const virtualId = 'sandbox/' + filepath + '/*';
-                let folderRefText = '';
-                let skippedCount = 0;
-                for (const fp of expanded) {
-                    const isImg = fp.match(imageWhitelist);
-                    const isText = textWhitelist.test(fp) || exactNameWhitelist.test(fp);
-                    if (isImg || !isText) {
-                        skippedCount++;
-                        continue;
-                    }
-                    const r = await apiFetchSandboxFile(fp);
-                    if (r) folderRefText += `--- START OF ${fp} ---\n${await r.text()}\n--- END OF ${fp} ---\n\n`;
+        if (expanded.length > 0) {
+            const virtualId = 'sandbox/' + filepath + '/*';
+            let folderRefText = '';
+            let skippedCount = 0;
+            for (const fp of expanded) {
+                const isImg = fp.match(imageWhitelist);
+                const isText = textWhitelist.test(fp) || exactNameWhitelist.test(fp);
+                if (isImg || !isText) {
+                    skippedCount++;
+                    continue;
                 }
-                if (folderRefText === '') {
-                    window.customAlert(skippedCount > 0 ? `No valid text documents found in this folder (${skippedCount} non-text files skipped).` : 'No valid text documents found in folder.');
-                    return;
-                }
-                if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false, {
-                    id: virtualId,
-                    chipLabel: `<img src="/static/icons/folder.svg" class='file-icon'> ${virtualId}`,
-                    refText: `[FOLDER_ATTACHED: ${filepath}]\n${folderRefText}`
-                });
+                const r = await apiFetchSandboxFile(fp);
+                if (r) folderRefText += `--- START OF ${fp} ---\n${await r.text()}\n--- END OF ${fp} ---\n\n`;
+            }
+            if (folderRefText === '') {
+                window.customAlert(skippedCount > 0 ? `No valid text documents found in this folder (${skippedCount} non-text files skipped).` : 'No valid text documents found in folder.');
                 return;
             }
+            if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, virtualId, false, {
+                id: virtualId,
+                chipLabel: `<img src="/static/icons/folder.svg" class='file-icon'> ${virtualId}`,
+                refText: `[FOLDER_ATTACHED: ${filepath}]\n${folderRefText}`
+            });
+            return;
         }
     }
 
-    const isImage = filepath.match(imageWhitelist);
-    const isText = textWhitelist.test(filepath) || exactNameWhitelist.test(filepath);
-
-    if (!isImage && !isText) {
-        window.customAlert('Unsupported file type. Please select a text-based file or an image.');
-        return;
-    }
-
-    const chipData = await buildSandboxChipData(filepath);
-    if (!chipData) {
-        window.customAlert('Failed to load file content.');
-        return;
-    }
-
-    if (typeof insertChipAtRange === 'function') insertChipAtRange(lastFocusedInput, range, chipData.id, false, chipData);
+    window.customAlert('File not found or inaccessible.');
 }
 
 window.addEventListener('DOMContentLoaded', () => {
