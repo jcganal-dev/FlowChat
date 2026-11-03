@@ -1399,6 +1399,10 @@ h6 {
                 }
             }
         }
+
+        .focus-ai > br {
+            display: none;
+        }
     }
 }
 
