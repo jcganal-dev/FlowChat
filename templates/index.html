@@ -148,10 +148,15 @@
                     oninput="if(this.innerText.trim()==''){this.innerText=''}" contenteditable="true"
                     spellcheck="true" placeholder="Type prompt here..."></div>
                 <div class="focus-chat-input-wrapper">
-                    <div class="model-select-container">
-                        <div class="model-select-parent" style="position:fixed;margin-top:-316px;display:flex;flex-direction:column-reverse;gap:0px;max-width: 300px;z-index:11;pointer-events: none;">
-                            <a class="model-selection focus-model-selection" id="focus-model-selection" style="pointer-events: all;">Loading Models...</a>
-                            <div class="model-list" style="visibility: hidden; pointer-events: none;"></div>
+                    <div style="display: flex; flex-direction: row; gap:10px;">
+                        <button id="focus-upload-file-btn" class="focus-upload-file-btn">
+                            +
+                        </button>
+                        <div class="model-select-container">
+                            <div class="model-select-parent" style="position:fixed;margin-top:-291px;display:flex;flex-direction:column-reverse;gap:0px;max-width: 300px;z-index:11;pointer-events: none;">
+                                <a class="model-selection focus-model-selection" id="focus-model-selection" style="pointer-events: all;">Loading Models...</a>
+                                <div class="model-list" style="visibility: hidden; pointer-events: none;"></div>
+                            </div>
                         </div>
                     </div>
                     <div class="focus-button-row">

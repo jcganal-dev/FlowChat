@@ -1341,7 +1341,7 @@ h6 {
     background-color: var(--bg-surface);
     align-items: center;
     
-    .focus-node:hover {
+    .focus-node.chat-node:hover {
         border-bottom: solid 2px var(--border-base);
         .add-child-btn {
             display: inline;
@@ -1427,7 +1427,24 @@ h6 {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    margin-bottom: 4px;
+}
+
+.focus-upload-file-btn {
+    background: var(--border-base);
+    color: var(--text-primary);
+    border: solid 1px var(--border-strong);
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.focus-upload-file-btn:hover {
+    background: var(--border-highlight);
+    border: solid 1px var(--border-strong);
 }
 
 .focus-send-btn {
@@ -1709,6 +1726,9 @@ details > summary {
     content: '%';
 }
 
+.model-selection:hover, .focus-model-selection:hover {
+    background: var(--border-highlight);
+}
 .model-selection, .focus-model-selection {
     flex: 1;
     min-width: 0;
