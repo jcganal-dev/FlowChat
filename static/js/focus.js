@@ -809,6 +809,132 @@ async function sendFocusMessage() {
     nodeInstance.run();
 }
 
+let focusFileInput = null;
+
+/**
+ * Opens the file picker behind the focus mode "+" button. Files picked are
+ * attached to the active branch via attachFocusFileNodes().
+ */
+function openFocusFilePicker() {
+    if (isFocusModeStreaming) {
+        showToast('Cannot attach files while a response is streaming.', 'error', 2500);
+        return;
+    }
+    if (!focusFileInput) {
+        focusFileInput = document.createElement('input');
+        focusFileInput.type = 'file';
+        focusFileInput.multiple = true;
+        focusFileInput.accept = `image/*,${getTextWhitelistExtensions()}`;
+        focusFileInput.style.display = 'none';
+        document.body.appendChild(focusFileInput);
+        focusFileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []);
+            focusFileInput.value = '';
+            if (files.length) attachFocusFileNodes(files);
+        });
+    }
+    focusFileInput.click();
+}
+
+/**
+ * Attaches picked files to the active focus branch by creating FileNodes
+ * between the current node and its parent (parent -> fileNodes -> currentNode),
+ * so the attachments show up as turns in the focus conversation and stay part
+ * of the lineage on the canvas.
+ * @param {File[]} fileList - Files picked through the hidden input.
+ */
+async function attachFocusFileNodes(fileList) {
+    const currentNode = nodes.find(n => n.id === activeNodeId);
+    if (!currentNode || currentNode.isVirtual) {
+        showToast('Please select a node first.', 'error', 2500);
+        return;
+    }
+
+    // Read every payload up front so unsupported files are skipped before any
+    // node is created (same whitelists FileNode uses).
+    const imageFiles = [];
+    const documentFiles = [];
+    for (const file of fileList) {
+        const isImage = file.type.startsWith('image/') || !!file.name.match(imageWhitelist);
+        const isText = textWhitelist.test(file.name) || exactNameWhitelist.test(file.name);
+        if (!isImage && !isText) {
+            showToast(`Unsupported file type: ${file.name}`, 'error', 2500);
+            continue;
+        }
+        const payload = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            if (isImage) reader.readAsDataURL(file);
+            else reader.readAsText(file);
+        });
+        (isImage ? imageFiles : documentFiles).push({ name: file.name, payload });
+    }
+    if (imageFiles.length === 0 && documentFiles.length === 0) return;
+
+    const currentEl = document.getElementById(currentNode.id);
+    const currentWidth = currentEl ? currentEl.offsetWidth : 336;
+    let childWidth = 336;
+    if (Math.round(currentWidth / GRID_SIZE) % 2 !== Math.round(childWidth / GRID_SIZE) % 2) childWidth += GRID_SIZE;
+    const baseX = currentNode.x + (currentWidth - childWidth) / 2;
+
+    // Build the chain: the first node takes over the current node's old parent,
+    // each next node chains onto the previous one. Images and documents each
+    // get one node, mirroring the canvas drop handler's grouping.
+    const groups = [];
+    if (imageFiles.length) groups.push({ type: 'image', files: imageFiles });
+    if (documentFiles.length) groups.push({ type: 'document', files: documentFiles });
+
+    let parentId = currentNode.parentId;
+    const createdIds = [];
+    for (const group of groups) {
+        const name = group.files.length === 1 ? group.files[0].name : `${group.files.length} items`;
+        const newId = createNode(parentId, baseX, currentNode.y, '', currentNode.turn, currentNode.branch, name, null, group.type);
+        const newNode = nodes.find(n => n.id === newId);
+        if (newNode) newNode.files = group.files;
+        const newEl = document.getElementById(newId);
+        if (newEl) {
+            newNode.nodeWidth = childWidth;
+            newEl.style.width = childWidth + 'px';
+        }
+        createdIds.push(newId);
+        parentId = newId;
+    }
+
+    // Re-wire the current node below the last file node
+    setNodeParent(currentNode.id, createdIds[createdIds.length - 1]);
+
+    // Stack the created nodes vertically above the current node. Measured after
+    // a tick so the file previews have rendered and heights are real.
+    setTimeout(() => {
+        let topY = currentNode.y;
+        for (let i = createdIds.length - 1; i >= 0; i--) {
+            const data = nodes.find(n => n.id === createdIds[i]);
+            const el = document.getElementById(createdIds[i]);
+            if (!data) continue;
+            const height = el ? el.offsetHeight : 150;
+            const y = Math.ceil((topY - GRID_SIZE * 3 - height) / GRID_SIZE) * GRID_SIZE;
+            data.x = baseX;
+            data.y = y;
+            if (el) el.style.transform = `translate(${data.x}px, ${y}px)`;
+            topY = y;
+        }
+        if (typeof autoLayout === 'function') autoLayout();
+        if (typeof drawEdges === 'function') drawEdges();
+        if (typeof drawGroups === 'function') drawGroups();
+    }, 0);
+
+    // Refresh the active lineage (now runs through the file nodes) and the focus view
+    selectNode(activeNodeId);
+    if (typeof saveState === 'function') saveState();
+
+    if (isFocusModeActive) {
+        updateChatHistory();
+        renderFocusLineage();
+        const badgeEl = document.getElementById('focus-node-count-badge');
+        if (badgeEl) badgeEl.textContent = `${current_active_lineage.length} turns in branch`;
+    }
+}
+
 /**
  * Removes a "Thinking..." header from a focus turn, if one is present.
  * The built-in placeholder is gone (the thinking indicator is CSS-driven
@@ -1005,6 +1131,11 @@ function setupFocusInputListeners() {
         refreshBtn.addEventListener('click', () => {
             renderFocusProjectFiles();
         });
+    }
+
+    const uploadFileBtn = document.getElementById('focus-upload-file-btn');
+    if (uploadFileBtn) {
+        uploadFileBtn.addEventListener('click', openFocusFilePicker);
     }
 
     if (sendBtn) {

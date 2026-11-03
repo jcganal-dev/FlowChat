@@ -131,7 +131,7 @@ function expandIcon(color='#ffffff') {
  * suitable for an <input type="file" accept=""> attribute.
  */
 function getTextWhitelistExtensions() {
-    return (textWhitelist.source.slice(2).match(/\w+/g) || []).join(',');
+    return (textWhitelist.source.slice(2).match(/\w+/g) || []).map(e => '.' + e).join(',');
 }
 const NODE_WIDTH = {
     min: 336,

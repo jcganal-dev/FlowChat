@@ -1311,6 +1311,7 @@ h6 {
 #focus-nodes-layer > :first-child {
     margin-top: 30px !important;
 }
+
 #focus-nodes-layer:empty {
     display: none;
 }
@@ -1379,10 +1380,6 @@ h6 {
         .file-div > div:not(:first-child),
         .file-div > img:not(:first-child) {
             margin-left: 5px;
-        }
-
-        .file-div:empty::before {
-            content: "None";
         }
 
         .focus-ai {
@@ -1967,79 +1964,13 @@ details[open]::details-content {
     margin-bottom: 0px !important;
 }
 
-.image-node:has(+ .chat-node) {
-    .focus-user {
-        background-color: transparent !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
-        padding-top: 0px !important;
-        .file-node-header {
-            display: none !important;
-        }
-        .file-div > img {
-            border-radius: 25px;
-        }
-    }
-}
-.document-node:has(+ .chat-node) {
-    .focus-user {
-        background-color: transparent !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
-        padding-top: 0px !important;
-        .file-node-header {
-            display: none !important;
-        }
-        .file-div > img {
-            border-radius: 25px;
-        }
-    }
-}
-.image-node:has(+ .document-node) {
-    margin-bottom: 0px !important;
-    .focus-user {
-        background-color: transparent !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
-        padding-top: 0px !important;
-        .file-node-header {
-            display: none !important;
-        }
-        .file-div > img {
-            border-radius: 25px;
-        }
-    }
-}
-.image-node:has(+ .image-node) {
-    margin-bottom: 0px !important;
-    .focus-user {
-        background-color: transparent !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
-        padding-top: 0px !important;
-        .file-node-header {
-            display: none !important;
-        }
-        .file-div > img {
-            border-radius: 25px;
-        }
-    }
-}
-.document-node:has(+ .image-node) {
-    margin-bottom: 0px !important;
-    .focus-user {
-        background-color: transparent !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
-        padding-top: 0px !important;
-        .file-node-header {
-            display: none !important;
-        }
-        .file-div > img {
-            border-radius: 25px;
-        }
-    }
-}
+#focus-nodes-layer > .document-node:last-child,
+#focus-nodes-layer > .image-node:last-child,
+.image-node:has(+ .chat-node),
+.document-node:has(+ .chat-node),
+.image-node:has(+ .document-node),
+.image-node:has(+ .image-node),
+.document-node:has(+ .image-node),
 .document-node:has(+ .document-node) {
     margin-bottom: 0px !important;
     .focus-user {
@@ -2054,4 +1985,8 @@ details[open]::details-content {
             border-radius: 25px;
         }
     }
+}
+
+.image-node:has(.file-div:empty) {
+    display: none;
 }
