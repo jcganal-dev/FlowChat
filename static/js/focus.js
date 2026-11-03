@@ -549,11 +549,12 @@ function renderFocusLineage() {
             }
             const fileNodeEl = document.createElement('div');
             fileNodeEl.className = 'focus-node';
+            fileNodeEl.classList.add(`${nodeData.type}-node`);
             fileNodeEl.style = 'margin: 40px 0px 10px 0px;';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
                 <div class="focus-user" style="flex-direction: column;margin-bottom: 0px; align-self: end; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type ==='scrape'?'':'max-'}width: 70%;">
-                    <div style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
+                    <div class='file-node-header' style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
                     <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='display: flex; overflow: auto; scrollbar-width: none; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
                 </div>
             `;
@@ -597,7 +598,7 @@ function renderFocusLineage() {
         }
 
         const turnDiv = document.createElement('div');
-        turnDiv.className = nodeData.isStreaming ? 'focus-node streaming' : 'focus-node';
+        turnDiv.className = nodeData.isStreaming ? 'focus-node chat-node streaming' : 'focus-node chat-node';
         turnDiv.id = `focus-turn-${nodeId}`;
 
         let turnHtml = '';
@@ -605,6 +606,7 @@ function renderFocusLineage() {
             turnHtml += `<div class="focus-user" style="flex-direction: row;">${userHtml}</div>`;
         }
         turnHtml += `<div class="focus-ai ai-content">${aiStreamHtml}</div>`;
+        turnHtml += `<button class="add-child-btn" title="Branch">+</button>`
 
         turnDiv.innerHTML = turnHtml
 
@@ -615,6 +617,53 @@ function renderFocusLineage() {
         }
         focusNodesLayer.appendChild(turnDiv);
     });
+
+    // Add click handlers for "Branch" buttons using event delegation
+    // (Do this once after all turnDivs are added)
+    if (!focusNodesLayer._branchClickHandler) {
+        focusNodesLayer._branchClickHandler = true;
+        focusNodesLayer.addEventListener('click', (e) => {
+            const branchBtn = e.target.closest('.add-child-btn');
+            if (!branchBtn) return;
+            const turnEl = branchBtn.closest('.focus-node');
+            if (!turnEl || !turnEl.id.startsWith('focus-turn-')) return;
+            const nodeId = turnEl.id.slice('focus-turn-'.length);
+            const nodeData = nodes.find(n => n.id === nodeId);
+            if (!nodeData) return;
+            e.stopPropagation();
+
+            // Create a new child node branching from this turn
+            const parentEl = document.getElementById(nodeId);
+            const parentWidth = parentEl ? parentEl.offsetWidth : 336;
+            const bottomY = nodeData.y + (parentEl ? parentEl.offsetHeight : 150);
+            const snappedBottomY = Math.ceil(bottomY / GRID_SIZE) * GRID_SIZE;
+            let childWidth = 336;
+            if (Math.round(parentWidth / GRID_SIZE) % 2 !== Math.round(childWidth / GRID_SIZE) % 2) childWidth += GRID_SIZE;
+            const forkX = nodeData.x + (parentWidth - childWidth) / 2;
+            const forkY = snappedBottomY + (GRID_SIZE * 3);
+            const existingChildren = nodes.filter(n => n.parentId === nodeData.id);
+            const parentModel = nodeData.selectedModel || defaultModel;
+            const newId = createNode(nodeData.id, forkX, forkY, "", nodeData.turn + 1, nodeData.branch + existingChildren.length, nodeData.name, null, 'chat', parentModel);
+            const newEl = document.getElementById(newId);
+            const newData = nodes.find(n => n.id === newId);
+            if (newEl && newData) {
+                newData.nodeWidth = childWidth;
+                newEl.style.width = childWidth + 'px';
+            }
+
+            // Select the new node and update focus mode
+            selectNode(newId);
+            if (typeof autoLayout === 'function') autoLayout(true);
+            if (typeof saveState === 'function') saveState();
+
+            // Update focus mode to show the new branch
+            if (isFocusModeActive) {
+                updateChatHistory();
+                renderFocusLineage();
+                document.getElementById('focus-chat-input').focus()
+            }
+        });
+    }
 
     // Restore the streaming node if we saved it (append at the end since it's the active node)
     if (streamingNodeEl) {

@@ -1340,14 +1340,25 @@ h6 {
     flex-direction: column;
     background-color: var(--bg-surface);
     align-items: center;
-
-
-
+    
+    .focus-node:hover {
+        border-bottom: solid 2px var(--border-base);
+        .add-child-btn {
+            display: inline;
+        }
+    }
+    
     .focus-node {
+        .add-child-btn {
+            display: none;
+        }
+        transition: all 0.2s ease;
+        border-bottom: solid 2px transparent;
         width: 800px;
         margin: 80px 0px 10px 0px;
         display: flex;
         flex-direction: column;
+        position: relative;
 
         .focus-user {
             max-width: 70%;
@@ -1509,17 +1520,15 @@ h6 {
     max-width: 300px;
     z-index: 12;
 }
-@media (max-width: 1200px) {
-  .focus-sidebar {
-        position: fixed;
-        top: 0;
-        left: 48px;
-        height: 100dvh;
-        z-index: 12;
-  }
-  .focus-ai {
-    width: 100% !important;
-  }
+.focus-sidebar {
+      position: fixed;
+      top: 0;
+      left: 48px;
+      height: 100dvh;
+      z-index: 12;
+}
+.focus-ai {
+  width: 100% !important;
 }
 .tab-btn {
     padding: 4px;
@@ -1913,4 +1922,116 @@ details[open]::details-content {
     padding: 1px 4px;
     border-radius: 4px;
     background: var(--transparent-lighter);
+}
+
+.image-node + .chat-node {
+    margin-top: 0px !important;
+}
+.document-node + .chat-node {
+    margin-top: 0px !important;
+}
+.image-node + .document-node {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+}
+.image-node + .image-node {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+}
+.document-node + .image-node {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+}
+.document-node + .document-node {
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+}
+
+.image-node:has(+ .chat-node) {
+    .focus-user {
+        background-color: transparent !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        padding-top: 0px !important;
+        .file-node-header {
+            display: none !important;
+        }
+        .file-div > img {
+            border-radius: 25px;
+        }
+    }
+}
+.document-node:has(+ .chat-node) {
+    .focus-user {
+        background-color: transparent !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        padding-top: 0px !important;
+        .file-node-header {
+            display: none !important;
+        }
+        .file-div > img {
+            border-radius: 25px;
+        }
+    }
+}
+.image-node:has(+ .document-node) {
+    margin-bottom: 0px !important;
+    .focus-user {
+        background-color: transparent !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        padding-top: 0px !important;
+        .file-node-header {
+            display: none !important;
+        }
+        .file-div > img {
+            border-radius: 25px;
+        }
+    }
+}
+.image-node:has(+ .image-node) {
+    margin-bottom: 0px !important;
+    .focus-user {
+        background-color: transparent !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        padding-top: 0px !important;
+        .file-node-header {
+            display: none !important;
+        }
+        .file-div > img {
+            border-radius: 25px;
+        }
+    }
+}
+.document-node:has(+ .image-node) {
+    margin-bottom: 0px !important;
+    .focus-user {
+        background-color: transparent !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        padding-top: 0px !important;
+        .file-node-header {
+            display: none !important;
+        }
+        .file-div > img {
+            border-radius: 25px;
+        }
+    }
+}
+.document-node:has(+ .document-node) {
+    margin-bottom: 0px !important;
+    .focus-user {
+        background-color: transparent !important;
+        padding-left: 0px !important;
+        padding-right: 0px !important;
+        padding-top: 0px !important;
+        .file-node-header {
+            display: none !important;
+        }
+        .file-div > img {
+            border-radius: 25px;
+        }
+    }
 }
