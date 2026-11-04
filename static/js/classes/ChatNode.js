@@ -30,7 +30,7 @@ function renderAnswerTextHtml(text) {
 
 // One segment, whatever type it is: reasoning, tool chip or answer text.
 function renderSegmentHtml(seg) {
-    if (seg.type === 'reasoning') return `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(seg.text || '')}</details>`;
+    if (seg.type === 'reasoning') return renderThoughtsHtml(seg.text || '');
     if (seg.type === 'tool_call') return renderToolChipHtml(seg);
     return seg.text.trim() != '' ? `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>` : '';
 }
@@ -111,7 +111,7 @@ function buildStreamPlan(segs) {
 function renderToolGroupHtml(item) {
     const count = item.run.filter(e => e.type === 'tool_call').length;
     const body = item.run.map(e => e.type === 'reasoning'
-        ? `<details class="think-text group-thought"><summary>Thoughts</summary>${renderReasoningHtml(e.seg.text || '')}</details>`
+        ? renderGroupThoughtHtml(e.seg.text || '')
         : renderToolChipHtml(e.seg)
     ).join('');
     return `<details class="tool-group" data-seg-type="tool_group">` +
@@ -128,7 +128,7 @@ function renderAiStreamHtml(node) {
     if (!segs.length) {
         // Legacy save without segments: thoughts then answer.
         let html = '';
-        if (show_thoughts && node.aiThinking) html += `<details class="think-text"><summary>Thoughts</summary>${renderReasoningHtml(node.aiThinking)}</details>`;
+        if (show_thoughts && node.aiThinking) html += renderThoughtsHtml(node.aiThinking);
         if (node.aiText) html += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
         return html;
     }
@@ -172,6 +172,43 @@ function renderReasoningHtml(text) {
         ? `<div class="think-block" data-block-type="text">${escapeHtml(block.text)}</div>`
         : `<div class="think-block" data-block-type="code"><pre><code class="language-${safeLang(block.lang)}">${escapeHtml(block.text)}</code></pre></div>`
     ).join('');
+}
+
+// Thoughts wrapper, used by every render path. A thought OUTSIDE a tool
+// group is always a collapsible <details> so it ends up collapsed once the
+// stream is over — with collapse_thoughts off (globals.js) it renders open
+// while the node is streaming and closed otherwise; restore and the
+// end-of-stream reconcile both pass open = false. A thought nested INSIDE
+// a tool group follows collapse_thoughts: details when on, a plain
+// always-open <div> when off (the group already provides the collapse).
+function makeThoughtsEl(extraClass = '', open = false) {
+    const el = document.createElement('details');
+    el.className = `think-text${open ? ' think-open' : ''}${extraClass ? ' ' + extraClass : ''}`;
+    const summary = document.createElement('summary');
+    summary.innerHTML = 'Thoughts';
+    el.appendChild(summary);
+    if (open) el.open = true;
+    return el;
+}
+
+// Static markup twin of makeThoughtsEl (restore / first-paint path).
+function renderThoughtsHtml(text, extraClass = '', open = false) {
+    const cls = `think-text${open ? ' think-open' : ''}${extraClass ? ' ' + extraClass : ''}`;
+    return `<details class="${cls}"${open ? ' open' : ''}><summary>Thoughts</summary>${renderReasoningHtml(text)}</details>`;
+}
+
+// In-group twins for the two collapse_thoughts states.
+function makeGroupThoughtEl() {
+    if (collapse_thoughts) return makeThoughtsEl('group-thought');
+    const el = document.createElement('div');
+    el.className = 'think-text think-open group-thought';
+    return el;
+}
+
+function renderGroupThoughtHtml(text) {
+    return collapse_thoughts
+        ? renderThoughtsHtml(text, 'group-thought')
+        : `<div class="think-text think-open group-thought">${renderReasoningHtml(text)}</div>`;
 }
 
 // Diffs text into el with minimal DOM churn.
@@ -243,13 +280,9 @@ function reconcileToolGroup(groupEl, run) {
         const entry = run[k];
         let wrap = groupEl.children[k + 1];
         if (!wrap || wrap.dataset.segType !== entry.type) {
-            const fresh = document.createElement(entry.type === 'reasoning' ? 'details' : 'div');
-            if (entry.type === 'reasoning') {
-                const summary = document.createElement('summary');
-                summary.innerHTML = 'Thoughts';
-                fresh.appendChild(summary);
-                fresh.className = 'think-text group-thought';
-            }
+            const fresh = entry.type === 'reasoning'
+                ? makeGroupThoughtEl()
+                : document.createElement('div');
             fresh.dataset.segType = entry.type;
             if (wrap) groupEl.replaceChild(fresh, wrap); else groupEl.appendChild(fresh);
             wrap = fresh;
@@ -294,15 +327,16 @@ function renderAiStream(container, node) {
         let el = container.children[i] || null;
         if (item.type === 'reasoning') {
             if (!el || el.dataset.segType !== 'reasoning') {
-                const fresh = document.createElement('details');
-                const summary = document.createElement('summary');
-                summary.innerHTML = "Thoughts";
-                fresh.appendChild(summary)
-                fresh.className = 'think-text';
+                const fresh = makeThoughtsEl('', !collapse_thoughts && !!node.isStreaming);
                 fresh.dataset.segType = 'reasoning';
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
+            // Standalone thoughts stream open and collapse once the stream
+            // ends. Only the close is enforced here — the final reconcile
+            // runs with isStreaming already false — so a manual collapse
+            // during the stream isn't undone by the next flush.
+            if (!node.isStreaming && el.tagName === 'DETAILS' && el.open) el.open = false;
             // Reasoning is only appended to while it streams; skip the re-split
             // entirely for segments that haven't changed since the last flush.
             if (el._segText !== item.seg.text) {

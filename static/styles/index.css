@@ -1613,6 +1613,32 @@ h6 {
     padding-left: 10px;
     /* margin: 10px 0; */
 }
+.ai-content .tool-group > details:not(:last-child),
+.ai-content .tool-group > div:not(:last-child) {
+    padding-bottom: 15px;
+    position: relative;
+}
+
+.ai-content .tool-group > div:not(:last-child)::before {
+    content: "●";
+    position: absolute;
+    left: -4px;
+    top: calc(45% - 15px);
+}
+
+.ai-content .tool-group > div:last-child {
+    position: relative;
+}
+.ai-content .tool-group > div:last-child::before {
+    content: "●";
+    position: absolute;
+    left: -4px;
+    top: 35%;
+}
+
+summary:hover {
+    opacity: 0.8;
+}
 
 .ai-content .tool-group > summary {
     margin-bottom: 2px;

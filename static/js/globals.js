@@ -146,6 +146,7 @@ let current_active_lineage = []
 // merge tool-call runs across them into one collapsed group. Takes effect on
 // the next page load.
 let show_thoughts = true;
+let collapse_thoughts = false;
 
 const viewportWidth = window.innerWidth;
 const viewportHeight = window.innerHeight;
