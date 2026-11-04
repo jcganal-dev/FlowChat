@@ -36,37 +36,67 @@ function renderSegmentHtml(seg) {
 }
 
 // Groups runs of consecutive tool_call segments into one collapsible block.
-// With show_thoughts = false, reasoning segments are hidden AND no longer end
-// a run — tool calls separated only by hidden thoughts merge into one group.
-// Recomputed each flush — cheap, and trailing runs grow as new tool calls
-// stream in. Derived view only: the segment list itself is never touched.
+// Reasoning sits inside the run instead of ending it: with show_thoughts =
+// false it is hidden entirely, with true it is kept as a nested "Thoughts"
+// block between the chips. Once a run has started, every thought after a
+// tool call joins it right away — not only when the next call arrives — so
+// a thought never flashes standalone below the group while it streams; only
+// real answer text ends a run. A thought BEFORE the first tool call joins
+// the following run when one eventually starts, and stays standalone
+// otherwise. Run entries are { type, seg } pairs; the summary counts only
+// the tool calls. Recomputed each flush — cheap, and trailing runs grow as
+// new tool calls stream in. Derived view only: the segment list itself is
+// never touched.
 function buildStreamPlan(segs) {
+    const isBlankText = s => s.type !== 'tool_call' && s.type !== 'reasoning' && (!s.text || s.text.trim() === '');
+    // Index of the next segment past consecutive reasoning / blank text, or
+    // segs.length. Blank text chunks (legacy saves keep '\n' some models emit
+    // between tool calls) are transparent: they never end a run.
+    const skipSoft = k => {
+        while (k < segs.length && (segs[k].type === 'reasoning' || isBlankText(segs[k]))) k++;
+        return k;
+    };
     const plan = [];
     let i = 0;
     while (i < segs.length) {
         const seg = segs[i];
         if (seg.type === 'reasoning') {
-            if (show_thoughts) plan.push({ type: 'reasoning', seg });
-            i++;
-            continue;
-        }
-        if (seg.type !== 'tool_call') {
-            // Whitespace-only text segments (legacy saves keep '\n' chunks some
-            // models emit between tool calls) render nothing — skip them so
+            if (!show_thoughts) { i++; continue; }
+            // A leading thought joins the following tool run only when a tool
+            // call actually follows it (directly or through more thoughts);
+            // otherwise it stands alone before the group.
+            const next = skipSoft(i + 1);
+            if (!(next < segs.length && segs[next].type === 'tool_call')) {
+                plan.push({ type: 'reasoning', seg });
+                i++;
+                continue;
+            }
+            // Falls into the run scan below, with this thought as its opener.
+        } else if (seg.type !== 'tool_call') {
+            // Whitespace-only text segments render nothing — skip them so
             // they can't split a run of tool calls into separate groups.
-            if (seg.text && seg.text.trim() !== '') plan.push({ type: 'text', seg });
+            if (!isBlankText(seg)) plan.push({ type: 'text', seg });
             i++;
             continue;
         }
-        // Scan the run: tool calls, plus any reasoning that is hidden — hidden
-        // thoughts sit inside the run instead of ending it.
+        // Scan the run: tool calls plus the thoughts around them. Hidden
+        // thoughts are skipped; shown thoughts are kept as entries the moment
+        // they follow a call — the next call or the answer may still be
+        // streaming in, and the thought must not pop out of the group meanwhile.
         const run = [];
         let k = i;
         while (k < segs.length) {
             const s = segs[k];
-            if (s.type === 'tool_call') { run.push(s); k++; }
-            else if (s.type === 'reasoning' && !show_thoughts) k++;
-            else break;
+            if (s.type === 'tool_call') { run.push({ type: 'tool_call', seg: s }); k++; continue; }
+            if (s.type === 'reasoning') {
+                if (!show_thoughts) { k++; continue; }
+                run.push({ type: 'reasoning', seg: s });
+                k++;
+                continue;
+            }
+            // Blank legacy chunks are transparent — they can't split a run.
+            if (isBlankText(s)) { k++; continue; }
+            break;  // real answer text ends the run
         }
         i = k;
         plan.push({ type: 'tool_group', run });
@@ -75,11 +105,18 @@ function buildStreamPlan(segs) {
 }
 
 // Static markup for a group of consecutive tool calls: one collapsible block
-// whose summary counts them, with each chip expandable inside it.
+// whose summary counts the calls, with each chip expandable inside it. When
+// show_thoughts is on, thoughts emitted between the calls are nested in the
+// group as their own "Thoughts" blocks.
 function renderToolGroupHtml(item) {
+    const count = item.run.filter(e => e.type === 'tool_call').length;
+    const body = item.run.map(e => e.type === 'reasoning'
+        ? `<details class="think-text group-thought"><summary>Thoughts</summary>${renderReasoningHtml(e.seg.text || '')}</details>`
+        : renderToolChipHtml(e.seg)
+    ).join('');
     return `<details class="tool-group" data-seg-type="tool_group">` +
-        `<summary>${item.run.length} tool call${item.run.length>1?'s':''} ${expandIcon(color='#888')}</summary>` +
-        item.run.map(renderToolChipHtml).join('') +
+        `<summary>${count} tool call${count>1?'s':''} ${expandIcon(color='#888')}</summary>` +
+        body +
         `</details>`;
 }
 
@@ -194,26 +231,42 @@ function renderReasoningEl(el, text) {
     }
 }
 
-// Reconciles the chip wrappers inside a tool-group <details>. Runs only grow
-// (segments are appended, never reordered), so each wrapper keeps its slot;
-// the per-chip _chipHtml cache means a chip's own <details> open state
-// survives updates to its neighbours.
+// Reconciles the chip and thoughts wrappers inside a tool-group <details>.
+// Runs only grow (segments are appended, never reordered), so each wrapper
+// keeps its slot; the per-wrapper content cache (_chipHtml / _segText) means
+// a chip's own <details> open state and streamed thought text survive
+// updates to their neighbours.
 function reconcileToolGroup(groupEl, run) {
-    // Children: the <summary>, then one wrapper per run segment.
+    // Children: the <summary>, then one wrapper per run entry.
     while (groupEl.childElementCount > run.length + 1) groupEl.lastElementChild.remove();
     for (let k = 0; k < run.length; k++) {
-        const seg = run[k];
+        const entry = run[k];
         let wrap = groupEl.children[k + 1];
-        if (!wrap || wrap.dataset.segType !== 'tool_call') {
-            const fresh = document.createElement('div');
-            fresh.dataset.segType = 'tool_call';
+        if (!wrap || wrap.dataset.segType !== entry.type) {
+            const fresh = document.createElement(entry.type === 'reasoning' ? 'details' : 'div');
+            if (entry.type === 'reasoning') {
+                const summary = document.createElement('summary');
+                summary.innerHTML = 'Thoughts';
+                fresh.appendChild(summary);
+                fresh.className = 'think-text group-thought';
+            }
+            fresh.dataset.segType = entry.type;
             if (wrap) groupEl.replaceChild(fresh, wrap); else groupEl.appendChild(fresh);
             wrap = fresh;
         }
-        const html = renderToolChipHtml(seg);
-        if (wrap._chipHtml !== html) {
-            wrap.innerHTML = html;
-            wrap._chipHtml = html;
+        if (entry.type === 'reasoning') {
+            // Same skip-the-resplit rule as top-level reasoning: appended
+            // text is diffed, not re-parsed, while the thought streams.
+            if (wrap._segText !== entry.seg.text) {
+                wrap._segText = entry.seg.text;
+                renderReasoningEl(wrap, entry.seg.text || '');
+            }
+        } else {
+            const html = renderToolChipHtml(entry.seg);
+            if (wrap._chipHtml !== html) {
+                wrap.innerHTML = html;
+                wrap._chipHtml = html;
+            }
         }
     }
 }
@@ -277,7 +330,8 @@ function renderAiStream(container, node) {
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
-            const label = item.run.length + (item.run.length > 1 ? ` tool calls` : ` tool call`) +  expandIcon(color='#888');
+            const toolCount = item.run.filter(e => e.type === 'tool_call').length;
+            const label = toolCount + (toolCount > 1 ? ` tool calls` : ` tool call`) +  expandIcon(color='#888');
             if (el.firstElementChild.innerHTML !== label) el.firstElementChild.innerHTML = label;
             reconcileToolGroup(el, item.run);
         } else {

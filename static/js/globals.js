@@ -145,7 +145,7 @@ let current_active_lineage = []
 // Set to false to hide the reasoning ("Thoughts") blocks in the stream and
 // merge tool-call runs across them into one collapsed group. Takes effect on
 // the next page load.
-let show_thoughts = false;
+let show_thoughts = true;
 
 const viewportWidth = window.innerWidth;
 const viewportHeight = window.innerHeight;

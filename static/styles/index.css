@@ -1625,6 +1625,15 @@ h6 {
     }
 }
 
+/* Thoughts nested inside a tool group (show_thoughts = true): same indent as
+   the chips, with the collapse marker pulled back onto the group's border. */
+.ai-content .tool-group .think-text {
+    margin-left: 4px;
+    summary::before {
+        left: -14px;
+    }
+}
+
 
 /* WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
