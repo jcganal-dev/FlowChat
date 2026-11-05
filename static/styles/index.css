@@ -1617,6 +1617,7 @@ h6 {
 .ai-content .tool-group > div:not(:last-child) {
     padding-bottom: 15px;
     position: relative;
+    border-left: 1px solid var(--border-highlight);
 }
 
 .ai-content .tool-group > div:not([data-seg-type="tool_call"]):not(:last-child)::before {
@@ -1633,7 +1634,7 @@ h6 {
     content: "●";
     position: absolute;
     left: -4px;
-    top: 35%;
+    /* top: 35%; */
 }
 
 summary:hover {
@@ -1642,6 +1643,12 @@ summary:hover {
 
 .ai-content .tool-group > summary {
     margin-bottom: 2px;
+}
+
+/* End-of-stream notices ([Stopped by User] / Error) rendered from persisted
+   nodeData flags — survives reload, so spacing lives here too. */
+.stream-notice {
+    margin-top: 8px;
 }
 
 .ai-content .tool-group .tool-chip {

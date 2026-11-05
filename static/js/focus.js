@@ -572,20 +572,13 @@ function renderFocusLineage() {
             userHtml = typeof renderMarkdown === 'function' ? renderMarkdown(nodeData.userText) : nodeData.userText;
         }
 
-        // The canvas node's .ai-content is the source of truth for the full response
-        // stream — reasoning, tool-call chips and answer text in the exact order
-        // the model emitted them. Copy it verbatim; with no live element (node
-        // restored from history), rebuild the identical markup from the node's
-        // segments via renderAiStreamHtml, the same one-shot renderer ChatNode
-        // uses on restore/first paint.
-        let aiStreamHtml = '';
-        if (nodeEl) {
-            const contentEl = nodeEl.querySelector('.ai-content');
-            if (contentEl) aiStreamHtml = contentEl.innerHTML.trim();
-        }
-        if (!aiStreamHtml && typeof renderAiStreamHtml === 'function') {
-            aiStreamHtml = renderAiStreamHtml(nodeData);
-        }
+        // Always rebuild from the node's segments via renderAiStreamHtml — the
+        // same one-shot renderer ChatNode uses on restore/first paint. The old
+        // verbatim copy of the canvas .ai-content made live focus views
+        // structurally different from refreshed ones (the incremental stream
+        // renderer wraps segments in reconciliation wrappers the one-shot path
+        // doesn't), so the structure changed after every reload.
+        let aiStreamHtml = (typeof renderAiStreamHtml === 'function') ? renderAiStreamHtml(nodeData) : '';
 
         const showSummary = nodeData.summaryText && nodeData.isCollapsed;
         if (showSummary) {
@@ -1015,12 +1008,13 @@ function onNodeStreamUpdate(nodeId, type, data, isAborted = false) {
         settleStream();
         turnEl.classList.remove('streaming');
         syncFocusThinkVisibility(turnEl);
-        if (isAborted) {
-            if (aiEl) aiEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
-        } else {
+        // The [Stopped by User] / Error notice renders from the persisted
+        // nodeData flags (stoppedByUser / lastError) inside renderAiStream, so
+        // the focus view and a reloaded canvas end up identical. Non-abort
+        // errors now keep the partial stream, instead of wiping it.
+        if (!isAborted) {
             document.getElementById('focus-chat-input').innerText = turnEl.querySelector('.focus-user').innerText
             showToast(`${data ? (data.message || data) : 'Unknown error'}`, 'error', 2500)
-            if (aiEl) aiEl.innerHTML = `<span style="color: #ff5555;">Error: ${data ? (data.message || data) : 'Unknown error'}</span>`;
         }
         updateFocusModeButtonState('idle');
     } else if (type === 'complete') {
@@ -1253,27 +1247,43 @@ function setupFocusInputListeners() {
         });
     }
 
-    // Keep tool-chip <details> open state in sync between the focus layer and
-    // the canvas node (capture phase, since 'toggle' does not bubble) — mirrors
-    // the capture-phase toggle listener ChatNode attaches to .ai-content, so
-    // a chip stays open/closed across focus re-renders.
+    // Keep every collapsible <details> (tool chips, thoughts, tool groups) in
+    // sync between the focus layer and the canvas node, and persist the open
+    // state into the segment data via the shared persistStreamToggle helper
+    // (capture phase, since 'toggle' does not bubble) — so expansion states
+    // survive both focus re-renders and full page reloads.
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
     if (focusNodesLayer && !focusNodesLayer._thinkToggleSyncInitialized) {
         focusNodesLayer._thinkToggleSyncInitialized = true;
         focusNodesLayer.addEventListener('toggle', (e) => {
-            const chip = e.target;
-            if (!chip.matches || !chip.matches('.tool-chip[data-seg-id]')) return;
-            const turnEl = chip.closest('.focus-node');
+            const details = e.target;
+            if (!details.matches || !details.matches('details')) return;
+            const turnEl = details.closest('.focus-node');
             if (!turnEl || !turnEl.id.startsWith('focus-turn-')) return;
             const nodeId = turnEl.id.slice('focus-turn-'.length);
-            const segId = chip.getAttribute('data-seg-id');
             const nodeData = nodes.find(n => n.id === nodeId);
-            if (nodeData && Array.isArray(nodeData.aiSegments)) {
-                const seg = nodeData.aiSegments.find(s => s.type === 'tool_call' && s.id === segId);
-                if (seg) seg.open = chip.open;
+            persistStreamToggle(nodeData, details);
+
+            // Mirror onto the canvas twin so both views stay in sync. Setting
+            // open there fires that element's own toggle listener, which also
+            // shifts canvas children — nothing loops back to the focus layer.
+            const canvasAi = document.getElementById(nodeId)?.querySelector('.ai-content');
+            if (!canvasAi) return;
+            let canvasDetails = null;
+            const segId = details.getAttribute('data-seg-id');
+            if (segId) {
+                canvasDetails = canvasAi.querySelector(`details[data-seg-id="${segId}"]`);
+            } else if (details.classList.contains('tool-group')) {
+                const firstChip = details.querySelector('.tool-chip[data-seg-id]');
+                const firstId = firstChip ? firstChip.getAttribute('data-seg-id') : null;
+                if (firstId) {
+                    const chip = canvasAi.querySelector(`.tool-chip[data-seg-id="${firstId}"]`);
+                    canvasDetails = chip ? chip.closest('details.tool-group') : null;
+                }
             }
-            const canvasChip = document.getElementById(nodeId)?.querySelector(`.ai-content .tool-chip[data-seg-id="${segId}"]`);
-            if (canvasChip && canvasChip.open !== chip.open) canvasChip.open = chip.open;
+            if (canvasDetails && canvasDetails !== details && canvasDetails.open !== details.open) {
+                canvasDetails.open = details.open;
+            }
         }, true);
     }
 

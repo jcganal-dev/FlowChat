@@ -13,7 +13,10 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
 
-<body class="no-select" onload="zoom(0);Prism.highlightAll();autoLayout()">
+<!-- No autoLayout() on load: it raced the async state restore and rewrote the
+     saved tree geometry on every refresh. loadState() restores the saved
+     positions as-is; persisted <details> open states keep node heights right. -->
+<body class="no-select" onload="zoom(0);Prism.highlightAll()">
     <div class="chat-goto-container" style="display: none;">
         <div id="chats-goto"></div>
     </div>

@@ -30,7 +30,7 @@ function renderAnswerTextHtml(text) {
 
 // One segment, whatever type it is: reasoning, tool chip or answer text.
 function renderSegmentHtml(seg) {
-    if (seg.type === 'reasoning') return renderThoughtsHtml(seg.text || '');
+    if (seg.type === 'reasoning') return renderThoughtsHtml(seg.text || '', '', !!seg.open, seg.id);
     if (seg.type === 'tool_call') return renderToolChipHtml(seg);
     return seg.text.trim() != '' ? `<div class="ai-text">${renderAnswerTextHtml(seg.text || '')}</div>` : '';
 }
@@ -110,31 +110,46 @@ function buildStreamPlan(segs) {
 // group as their own "Thoughts" blocks.
 function renderToolGroupHtml(item) {
     const count = item.run.filter(e => e.type === 'tool_call').length;
+    // The group's own expanded state is persisted on its first tool-call
+    // segment (groupOpen), so restore reopens it exactly as it was left.
+    const firstCall = item.run.find(e => e.type === 'tool_call');
     const body = item.run.map(e => e.type === 'reasoning'
-        ? renderGroupThoughtHtml(e.seg.text || '')
+        ? renderGroupThoughtHtml(e.seg)
         : renderToolChipHtml(e.seg)
     ).join('');
-    return `<details class="tool-group" data-seg-type="tool_group">` +
+    return `<details class="tool-group" data-seg-type="tool_group"${firstCall && firstCall.seg.groupOpen ? ' open' : ''}>` +
         `<summary>${count} tool call${count>1?'s':''} ${expandIcon(color='#888')}</summary>` +
         body +
         `</details>`;
+}
+
+// End-of-stream notices ([Stopped by User] / Error) as inner HTML. Driven by
+// nodeData flags rather than DOM-only appends, so a reload rebuilds the exact
+// same finished state the user saw.
+function renderStreamNoticeHtml(node) {
+    let html = '';
+    if (node.stoppedByUser) html += `<span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
+    if (node.lastError) html += `<span style="color: #ff5555; font-size: 12px;">Error: ${escapeHtml(node.lastError)}</span>`;
+    return html;
 }
 
 // Static one-shot stream HTML (restore / first paint): every segment the model
 // produced, in the order it produced it. No segregation — reasoning, tool
 // chips and answer text flow in the same container.
 function renderAiStreamHtml(node) {
+    let streamHtml = '';
     const segs = Array.isArray(node.aiSegments) ? node.aiSegments : [];
     if (!segs.length) {
         // Legacy save without segments: thoughts then answer.
-        let html = '';
-        if (show_thoughts && node.aiThinking) html += renderThoughtsHtml(node.aiThinking);
-        if (node.aiText) html += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
-        return html;
+        if (show_thoughts && node.aiThinking) streamHtml += renderThoughtsHtml(node.aiThinking);
+        if (node.aiText) streamHtml += `<div class="ai-text">${renderAnswerTextHtml(node.aiText)}</div>`;
+    } else {
+        streamHtml = buildStreamPlan(segs).map(item =>
+            item.type === 'tool_group' ? renderToolGroupHtml(item) : renderSegmentHtml(item.seg)
+        ).join('');
     }
-    return buildStreamPlan(segs).map(item =>
-        item.type === 'tool_group' ? renderToolGroupHtml(item) : renderSegmentHtml(item.seg)
-    ).join('');
+    const notices = renderStreamNoticeHtml(node);
+    return streamHtml + (notices ? `<div class="stream-notice">${notices}</div>` : '');
 }
 
 const THINK_CAP = 20000;
@@ -191,10 +206,11 @@ function makeThoughtsEl(extraClass = '', open = false) {
     return el;
 }
 
-// Static markup twin of makeThoughtsEl (restore / first-paint path).
-function renderThoughtsHtml(text, extraClass = '', open = false) {
+// Static markup twin of makeThoughtsEl (restore / first-paint path). segId
+// tags the details with its segment so toggle events can persist seg.open.
+function renderThoughtsHtml(text, extraClass = '', open = false, segId = null) {
     const cls = `think-text${open ? ' think-open' : ''}${extraClass ? ' ' + extraClass : ''}`;
-    return `<details class="${cls}"${open ? ' open' : ''}><summary>Thoughts</summary>${renderReasoningHtml(text)}</details>`;
+    return `<details class="${cls}"${open ? ' open' : ''}${segId ? ` data-seg-id="${escapeHtml(segId)}"` : ''}><summary>Thoughts</summary>${renderReasoningHtml(text)}</details>`;
 }
 
 // In-group twins for the two collapse_thoughts states.
@@ -205,10 +221,40 @@ function makeGroupThoughtEl() {
     return el;
 }
 
-function renderGroupThoughtHtml(text) {
+function renderGroupThoughtHtml(seg) {
+    const text = seg ? (seg.text || '') : '';
     return collapse_thoughts
-        ? renderThoughtsHtml(text, 'group-thought')
+        ? renderThoughtsHtml(text, 'group-thought', !!(seg && seg.open), seg && seg.id)
         : `<div class="think-text think-open group-thought">${renderReasoningHtml(text)}</div>`;
+}
+
+// Unique ids for reasoning segments so their expanded state can be persisted
+// back into nodeData and rebuilt identically on restore (tool-call segments
+// already carry provider ids).
+let reasoningIdCounter = 0;
+function nextReasoningId() {
+    return 'think_' + (++reasoningIdCounter);
+}
+
+// Persists a <details> toggle back into the segment data so restore rebuilds
+// the same expansion states. Handles all three collapsible kinds: a tool-call
+// chip (seg.open), a standalone thoughts block (seg.open), and a tool group
+// (groupOpen on its first tool-call segment). Shared by the canvas ChatNode
+// and the focus layer's delegated toggle listener.
+function persistStreamToggle(nodeData, detailsEl) {
+    if (!nodeData || !Array.isArray(nodeData.aiSegments) || !detailsEl) return;
+    const segs = nodeData.aiSegments;
+    if (detailsEl.classList && detailsEl.classList.contains('tool-group')) {
+        const firstChip = detailsEl.querySelector('.tool-chip[data-seg-id]');
+        const firstId = firstChip ? firstChip.getAttribute('data-seg-id') : null;
+        const seg = segs.find(s => s.type === 'tool_call' && s.id === firstId);
+        if (seg) seg.groupOpen = detailsEl.open;
+        return;
+    }
+    const id = detailsEl.getAttribute ? detailsEl.getAttribute('data-seg-id') : null;
+    if (!id) return;
+    const seg = segs.find(s => s.id === id);
+    if (seg && (seg.type === 'tool_call' || seg.type === 'reasoning')) seg.open = detailsEl.open;
 }
 
 // Diffs text into el with minimal DOM churn.
@@ -284,6 +330,7 @@ function reconcileToolGroup(groupEl, run) {
                 ? makeGroupThoughtEl()
                 : document.createElement('div');
             fresh.dataset.segType = entry.type;
+            if (entry.type === 'reasoning' && entry.seg.id) fresh.dataset.segId = entry.seg.id;
             if (wrap) groupEl.replaceChild(fresh, wrap); else groupEl.appendChild(fresh);
             wrap = fresh;
         }
@@ -329,6 +376,7 @@ function renderAiStream(container, node) {
             if (!el || el.dataset.segType !== 'reasoning') {
                 const fresh = makeThoughtsEl('', !collapse_thoughts && !!node.isStreaming);
                 fresh.dataset.segType = 'reasoning';
+                if (item.seg.id) fresh.dataset.segId = item.seg.id;
                 if (el) container.replaceChild(fresh, el); else container.appendChild(fresh);
                 el = fresh;
             }
@@ -386,6 +434,21 @@ function renderAiStream(container, node) {
             }
         }
     }
+    // End-of-stream notices ([Stopped by User] / Error) sit outside the plan
+    // so the reconciler can't wipe them; strip-and-reappend keeps this
+    // idempotent across renders. The flags live in nodeData, so a reload
+    // rebuilds the same finished state.
+    const oldNotice = container.querySelector(':scope > .stream-notice');
+    if (oldNotice) oldNotice.remove();
+    if (!node.isStreaming) {
+        const noticeHtml = renderStreamNoticeHtml(node);
+        if (noticeHtml) {
+            const notice = document.createElement('div');
+            notice.className = 'stream-notice';
+            notice.innerHTML = noticeHtml;
+            container.appendChild(notice);
+        }
+    }
 }
 
 class ChatNode extends BaseNode {
@@ -394,7 +457,6 @@ class ChatNode extends BaseNode {
         super(config);
         const runStyle = this.nodeData.aiText || this.nodeData.aiThinking ? 'display: none;' : '';
         const inputContent = this.config.restoreData ? (this.nodeData.htmlText || this.nodeData.userText) : this.config.initialUserText;
-        const isEditable = this.config.restoreData && this.nodeData.aiText ? 'false' : 'true';
         const streamHtml = renderAiStreamHtml(this.nodeData);
         this.el.innerHTML = `
             <div class="handle handle-in"></div>
@@ -412,7 +474,7 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="user-section">
-                <div contenteditable="${isEditable && !this.nodeData.aiText && !this.nodeData.aiThinking}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
+                <div contenteditable="true" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
                     <div class="model-select-container">
                         <div class="model-select-parent" style="position:fixed;margin-top:-13px;display:flex;flex-direction:column;gap:0px;max-width: 225px;z-index:11;">
@@ -520,13 +582,11 @@ class ChatNode extends BaseNode {
         this.aiStreamEl.addEventListener('click', (e) => {
             if (e.target.closest && e.target.closest('summary')) lastObservedHeight = this.el.offsetHeight;
         }, true);
-        // Persist tool-chip <details> open state back into the segment
-        // (toggle doesn't bubble -> capture phase).
+        // Persist every collapsible's open state (tool chips, standalone thoughts,
+        // tool groups) back into the segment data so restore rebuilds the exact
+        // same expansion states (toggle doesn't bubble -> capture phase).
         this.aiStreamEl.addEventListener('toggle', (e) => {
-            const chip = e.target;
-            const id = chip.getAttribute && chip.getAttribute('data-seg-id');
-            const seg = (this.nodeData.aiSegments || []).find(s => s.type === 'tool_call' && s.id === id);
-            if (seg) seg.open = chip.open;
+            persistStreamToggle(this.nodeData, e.target);
 
             // Leaf nodes have nothing below them to move.
             if (!lastObservedHeight || !nodes.some(n => n.parentId === this.id)) return;
@@ -676,12 +736,54 @@ class ChatNode extends BaseNode {
         this.nodeData.aiText = "";
         this.nodeData.aiThinking = "";
         this.nodeData.aiSegments = [];
+        this.nodeData.stoppedByUser = false;
+        this.nodeData.lastError = null;
         this.nodeData.abortController = new AbortController();
         this.nodeData.isStreaming = true; // Focus mode uses this to adopt canvas-initiated streams
         this.el.classList.add('streaming'); // Style hook for the live-stream state
         const signal = this.nodeData.abortController.signal;
         const aiContentEl = this.el.querySelector('.ai-content');
         aiContentEl.innerHTML = '';
+        // Track the node's height across the stream so children below follow
+        // the growth in real time, instead of only being repositioned by the
+        // end-of-stream autoLayout — the saved geometry then matches what the
+        // user actually saw while streaming.
+        let lastStreamHeight = this.el.offsetHeight;
+        let heightFollowToken = 0;
+        const applyHeightDelta = () => {
+            const h = this.el.offsetHeight;
+            if (h !== lastStreamHeight) {
+                if (typeof shiftChildrenXY === 'function') shiftChildrenXY(this.id, 0, h - lastStreamHeight);
+                lastStreamHeight = h;
+            }
+        };
+        // Per-flush: streaming content (text/thought growth) isn't animated,
+        // so one measurement catches the full delta.
+        const syncStreamHeight = () => applyHeightDelta();
+        // End-of-stream: the final reconcile collapses the thoughts that
+        // streamed open, and THAT height change is animated
+        // (details::details-content transitions block-size over 0.2s) — so a
+        // single measurement here would catch the node mid-shrink and leave
+        // children hanging too low. Follow the collapse frame by frame, the
+        // same way the toggle listener does, then settle edges/groups and
+        // save the geometry once the height has stopped moving.
+        const followStreamHeight = () => {
+            const token = ++heightFollowToken;
+            const startedAt = performance.now();
+            const step = () => {
+                if (token !== heightFollowToken) return;   // a newer follow owns the loop
+                applyHeightDelta();
+                if (performance.now() - startedAt < 450) {
+                    requestAnimationFrame(step);
+                    return;
+                }
+                if (typeof drawEdges === 'function') drawEdges();
+                if (typeof drawGroups === 'function') drawGroups();
+                if (typeof updateCanvas === 'function') updateCanvas();
+                if (typeof saveState === 'function') saveState();
+            };
+            requestAnimationFrame(step);
+        };
         this.textarea.contentEditable = false;
         this.runBtn.style.display = 'none';
         if (this.stopBtn) this.stopBtn.style.display = 'flex';
@@ -752,6 +854,7 @@ class ChatNode extends BaseNode {
             // Everything the model emitted — reasoning, tool chips and answer
             // text — reconciles into one stream, in emission order.
             renderAiStream(aiContentEl, this.nodeData);
+            syncStreamHeight();
             const aiSection = this.el.querySelector('.ai-section');
             if (this.autoscroll) {
                 aiSection.scrollTop = aiSection.scrollHeight;
@@ -836,7 +939,7 @@ class ChatNode extends BaseNode {
                 const segs = this.nodeData.aiSegments;
                 let last = segs[segs.length - 1];
                 if (!last || last.type !== 'reasoning') {
-                    last = { type: 'reasoning', text: '' };
+                    last = { type: 'reasoning', id: nextReasoningId(), text: '' };
                     segs.push(last);
                 }
                 last.text += reasoning;
@@ -851,13 +954,20 @@ class ChatNode extends BaseNode {
                 if (isAbort) {
                     this.nodeData.abortController = null
                     aborted = true;
-                    // Final reconcile before appending the notice: a queued
-                    // flushUi is now a no-op (settled), so nothing wipes it.
-                    renderAiStream(aiContentEl, this.nodeData);
-                    aiContentEl.innerHTML += `<br><br><span style="color: #ffb86c; font-size: 12px;">[Stopped by User]</span>`;
+                    // Persisted notice flags: the renderer appends the notice,
+                    // and a reload rebuilds the same finished state instead of
+                    // the notice living only in this DOM.
+                    this.nodeData.stoppedByUser = true;
                 } else {
-                    aiContentEl.innerHTML = `<span style="color: #ff5555;">Error: ${error.message}</span>`;
+                    // Keep the partial stream and persist the error next to it;
+                    // the renderer appends the notice, so restore shows the
+                    // same thing instead of silently dropping the failure.
+                    this.nodeData.lastError = error.message;
                 }
+                // Final reconcile (a queued flushUi is now a no-op — settled):
+                // renders the notices from the flags, same as a reload would.
+                renderAiStream(aiContentEl, this.nodeData);
+                followStreamHeight();
                 // The node is finished either way: restore its input and
                 // buttons, and fork the next turn — same as onComplete.
                 this.textarea.contentEditable = true;
@@ -882,6 +992,7 @@ class ChatNode extends BaseNode {
                 // Final synchronous reconcile so Prism highlights the finished
                 // DOM even if the last incremental flush was still queued.
                 renderAiStream(aiContentEl, this.nodeData);
+                followStreamHeight();
                 if (window.Prism) Prism.highlightAllUnder(aiContentEl);
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 // Stream stays visible after completion: reasoning text and
