@@ -224,11 +224,12 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
         const nodesLayer = document.getElementById('focus-nodes-layer');
         if (nodesLayer && !document.getElementById(`focus-turn-${targetId}`)) {
             const turnDiv = document.createElement('div');
-            turnDiv.className = 'focus-node streaming';
+            turnDiv.className = 'focus-node chat-node streaming';
             turnDiv.id = `focus-turn-${targetId}`;
             turnDiv.innerHTML = `
                 <div class="focus-user">${nodeData.htmlText}</div>
                 <div class="focus-ai ai-content"></div>
+                <button class="add-child-btn" title="Branch">+</button>
             `;
             nodesLayer.appendChild(turnDiv);
             const aiEl = turnDiv.querySelector('.focus-ai');
@@ -768,11 +769,16 @@ async function sendFocusMessage() {
     const focusNodesLayer = document.getElementById('focus-nodes-layer');
     if (focusNodesLayer) {
         const turnDiv = document.createElement('div');
-        turnDiv.className = 'focus-node streaming';
+        // Same shape renderFocusLineage builds: the chat-node class drives the
+        // hover style that reveals the Branch button, and the button is
+        // included here so live-created turns branch like restored ones
+        // (the delegated click handler on focusNodesLayer covers it).
+        turnDiv.className = 'focus-node chat-node streaming';
         turnDiv.id = `focus-turn-${targetNodeId}`;
         turnDiv.innerHTML = `
             <div class="focus-user">${userHtml}</div>
             <div class="focus-ai ai-content"></div>
+            <button class="add-child-btn" title="Branch">+</button>
         `;
         focusNodesLayer.appendChild(turnDiv);
         focusNodesLayer.scrollTop = focusNodesLayer.scrollHeight;

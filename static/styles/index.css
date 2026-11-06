@@ -1287,6 +1287,7 @@ div[contentEditable='true'].scrape-node-input,
     display: flex;
     align-items: center;
     gap: 6px;
+    z-index: 2;
 }
 
 .exit-focus-btn:hover {
