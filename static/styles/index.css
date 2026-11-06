@@ -618,13 +618,22 @@ body.shift-pressed.input-focused .node-id {
 /* Reasoning segments render inline in .ai-content, in the order the model
    emitted them — styled like the old thoughts block so they stay visually
    secondary to the answer. */
-.ai-content .think-text {
+.ai-content > .think-text,
+.ai-content > .tool-group > .think-text {
+    summary {
+        white-space: normal;
+    }
+    summary::before {
+        left: -14px;
+    }
+    margin-left: 4px;
     color: var(--text-disabled);
     font-size: 0.85em;
     font-style: italic;
     line-height: 1.5;
     border-left: 1px solid var(--border-highlight);
     padding-left: 10px;
+    white-space: pre-wrap;
 }
 
 .turn-node {
@@ -1638,8 +1647,12 @@ h6 {
     /* top: 35%; */
 }
 
+
+summary {
+    transition: opacity 0.2s ease;
+}
 summary:hover {
-    opacity: 0.8;
+    opacity: 0.75;
 }
 
 .ai-content .tool-group > summary {
@@ -1658,16 +1671,6 @@ summary:hover {
         left: -14px;
     }
 }
-
-/* Thoughts nested inside a tool group (show_thoughts = true): same indent as
-   the chips, with the collapse marker pulled back onto the group's border. */
-.ai-content .tool-group .think-text {
-    margin-left: 4px;
-    summary::before {
-        left: -14px;
-    }
-}
-
 
 /* WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {

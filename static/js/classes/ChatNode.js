@@ -763,13 +763,17 @@ class ChatNode extends BaseNode {
         // so one measurement catches the full delta.
         const syncStreamHeight = () => applyHeightDelta();
         // End-of-stream: the final reconcile collapses the thoughts that
-        // streamed open, and THAT height change is animated
-        // (details::details-content transitions block-size over 0.2s) — so a
-        // single measurement here would catch the node mid-shrink and leave
-        // children hanging too low. Follow the collapse frame by frame, the
-        // same way the toggle listener does, then settle edges/groups and
+        // streamed open, shrinking the node after the fork and the layout
+        // passes have positioned the child against the CURRENT measured
+        // height. Re-baseline here (not the streaming baseline): if the
+        // collapse snaps to its final height before the first frame
+        // (block-size auto->0 isn't always interpolable), following from the
+        // stale baseline would shift every child up by the whole collapsed
+        // thought height — straight into the parent node. Follow frame by
+        // frame like the toggle listener does, then settle edges/groups and
         // save the geometry once the height has stopped moving.
         const followStreamHeight = () => {
+            lastStreamHeight = this.el.offsetHeight;
             const token = ++heightFollowToken;
             const startedAt = performance.now();
             const step = () => {
@@ -969,7 +973,6 @@ class ChatNode extends BaseNode {
                 // Final reconcile (a queued flushUi is now a no-op — settled):
                 // renders the notices from the flags, same as a reload would.
                 renderAiStream(aiContentEl, this.nodeData);
-                followStreamHeight();
                 // The node is finished either way: restore its input and
                 // buttons, and fork the next turn — same as onComplete.
                 this.textarea.contentEditable = true;
@@ -982,6 +985,9 @@ class ChatNode extends BaseNode {
                 const btnRow = this.el.querySelector('.button-row');
                 if (btnRow) btnRow.style.display = 'none';
                 if (typeof saveState === 'function') saveState();
+                // Follow the thought collapse only after the fork above has
+                // positioned the child against the current height.
+                followStreamHeight();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'error', error, isAbort);
             },
             onComplete: () => {
@@ -994,7 +1000,6 @@ class ChatNode extends BaseNode {
                 // Final synchronous reconcile so Prism highlights the finished
                 // DOM even if the last incremental flush was still queued.
                 renderAiStream(aiContentEl, this.nodeData);
-                followStreamHeight();
                 if (window.Prism) Prism.highlightAllUnder(aiContentEl);
                 this.el.querySelector('.add-child-btn').classList.remove('hidden');
                 // Stream stays visible after completion: reasoning text and
@@ -1005,6 +1010,10 @@ class ChatNode extends BaseNode {
                 if (typeof saveState === 'function') saveState();
                 if (typeof onNodeStreamUpdate === 'function') onNodeStreamUpdate(this.id, 'complete');
                 autoLayout(true, this.nodeData.id);
+                // Follow the thought collapse only after the fork and layout
+                // passes above have positioned the child against the current
+                // height — starting earlier double-shifts it into the parent.
+                followStreamHeight();
                 updateChatHistory()
             }
         }, selectedModel);
