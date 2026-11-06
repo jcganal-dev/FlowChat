@@ -830,6 +830,11 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
 
     // NEW: in targeted mode, every node OUTSIDE the subtree is a static obstacle.
     // The target's own ancestors are excluded — the subtree is supposed to sit below them.
+    // Obstacles are FAMILY bounding boxes, not individual node rects: each static
+    // node is grouped with its static descendants (a root whose parent isn't static
+    // starts a family), and the union of their rects is one obstacle — the same
+    // granularity the full layout's placedBounds already uses. The target's siblings
+    // (whose parent is an excluded ancestor) form their own family without it.
     let staticObstacles = [];
     if (isTargeted) {
         const affectedIds = new Set(affectedNodes.map(n => n.id));
@@ -840,7 +845,15 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
             cursor = nodes.find(n => n.id === cursor.parentId);
         }
 
-        nodes.filter(n => !n.isVirtual && !affectedIds.has(n.id) && !ancestorIds.has(n.id)).forEach(n => {
+        const staticNodes = nodes.filter(n => !n.isVirtual && !affectedIds.has(n.id) && !ancestorIds.has(n.id));
+        const staticIds = new Set(staticNodes.map(n => n.id));
+        const staticChildrenMap = {};
+        staticNodes.forEach(n => {
+            if (n.parentId && staticIds.has(n.parentId)) {
+                (staticChildrenMap[n.parentId] = staticChildrenMap[n.parentId] || []).push(n);
+            }
+        });
+        const measureNode = (n) => {
             const el = document.getElementById(n.id);
             let w = n.nodeWidth || 380;
             let h = n.nodeHeight || 200;
@@ -848,12 +861,22 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                 w = el.offsetWidth || w;
                 h = el.offsetHeight || h;
             }
-            staticObstacles.push({
-                minX: n.x,
-                maxX: n.x + w,
-                minY: n.y,
-                maxY: n.y + h
-            });
+            return { w, h };
+        };
+        staticNodes.filter(n => !n.parentId || !staticIds.has(n.parentId)).forEach(familyRoot => {
+            let box = null;
+            const walk = (n) => {
+                const { w, h } = measureNode(n);
+                box = box ? {
+                    minX: Math.min(box.minX, n.x),
+                    maxX: Math.max(box.maxX, n.x + w),
+                    minY: Math.min(box.minY, n.y),
+                    maxY: Math.max(box.maxY, n.y + h)
+                } : { minX: n.x, maxX: n.x + w, minY: n.y, maxY: n.y + h };
+                (staticChildrenMap[n.id] || []).forEach(walk);
+            };
+            walk(familyRoot);
+            staticObstacles.push(box);
         });
     }
 
@@ -913,20 +936,25 @@ function autoLayout(preserveRoots = true, targetNodeId = null) {
                         bounds.maxY + pad > pb.minY
                     ) {
                         hasOverlap = true;
-                        // Shift AWAY from the obstacle's center, not always to the right.
-                        // If current root is left of obstacle center → shift left (negative).
-                        // If current root is right of obstacle center → shift right (positive).
-                        const boundsCenterX = (bounds.minX + bounds.maxX) / 2;
-                        const pbCenterX = (pb.minX + pb.maxX) / 2;
-                        let shiftAmount;
-                        if (boundsCenterX < pbCenterX) {
-                            // Current root is to the left → push it further left
-                            shiftAmount = (pb.minX - pad) - bounds.maxX;
-                        } else {
-                            // Current root is to the right → push it further right
-                            shiftAmount = (pb.maxX + pad) - bounds.minX;
+                        // Least-movement resolution: compute the push that separates
+                        // the two family boxes on each axis, in both directions, and
+                        // execute the smallest one. In targeted mode the upward push
+                        // is excluded: the target's ancestors are NOT obstacles, so
+                        // nothing would detect a new overlap created by moving the
+                        // subtree up — it must stay below its parents.
+                        const options = [
+                            { dx: (pb.minX - pad) - bounds.maxX, dy: 0 },   // push left
+                            { dx: (pb.maxX + pad) - bounds.minX, dy: 0 },   // push right
+                            { dx: 0, dy: (pb.maxY + pad) - bounds.minY },   // push down
+                        ];
+                        if (!isTargeted) {
+                            options.push({ dx: 0, dy: (pb.minY - pad) - bounds.maxY });   // push up
                         }
-                        shiftSubtree(root, shiftAmount, 0);
+                        let best = options[0];
+                        for (const opt of options) {
+                            if (Math.abs(opt.dx) + Math.abs(opt.dy) < Math.abs(best.dx) + Math.abs(best.dy)) best = opt;
+                        }
+                        shiftSubtree(root, best.dx, best.dy);
                         bounds = getSubtreeBounds(root);
                         break;
                     }
