@@ -1271,8 +1271,8 @@ function centerCanvas(animate=true) {
     camera.zoom = 1;
     camera.x = vWidth / 2 - (nX + nWidth / 2) * camera.zoom;
     camera.y = vHeight / 2 - (nY + nHeight / 2) * camera.zoom;
-    
     updateCanvas();
+    zoom(0)
     
     setTimeout(() => {
         document.getElementById(activeNodeId).querySelector('.node-input').focus()

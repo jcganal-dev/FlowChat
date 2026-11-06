@@ -711,6 +711,7 @@ body.shift-pressed.input-focused .node-id {
     /* max-height: 1000px; */
     overflow: auto;
     overflow-wrap: break-word;
+    overflow-y: overlay;
 }
 
 .add-child-btn {
@@ -1341,6 +1342,7 @@ h6 {
     flex-direction: column;
     background-color: var(--bg-surface);
     align-items: center;
+    overflow-y: overlay;
     
     .focus-node.chat-node:hover {
         border-bottom: solid 2px var(--border-base);
@@ -1903,6 +1905,7 @@ details[open]::details-content {
     pointer-events: all;
     overflow: auto;
     border: solid 1px var(--border-highlight);
+    overflow-y: overlay;
 }
 
 
