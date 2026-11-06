@@ -20,7 +20,7 @@ function renderToolChipHtml(seg) {
             `Tool call: <b>${escapeHtml(seg.name)}</b>(${preview || ""})</div>`;
     }
     return `<details class="tool-chip" data-seg-id="${escapeHtml(seg.id)}" ${seg.open ? 'open' : ''}>` +
-        `<summary><b>${escapeHtml(seg.name)}</b>(${preview})</summary>` +
+        `<summary><b>${escapeHtml(seg.name)}</b>(${preview}) ${expandIcon(color='#888')}</summary>` +
         `<pre class="tool-result">${escapeHtml(seg.result || '')}</pre></details>`;
 }
 
@@ -200,7 +200,9 @@ function makeThoughtsEl(extraClass = '', open = false) {
     const el = document.createElement('details');
     el.className = `think-text${open ? ' think-open' : ''}${extraClass ? ' ' + extraClass : ''}`;
     const summary = document.createElement('summary');
-    summary.innerHTML = 'Thoughts';
+    // Same chevron as the one-shot markup, so streaming and restored thought
+    // blocks look identical (CSS rotates it when the details is open).
+    summary.innerHTML = `Thoughts ${expandIcon(color='#888')}`;
     el.appendChild(summary);
     if (open) el.open = true;
     return el;
@@ -210,7 +212,7 @@ function makeThoughtsEl(extraClass = '', open = false) {
 // tags the details with its segment so toggle events can persist seg.open.
 function renderThoughtsHtml(text, extraClass = '', open = false, segId = null) {
     const cls = `think-text${open ? ' think-open' : ''}${extraClass ? ' ' + extraClass : ''}`;
-    return `<details class="${cls}"${open ? ' open' : ''}${segId ? ` data-seg-id="${escapeHtml(segId)}"` : ''}><summary>Thoughts</summary>${renderReasoningHtml(text)}</details>`;
+    return `<details class="${cls}"${open ? ' open' : ''}${segId ? ` data-seg-id="${escapeHtml(segId)}"` : ''}><summary>Thoughts ${expandIcon(color='#888')}</summary>${renderReasoningHtml(text)}</details>`;
 }
 
 // In-group twins for the two collapse_thoughts states.

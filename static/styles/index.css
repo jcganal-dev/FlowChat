@@ -625,7 +625,6 @@ body.shift-pressed.input-focused .node-id {
     line-height: 1.5;
     border-left: 1px solid var(--border-highlight);
     padding-left: 10px;
-    white-space: break-spaces;
 }
 
 .turn-node {
@@ -1600,7 +1599,6 @@ h6 {
     line-height: 1.5;
     border-left: 1px solid var(--border-highlight);
     padding-left: 10px;
-    white-space: break-spaces;
 }
 
 /* Collapsible block for runs of consecutive tool calls; the summary counts
@@ -1705,6 +1703,8 @@ details > summary {
     cursor: pointer;
     user-select: none;
     padding-left: 0px;
+    display: flex;
+    align-items: center;
 }
 
 .think-block > pre {
