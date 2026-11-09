@@ -626,7 +626,10 @@ body.shift-pressed.input-focused .node-id {
     summary::before {
         left: -14px;
     }
-    margin-left: 4px;
+    div {
+        margin-block-end: 1rem;
+    }
+    /* margin-left: 4px; */
     color: var(--text-disabled);
     font-size: 0.85em;
     font-style: italic;
@@ -1345,8 +1348,6 @@ h6 {
 
 .focus-nodes-layer {
     flex: 1;
-    overflow-y: auto;
-    /* padding: 15px 100px; */
     display: flex;
     flex-direction: column;
     background-color: var(--bg-surface);
@@ -1405,8 +1406,9 @@ h6 {
                 left: -15px;
             }
             .tool-chip {
+                /* margin-left: 4px; */
                 summary::before {
-                    left: -14.4px;
+                    left: -13.9px;
                 }
             }
         }
@@ -1608,7 +1610,7 @@ h6 {
     font-size: 0.85em;
     font-style: italic;
     line-height: 1.5;
-    border-left: 1px solid var(--border-highlight);
+    /* border-left: 1px solid var(--border-highlight); */
     padding-left: 10px;
 }
 
@@ -1626,8 +1628,12 @@ h6 {
 .ai-content .tool-group > details:not(:last-child),
 .ai-content .tool-group > div:not(:last-child) {
     padding-bottom: 15px;
+}
+.ai-content .tool-group > details,
+.ai-content .tool-group > div {
     position: relative;
     border-left: 1px solid var(--border-highlight);
+    margin-left: 4px;
 }
 
 .ai-content .tool-group > div:not([data-seg-type="tool_call"]):not(:last-child)::before {
@@ -1640,7 +1646,7 @@ h6 {
 .ai-content .tool-group > div:last-child {
     position: relative;
 }
-.ai-content .tool-group > div:not([data-seg-type="tool_call"]):last-child::before {
+.ai-content .tool-group > div:last-child::before {
     content: "●";
     position: absolute;
     left: -4px;
@@ -1666,8 +1672,9 @@ summary:hover {
 }
 
 .ai-content .tool-group .tool-chip {
-    margin-left: 4px;
+    /* margin-left: 4px; */
     summary::before {
+        content: "●";
         left: -14px;
     }
 }
@@ -1891,17 +1898,17 @@ details[open]::details-content {
     z-index: 1000;
     background-color: var(--shadow-overlay);
 }
-.chat-goto-container > div::before {
+.chat-goto-container > div::after {
     content: "Go to";
 }
-.chat-goto-container > div:empty::after {
+.chat-goto-container > div:empty::before {
     content: "No Chat Node found.";
 }
 .chat-goto-container > div {
     width: 500px;
     max-height: 250px;
     display: flex;
-    flex-direction: column;
+    flex-direction: column-reverse;
     background-color: var(--bg-input);
     align-items: center;
     padding: 10px 0px;
