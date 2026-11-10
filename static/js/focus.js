@@ -597,7 +597,7 @@ function renderFocusLineage() {
 
         let turnHtml = '';
         if (userHtml) {
-            turnHtml += `<div class="focus-user" style="flex-direction: row;">${userHtml}</div>`;
+            turnHtml += `<div class="focus-user" style="flex-direction: row;${showSummary?'max-height: 150px; overflow: auto; scrollbar-width: none;':''}">${userHtml}</div>`;
         }
         turnHtml += `<div class="focus-ai ai-content">${aiStreamHtml}</div>`;
         turnHtml += `<button class="add-child-btn" title="Branch">+</button>`

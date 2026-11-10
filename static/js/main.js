@@ -83,6 +83,8 @@ async function toggleGoTo() {
         gotoCont.style.display = 'none'
     })
     updateChatHistory('chats-goto',false)
+    const gotoDiv = document.getElementById('chats-goto')
+    gotoDiv.scrollTop = -gotoDiv.scrollHeight
 }
 
 window.addEventListener('contextmenu', (e) => {
