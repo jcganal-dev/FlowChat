@@ -2047,3 +2047,10 @@ details[open]::details-content {
 .image-node:has(.file-div:empty) {
     display: none;
 }
+
+.file-item-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    height: 15px;
+}

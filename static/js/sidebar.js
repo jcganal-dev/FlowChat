@@ -260,7 +260,7 @@ function renderSandboxTree(container, data, onSelectionChange) {
         if (child.type === 'directory') {
             // The sandbox root always renders — it is the only way in.
             const expanded = child.isSandboxRoot || expandedSandboxFolders.has(filepath);
-            item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${expanded ? SANDBOX_CHEVRON_DOWN : SANDBOX_CHEVRON_RIGHT}</span><img src="/static/icons/folder.svg" class="file-icon"> ${child.name}`;
+            item.innerHTML = `<span class="chevron" style="display:inline-block; width:12px; font-size:10px;">${expanded ? SANDBOX_CHEVRON_DOWN : SANDBOX_CHEVRON_RIGHT}</span><img src="/static/icons/folder.svg" class="file-icon"><span class='file-item-name'>${child.name}</span>`;
 
             childrenContainer = document.createElement('div');
             childrenContainer.className = 'folder-children';
@@ -274,7 +274,7 @@ function renderSandboxTree(container, data, onSelectionChange) {
             itemWrapper.appendChild(item);
             itemWrapper.appendChild(childrenContainer);
         } else {
-            item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${getIconpath(child.name)}">${child.name}`;
+            item.innerHTML = `<span style="display:inline-block; width:12px;"></span> <img class="file-icon" src="${getIconpath(child.name)}"><span class='file-item-name'>${child.name}</span>`;
             item.title = 'Double-click to open. Shift+Click in textbox to reference.';
 
             item.addEventListener('dblclick', () => {

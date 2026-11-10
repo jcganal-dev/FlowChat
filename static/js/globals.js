@@ -250,6 +250,20 @@ function getIconpath(filepath) {
             return '/static/icons/py.svg';
         case 'svg':
             return '/static/icons/svg.svg';
+        case 'json':
+            return '/static/icons/json.svg';
+        case 'bat':
+            return '/static/icons/bat.svg';
+        case 'log':
+            return '/static/icons/log.svg';
+        case 'md':
+            return '/static/icons/md.svg';
+        case 'txt':
+            return '/static/icons/txt.svg';
+        case 'env':
+            return '/static/icons/env.svg';
+        case 'exe':
+            return '/static/icons/exe.svg';
         case 'png':
             return '/static/icons/image.svg';
         case 'jpg':
