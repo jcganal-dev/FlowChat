@@ -14,12 +14,24 @@ function updateCanvas() {
     const vw = window.innerWidth;
     const vh = window.innerHeight;
 
+    // Pass 1: which nodes are actually on screen. Sizes are pan/zoom-invariant;
+    // nodeResizeObserver keeps cachedWidth/cachedHeight up to date on content
+    // changes, so this hot path must never read offsetWidth/Height.
+    const onScreen = new Set();
+    nodes.forEach(node => {
+        const w = (node.cachedWidth || node.nodeWidth || 336) * camera.zoom;
+        const h = (node.cachedHeight || node.nodeHeight || 200) * camera.zoom;
+        const screenX = node.x * camera.zoom + camera.x;
+        const screenY = node.y * camera.zoom + camera.y;
+        if (!((screenX + w < 0) || (screenY + h < 0) || (screenX > vw) || (screenY > vh))) {
+            onScreen.add(node.id);
+        }
+    });
+
     nodes.forEach(node => {
         const el = document.getElementById(node.id);
         if (!el) return;
 
-        // Sizes are pan/zoom-invariant; nodeResizeObserver keeps cachedWidth/cachedHeight
-        // up to date on content changes, so this hot path must never read offsetWidth/Height.
         const w = (node.cachedWidth || node.nodeWidth || 336) * camera.zoom;
         const h = (node.cachedHeight || node.nodeHeight || 200) * camera.zoom;
         const screenX = node.x * camera.zoom + camera.x;
@@ -27,7 +39,7 @@ function updateCanvas() {
 
         const isOffscreen = (screenX + w < 0) || (screenY + h < 0) || (screenX > vw) || (screenY > vh);
 
-        // Never cul the node that currently has an input focused — the user is typing in it,
+        // Never cull the node that currently has an input focused — the user is typing in it,
         // and hiding it would make the browser move focus away (to <body>), which breaks
         // shift+click reference insertion (lastFocusedInput gets cleared by the textarea's blur).
         // querySelector doesn't force layout, so this is safe in the pan hot path. The input
@@ -36,9 +48,16 @@ function updateCanvas() {
         const inputEl = el.querySelector('.node-input');
         const isFocusedInputNode = inputEl && lastFocusedInput && inputEl.contains(lastFocusedInput);
 
+        // A visible node keeps its DIRECT child rendered even when the child is
+        // off-screen: culling a child that hangs just past the viewport edge
+        // makes its edge and content vanish while the parent is still in view.
+        // Strictly one level — a grandchild whose own parent is only kept
+        // because of this rule still gets culled.
+        const keepForParent = node.parentId && onScreen.has(node.parentId);
+
         const edgeEl = document.getElementById('edge_' + node.id);
 
-        if (isOffscreen && !isFocusedInputNode) {
+        if (isOffscreen && !isFocusedInputNode && !keepForParent) {
             if (el.style.display !== 'none') el.style.display = 'none';
             if (edgeEl && edgeEl.style.display !== 'none') edgeEl.style.display = 'none';
         } else {
