@@ -1400,12 +1400,12 @@ h6 {
             scrollbar-width: none;
 
             summary::before {
-                left: -15px;
+                left: -14.5px;
             }
             .tool-chip {
                 /* margin-left: 4px; */
                 summary::before {
-                    left: -14.5px;
+                    left: -14px;
                 }
             }
         }
@@ -1712,6 +1712,7 @@ summary:hover {
     summary::before {
         content: "■";
         left: -14px;
+        top: -1.75px;
     }
 }
 
