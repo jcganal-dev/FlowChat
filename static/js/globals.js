@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const $make = (tag) => document.createElement(tag);
 const GRID_SIZE = 24;
-const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore|svg)$/i;
+const textWhitelist = /\.(js|jsx|ts|tsx|py|html|css|json|txt|md|csv|tsv|xml|yaml|yml|ini|env|sh|bat|sql|c|cpp|h|hpp|java|go|rs|php|rb|swift|kt|cs|gitignore|svg|jinja)$/i;
 const exactNameWhitelist = /(Dockerfile|Makefile|LICENSE|README)$/i;
 const imageWhitelist = /\.(png|jpg|jpeg|gif|webp|svg|ico)$/i;
 const displayModelName = true
@@ -264,6 +264,10 @@ function getIconpath(filepath) {
             return '/static/icons/env.svg';
         case 'exe':
             return '/static/icons/exe.svg';
+        case 'wav':
+            return '/static/icons/music.svg';
+        case 'mp3':
+            return '/static/icons/music.svg';
         case 'png':
             return '/static/icons/image.svg';
         case 'jpg':
