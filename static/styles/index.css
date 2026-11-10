@@ -626,9 +626,6 @@ body.shift-pressed.input-focused .node-id {
     summary::before {
         left: -14px;
     }
-    div {
-        margin-block-end: 1rem;
-    }
     /* margin-left: 4px; */
     color: var(--text-disabled);
     font-size: 0.85em;
@@ -1650,7 +1647,7 @@ h6 {
     content: "●";
     position: absolute;
     left: -4px;
-    /* top: 35%; */
+    top: 35%;
 }
 
 
