@@ -113,6 +113,31 @@ function createNode(parentId = null, x = 0, y = 0, initialUserText = "", turn = 
 }
 
 /**
+ * Spawn position for a new ROOT node created without explicit coordinates
+ * (e.g. "+ New Chat"): just past the right edge of everything currently on
+ * the canvas, aligned with the top-most node. createNode() used to default
+ * every rootless call to (0,0), so repeated "+ New Chat" clicks stacked new
+ * chats exactly on top of each other.
+ */
+function nextRootSpawnPosition() {
+    let maxX = null;
+    let minY = null;
+    nodes.forEach(n => {
+        if (n.isVirtual) return;
+        const el = document.getElementById(n.id);
+        // Culled nodes read as 0x0 — fall back to the cached dims updateCanvas
+        // keeps for them, then to the same defaults the layout code uses.
+        const visible = !!el && el.style.display !== 'none';
+        const w = (visible && el.offsetWidth) || n.cachedWidth || n.nodeWidth || 380;
+        const h = (visible && el.offsetHeight) || n.cachedHeight || n.nodeHeight || 200;
+        if (maxX === null || n.x + w > maxX) maxX = n.x + w;
+        if (minY === null || n.y < minY) minY = n.y;
+    });
+    if (maxX === null) return { x: 0, y: 0 };
+    return { x: maxX + GRID_SIZE * 3, y: minY };
+}
+
+/**
  * Creates a Chat node with interactive text areas, LLM execution controls, and branching capabilities.
  * @returns {string} The ID of the created Chat node.
  */

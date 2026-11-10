@@ -1242,6 +1242,8 @@ div[contentEditable='true'].scrape-node-input,
 .focus-project-files, .focus-chat-selection {
     width: 275px;
     height: 100%;
+    overflow-y: overlay;
+    overflow-x: hidden;
     background-color: var(--bg-input);
     display: none;
     flex-direction: column;

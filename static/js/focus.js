@@ -121,11 +121,16 @@ function updateChatHistory(elementId = 'chat-selection', isFocus = true) {
         newChatBtn.innerHTML = `<div class='chat-entry-text' style='display:flex; overflow:hidden; justify-content:center; width: 95%;'>+ New Chat</div>`
         $(elementId).appendChild(newChatBtn)
         newChatBtn.addEventListener('click', () => {
-            selectNode(createNode())
+            // Spawn beside existing content instead of createNode()'s (0,0)
+            // default — repeated clicks used to stack nodes exactly on top of
+            // each other. Layout runs before entering focus so the new node is
+            // placed even if focus entry is interrupted.
+            const spawn = nextRootSpawnPosition()
+            selectNode(createNode(null, spawn.x, spawn.y))
             updateChatHistory()
-            toggleFocusMode(true)
             autoLayout()
             centerCanvas()
+            toggleFocusMode(true)
         })
     }
     nodes.forEach(node => {
@@ -220,7 +225,8 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
         if (nodes.length > 0) {
             targetId = nodes[nodes.length - 1].id;
         } else {
-            targetId = createNode();
+            const spawn = nextRootSpawnPosition();
+            targetId = createNode(null, spawn.x, spawn.y);
         }
         selectNode(targetId);
     }
