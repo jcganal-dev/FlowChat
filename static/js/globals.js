@@ -530,3 +530,75 @@ function showToast(message, type = 'info', duration = 3000) {
 }
 
 window.showToast = showToast;
+
+// ---------------------------------------------------------------------------
+// Code block copy buttons
+// ---------------------------------------------------------------------------
+// Injects a copy button into every <pre> that contains a <code> when the user
+// hovers it, and copies the code's innerText on click. Fully delegated at
+// document level so it covers every render path (answer markdown, reasoning
+// code blocks, restored streams, focus mode) without touching the renderers,
+// and survives re-renders automatically. Inline <code> without a <pre> gets
+// no button — only block code is copyable this way.
+
+function copyCodeText(code) {
+    const text = code.innerText;
+    const fallback = () => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } catch (e) { }
+        ta.remove();
+    };
+    const done = () => {
+        btnFeedback(code);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => { fallback(); done(); });
+    } else {
+        fallback();
+        done();
+    }
+}
+
+// Flashes the button that belongs to the copied code block.
+function btnFeedback(code) {
+    const pre = code.closest('pre');
+    const btn = pre && pre.querySelector(':scope > .code-copy-btn');
+    if (!btn) return;
+    btn.classList.add('copied');
+    btn.textContent = 'Copied!';
+    clearTimeout(btn._resetTimeout);
+    btn._resetTimeout = setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.textContent = 'Copy';
+    }, 1200);
+}
+
+function ensureCodeCopyButton(pre) {
+    if (!pre || !pre.querySelector('code')) return;
+    if (pre.querySelector(':scope > .code-copy-btn')) return;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'code-copy-btn';
+    btn.textContent = 'Copy';
+    btn.setAttribute('aria-label', 'Copy code');
+    pre.appendChild(btn);
+}
+
+document.addEventListener('pointerover', (e) => {
+    const pre = e.target.closest && e.target.closest('pre');
+    if (pre) ensureCodeCopyButton(pre);
+});
+
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest && e.target.closest('.code-copy-btn');
+    if (!btn) return;
+    e.stopPropagation();
+    const pre = btn.closest('pre');
+    const code = pre && pre.querySelector('code');
+    if (code) copyCodeText(code);
+});

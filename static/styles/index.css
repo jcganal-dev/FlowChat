@@ -1602,6 +1602,45 @@ h6 {
 
 @keyframes toolspin { to { transform: rotate(360deg); } }
 
+/* Copy button injected into <pre><code> blocks on hover (globals.js). The
+   button is appended as a direct child of the pre, so it positions against it;
+   hidden until the block is hovered, flashes green when copied. */
+pre {
+    position: relative;
+}
+
+.code-copy-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 2;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--border-base);
+    background: var(--bg-surface-hover);
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+pre:hover > .code-copy-btn {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.code-copy-btn:hover {
+    color: var(--text-primary);
+    border-color: var(--border-highlight);
+}
+
+.code-copy-btn.copied {
+    color: var(--accent-success, #4ade80);
+    border-color: var(--accent-success, #4ade80);
+}
+
 .ai-content .tool-chip {
     color: var(--text-disabled);
     font-size: 0.85em;
