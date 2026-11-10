@@ -103,6 +103,7 @@
     
     <div id="focus-bg" class="focus-bg" style="display: none;">
         <div id="focus-tab-selection" class="focus-tab-selection">
+            <a class="tab-btn" onclick="toggleFocusSettings()" title="FlowChat"><img src="/static/icons/icon.svg" class="tab-icon"/></a>
             <a class="tab-btn" onclick="showSidebar('focus-chat-selection');updateChatHistory()" title="Chat History"><img src="/static/icons/chatnode.svg" class="tab-icon"/></a>
             <a class="tab-btn" onclick="showSidebar('focus-project-files')" title="Sandbox"><img src="/static/icons/sandbox.svg" class="tab-icon"/></a>
         </div>
@@ -180,7 +181,7 @@
             <a class="tab-btn" onclick="showSettings()" title="FlowChat"><img src="/static/icons/icon.svg" class="tab-icon"/></a>
         </side>
         <main class="main">
-            <h2>Settings</h2>
+            <h2>FlowChat</h2>
             <div class="settings-section">
                 <h3>API Configuration</h3>
                 <p class="settings-hint">Stored in the local <code>.env</code> file and used only to proxy requests to OpenRouter — the key is never exposed to the page. Changes apply immediately, no restart needed.</p>

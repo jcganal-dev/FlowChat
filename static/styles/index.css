@@ -1405,7 +1405,7 @@ h6 {
             .tool-chip {
                 /* margin-left: 4px; */
                 summary::before {
-                    left: -13.9px;
+                    left: -14.5px;
                 }
             }
         }
@@ -1676,7 +1676,7 @@ pre:hover > .code-copy-btn {
     content: "●";
     position: absolute;
     left: -4px;
-    top: calc(45% - 15px);
+    /* top: calc(45% - 15px); */
 }
 
 .ai-content .tool-group > div:last-child {
@@ -1686,7 +1686,7 @@ pre:hover > .code-copy-btn {
     content: "●";
     position: absolute;
     left: -4px;
-    top: 35%;
+    /* top: 35%; */
 }
 
 
@@ -1710,7 +1710,7 @@ summary:hover {
 .ai-content .tool-group .tool-chip {
     /* margin-left: 4px; */
     summary::before {
-        content: "●";
+        content: "■";
         left: -14px;
     }
 }
@@ -1999,13 +1999,29 @@ details[open]::details-content {
     height: 100%;
     display: none;
     flex-direction: column;
-    background-color: var(--bg-surface);
+    background-color: var(--bg-input);
     user-select: text;
     padding: 10px 25px;
     pointer-events: all;
+    border-left: 1px solid var(--border-base);
 }
 .settings > side > .tab-btn {
     pointer-events: all !important;
+}
+
+/* Shared settings panel inside focus mode: the focus layer (z-index 10001)
+   paints over the overlay by default, so while focus is active the panel is
+   raised above it, its own side tab is hidden (the FlowChat button lives in
+   the focus tab strip now), and the panel starts right of that strip —
+   occupying the same column as the focus sidebar. */
+body.focus-mode-active #settings {
+    z-index: 10002;
+}
+body.focus-mode-active #settings > side {
+    display: none;
+}
+body.focus-mode-active #settings > main {
+    margin-left: 47.75px;
 }
 .settings-section {
     display: flex;

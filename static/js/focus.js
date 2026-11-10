@@ -9,6 +9,10 @@ let focusAutoscroll = true; // When true, follow new content in focus-nodes-laye
 
 let lastOpenedTab = ''
 function showSidebar(target) {
+    // Switching to a sidebar tab closes the settings panel if it was open —
+    // the FlowChat panel and the sidebar tabs share the same column and
+    // must not stack.
+    if (typeof inSettings !== 'undefined' && inSettings) showSettings();
     if (lastOpenedTab == target) {
         $(target).style.display = 'none'
         lastOpenedTab = ''
@@ -18,6 +22,15 @@ function showSidebar(target) {
     if(lastOpenedTab) $(lastOpenedTab).style.display = 'none'
     lastOpenedTab = target
     return
+}
+
+// FlowChat tab in the focus tab strip: opens the shared settings panel. Any
+// open sidebar panel is closed first so the settings view replaces it; the
+// panel is toggled closed by clicking the tab again, or by switching to
+// Chat History / Sandbox (handled in showSidebar).
+function toggleFocusSettings() {
+    if (lastOpenedTab) showSidebar(lastOpenedTab);
+    showSettings();
 }
 
 function moveContentEditableCaretToEnd(element) {
@@ -258,6 +271,10 @@ function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
     isFocusModeActive = true;
     focusBg.style.display = 'flex';
     document.body.classList.add('focus-mode-active');
+    // Don't carry an open canvas settings panel into focus mode — it would be
+    // hidden under the focus layer but stay toggled on, making the first
+    // FlowChat click in the strip close it instead of opening it.
+    if (typeof inSettings !== 'undefined' && inSettings) showSettings();
 
     // Update header info
     const badgeEl = document.getElementById('focus-node-count-badge');
@@ -326,6 +343,9 @@ function exitFocusMode(abortStreaming = false) {
     if (focusBg) focusBg.style.display = 'none';
     isFocusModeActive = false;
     document.body.classList.remove('focus-mode-active');
+    // Close the settings panel if it was opened from the focus tab strip —
+    // leaving it open would float it over the canvas with stale state.
+    if (typeof inSettings !== 'undefined' && inSettings) showSettings();
     const sandboxMenu = document.getElementById('sandbox-context-menu');
     if (sandboxMenu) sandboxMenu.style.display = 'none';
 
@@ -1064,8 +1084,9 @@ async function populateFocusModelSelection() {
     try {
         const models = await getCachedModels();
         if (models && models.length > 0) {
+
             selectEl.innerHTML = models.map(m =>
-                `<div class="model-option" value="${m.id}" title="${(displayModelName?m.name:null) || m.id}">${(displayModelName?m.name:null) || m.id}</div>`
+                `<div class="model-option" value="${m.id}" vv="${m}" title="${(displayModelName?m.name:m.id)}">${(displayModelName?m.name:m.id)}</div>`
             ).join('');
             // Restore previously selected model if any, else the .env default.
             // No write-back here: nodes without an explicit pick must keep
