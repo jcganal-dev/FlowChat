@@ -582,7 +582,7 @@ function renderFocusLineage() {
             fileNodeEl.innerHTML = `
                 <div class="focus-user" style="flex-direction: column;margin-bottom: 0px; align-self: end; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type ==='scrape'?'':'max-'}width: 70%;">
                     <div class='file-node-header' style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
-                    <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='display: flex; overflow: auto; scrollbar-width: none; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
+                    <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='max-width: 100%;display: flex; overflow: auto; scrollbar-width: none; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
                 </div>
             `;
             focusNodesLayer.appendChild(fileNodeEl);
