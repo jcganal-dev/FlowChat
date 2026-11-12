@@ -34,27 +34,38 @@ function toggleFocusSettings() {
 }
 
 // Resizable focus sidebar panels: drag the right edge of Chat History /
-// Sandbox to change its width. Widths persist per panel in localStorage.
+// Sandbox to change the width — both panels share one synced width, which
+// persists in localStorage.
 (function initFocusSidebarResize() {
-    const STORAGE_KEY = 'focusSidebarPanelWidths';
-    let widths = {};
-    try { widths = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (_) { widths = {}; }
+    const STORAGE_KEY = 'focusSidebarPanelWidth';
+    const MIN_W = 266;
+    const MAX_W = 570;
+    let panels = [];
 
-    let active = null; // { el, key, startX, startW } while a drag is in progress
+    let active = null; // { startX, startW } while a drag is in progress
+    let currentW = null; // last width actually applied to the panels
 
-    function persist() {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch (_) {}
+    function savedWidth() {
+        try {
+            const w = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+            if (!isNaN(w)) return Math.min(MAX_W, Math.max(MIN_W, w));
+        } catch (_) {}
+        return null;
     }
 
-    [['focus-chat-selection', 'chat'], ['focus-project-files', 'files']].forEach(([id, key]) => {
+    function applyWidth(w) {
+        currentW = w;
+        panels.forEach(el => { el.style.width = `${w}px`; });
+    }
+
+    function persist(w) {
+        try { localStorage.setItem(STORAGE_KEY, String(w)); } catch (_) {}
+    }
+
+    ['focus-chat-selection', 'focus-project-files'].forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
-        // Restore a previously dragged width (works even while display:none),
-        // clamped to the 266–571px resize range
-        if (typeof widths[key] === 'number') {
-            const clamped = Math.min(571, Math.max(266, widths[key]));
-            el.style.width = `${clamped}px`;
-        }
+        panels.push(el);
 
         const handle = document.createElement('div');
         handle.className = 'focus-sidebar-resize-handle';
@@ -62,25 +73,32 @@ function toggleFocusSettings() {
 
         handle.addEventListener('mousedown', (e) => {
             e.preventDefault();
-            active = { el, key, startX: e.clientX, startW: el.getBoundingClientRect().width || 275 };
+            // Start from the live width so both panels begin the drag in sync —
+            // never from the persisted value, which may lag behind the last drag
+            const w = currentW ?? savedWidth() ?? 275;
+            applyWidth(w);
+            active = { startX: e.clientX, startW: w };
             document.body.classList.add('focus-sidebar-resizing');
         });
     });
 
+    // Restore a previously dragged width (works even while display:none)
+    const saved = savedWidth();
+    if (saved !== null) applyWidth(saved);
+
     window.addEventListener('mousemove', (e) => {
         if (!active) return;
-        const minW = 266;
-        const maxW = Math.min(571, Math.max(minW, window.innerWidth - 260));
-        const newW = Math.round(Math.min(maxW, Math.max(minW, active.startW + (e.clientX - active.startX))));
-        active.el.style.width = `${newW}px`;
-        widths[active.key] = newW;
+        const maxW = Math.min(MAX_W, Math.max(MIN_W, window.innerWidth - 260));
+        const newW = Math.round(Math.min(maxW, Math.max(MIN_W, active.startW + (e.clientX - active.startX))));
+        applyWidth(newW);
     });
 
     window.addEventListener('mouseup', () => {
         if (!active) return;
         active = null;
         document.body.classList.remove('focus-sidebar-resizing');
-        persist();
+        // Persist the width that was actually applied, not a re-read of storage
+        if (currentW !== null) persist(currentW);
     });
 })();
 
