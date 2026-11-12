@@ -33,6 +33,57 @@ function toggleFocusSettings() {
     showSettings();
 }
 
+// Resizable focus sidebar panels: drag the right edge of Chat History /
+// Sandbox to change its width. Widths persist per panel in localStorage.
+(function initFocusSidebarResize() {
+    const STORAGE_KEY = 'focusSidebarPanelWidths';
+    let widths = {};
+    try { widths = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch (_) { widths = {}; }
+
+    let active = null; // { el, key, startX, startW } while a drag is in progress
+
+    function persist() {
+        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(widths)); } catch (_) {}
+    }
+
+    [['focus-chat-selection', 'chat'], ['focus-project-files', 'files']].forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        // Restore a previously dragged width (works even while display:none),
+        // clamped to the 266–571px resize range
+        if (typeof widths[key] === 'number') {
+            const clamped = Math.min(571, Math.max(266, widths[key]));
+            el.style.width = `${clamped}px`;
+        }
+
+        const handle = document.createElement('div');
+        handle.className = 'focus-sidebar-resize-handle';
+        el.appendChild(handle);
+
+        handle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            active = { el, key, startX: e.clientX, startW: el.getBoundingClientRect().width || 275 };
+            document.body.classList.add('focus-sidebar-resizing');
+        });
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!active) return;
+        const minW = 266;
+        const maxW = Math.min(571, Math.max(minW, window.innerWidth - 260));
+        const newW = Math.round(Math.min(maxW, Math.max(minW, active.startW + (e.clientX - active.startX))));
+        active.el.style.width = `${newW}px`;
+        widths[active.key] = newW;
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!active) return;
+        active = null;
+        document.body.classList.remove('focus-sidebar-resizing');
+        persist();
+    });
+})();
+
 function moveContentEditableCaretToEnd(element) {
     element.focus();
 

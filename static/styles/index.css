@@ -1240,6 +1240,7 @@ div[contentEditable='true'].scrape-node-input,
 }
 
 .focus-project-files, .focus-chat-selection {
+    position: relative;
     width: 275px;
     height: 100%;
     overflow-y: overlay;
@@ -1248,6 +1249,27 @@ div[contentEditable='true'].scrape-node-input,
     display: none;
     flex-direction: column;
     border-left: 1px solid var(--border-base);
+}
+
+/* Drag strip on the right edge of the focus sidebar panels — resize grip */
+.focus-sidebar-resize-handle {
+    position: absolute;
+    top: 0;
+    right: -3px;
+    width: 8px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 20;
+}
+
+.focus-sidebar-resize-handle:hover,
+body.focus-sidebar-resizing .focus-sidebar-resize-handle {
+    background: var(--border-base);
+    opacity: 0.45;
+}
+
+body.focus-sidebar-resizing {
+    cursor: col-resize;
 }
 
 .focus-sidebar-header {
@@ -1547,7 +1569,7 @@ h6 {
     padding: 10px 0px;
 }
 .focus-sidebar {
-    max-width: 300px;
+    max-width: none; /* panels are user-resizable and self-capped in focus.js */
     z-index: 12;
 }
 .focus-sidebar {
@@ -1578,13 +1600,14 @@ h6 {
 #chat-selection {
     display: flex;
     flex-direction: column-reverse;
-    align-items: center;
+    align-items: start;
     justify-content: center;
     margin-top: 5px;
+    padding: 0px 10px;
 }
 
 .chat-entry {
-    width: 95%;
+    width: 100%;
     cursor: pointer;
 }
 
@@ -1684,12 +1707,12 @@ pre:hover > .code-copy-btn {
 .ai-content .tool-group > div:last-child {
     position: relative;
 }
-.ai-content .tool-group > div:last-child::before {
+/* .ai-content .tool-group > div:last-child::before {
     content: "●";
     position: absolute;
     left: -4px;
-    /* top: 35%; */
-}
+    top: 35%;
+} */
 
 
 summary {
