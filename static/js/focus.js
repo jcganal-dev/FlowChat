@@ -634,8 +634,8 @@ function renderFocusLineage() {
                     }
                     icon += 'Scraped: '
                     text = `
-                        <details open>
-                            <summary style="color: var(--text-muted);">${nodeData.htmlText || 'None'} ${showSummary ? '(Summarized)' : ''} ${expandIcon('#888')}</summary>
+                        <details style="width: 100%;">
+                            <summary style="color: var(--text-muted); justify-content: space-between"><span>${nodeData.htmlText || 'None'} ${showSummary ? '(Summarized)' : ''}</span> ${expandIcon('#888')}</summary>
                             <div class="focus-ai ai-content focus-scraped-md">${aiHtml}</div>
                         </details>
                     `
@@ -644,14 +644,14 @@ function renderFocusLineage() {
                     break
             }
             const fileNodeEl = document.createElement('div');
-            fileNodeEl.className = 'focus-node';
+            fileNodeEl.className = 'focus-node attachment-node';
             fileNodeEl.classList.add(`${nodeData.type}-node`);
             fileNodeEl.style = 'margin: 40px 0px 10px 0px;';
             fileNodeEl.id = `focus-turn-${nodeId}`;
             fileNodeEl.innerHTML = `
-                <div class="focus-user" style="flex-direction: column;margin-bottom: 0px; align-self: end; font-size: 13px; color: var(--text-muted); background: var(--bg-surface-hover); padding: 8px 14px; border-radius: 8px; display: flex; align-items: start; gap: 5px; ${nodeData.type ==='scrape'?'':'max-'}width: 70%;">
+                <div class="focus-user" style="${nodeData.type ==='scrape'?'':'max-'}width: 70%;">
                     <div class='file-node-header' style='display: flex; justify-content: center; align-items: center; gap: 5px;'>${icon}</div>
-                    <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='max-width: 100%;display: flex; overflow: auto; scrollbar-width: none; flex-direction: ${nodeData.type==='scrape'?'column':'row'};'>${text}</div>
+                    <div ${nodeData.type==='scrape'?'class="scrape-content"':'class="file-div"'} style='max-width: 100%;display: flex; overflow: auto; scrollbar-width: none; ${nodeData.type==='scrape'?'flex-direction: column; width: 100%;':'flex-direction: row'};'>${text}</div>
                 </div>
             `;
             focusNodesLayer.appendChild(fileNodeEl);

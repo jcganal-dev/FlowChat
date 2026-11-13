@@ -2079,49 +2079,42 @@ body.focus-mode-active #settings > main {
     background: var(--transparent-lighter);
 }
 
-.image-node + .chat-node {
+.attachment-node + .chat-node {
     margin-top: 0px !important;
 }
-.document-node + .chat-node {
-    margin-top: 0px !important;
-}
-.image-node + .document-node {
-    margin-top: 0px !important;
-    margin-bottom: 0px !important;
-}
-.image-node + .image-node {
-    margin-top: 0px !important;
-    margin-bottom: 0px !important;
-}
-.document-node + .image-node {
-    margin-top: 0px !important;
-    margin-bottom: 0px !important;
-}
-.document-node + .document-node {
+.attachment-node + .attachment-node {
     margin-top: 0px !important;
     margin-bottom: 0px !important;
 }
 
-#focus-nodes-layer > .document-node:last-child,
-#focus-nodes-layer > .image-node:last-child,
-.image-node:has(+ .chat-node),
-.document-node:has(+ .chat-node),
-.image-node:has(+ .document-node),
-.image-node:has(+ .image-node),
-.document-node:has(+ .image-node),
-.document-node:has(+ .document-node) {
+#focus-nodes-layer > .attachment-node:last-child,
+.attachment-node:has(+ .chat-node),
+.attachment-node:has(+ .attachment-node) {
     margin-bottom: 0px !important;
+    border-bottom: 0px;
     .focus-user {
-        background-color: transparent !important;
-        padding-left: 0px !important;
-        padding-right: 0px !important;
-        padding-top: 0px !important;
+        background-color: transparent;
+        padding-left: 0px;
+        padding-right: 0px;
+        padding-top: 0px;
         .file-node-header {
             display: none !important;
         }
         .file-div > img {
             border-radius: 25px;
         }
+    }
+}
+
+.scrape-node + .chat-node {
+    .focus-user {
+        border-bottom-left-radius: 25px !important;
+        border-bottom-right-radius: 25px !important;
+        border-top-left-radius: 0px !important;
+        border-top-right-radius: 0px !important;
+        border-bottom: 0px;
+        padding-top: 0px;
+        width: 100%;
     }
 }
 
@@ -2134,4 +2127,36 @@ body.focus-mode-active #settings > main {
     text-overflow: ellipsis;
     white-space: nowrap;
     height: 15px;
+}
+
+.focus-node.attachment-node.scrape-node:not(:last-child):not(:has(+ .attachment-node)) > .focus-user {
+    background: var(--bg-surface-hover) !important;
+    padding: 8px 17px !important;
+    border-bottom-left-radius: 0px;
+    border-bottom-right-radius: 0px;
+    border-top-left-radius: 25px;
+    border-top-right-radius: 25px;
+}
+.focus-node.attachment-node.scrape-node:not(:last-child) > .focus-user {
+    background: var(--bg-surface-hover) !important;
+    padding: 8px 14px !important;
+}
+.focus-node.attachment-node.scrape-node:last-child > .focus-user {
+    background: var(--bg-surface-hover) !important;
+    padding: 8px 17px !important;
+    border-bottom: solid 2px transparent;
+    margin: 80px 0px 10px 0px;
+}
+.focus-node.attachment-node > .focus-user {
+    flex-direction: column;
+    margin-bottom: 0px;
+    align-self: end;
+    font-size: 13px;
+    color: var(--text-muted);
+    background: var(--bg-surface-hover);
+    padding: 8px 14px;
+    border-radius: 25px;
+    display: flex;
+    align-items: start;
+    gap: 5px;
 }
