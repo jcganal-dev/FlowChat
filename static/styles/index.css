@@ -2145,7 +2145,7 @@ body.focus-mode-active #settings > main {
     background: var(--bg-surface-hover) !important;
     padding: 8px 17px !important;
     border-bottom: solid 2px transparent;
-    margin: 80px 0px 10px 0px;
+    margin: 0px 0px 10px 0px;
 }
 .focus-node.attachment-node > .focus-user {
     flex-direction: column;
