@@ -466,7 +466,7 @@ function exitFocusMode(abortStreaming = false) {
             if (focusInput && canvasInput) {
                 canvasInput.innerHTML = focusInput.innerHTML.trim() || activeData.htmlText;
                 canvasInput.focus();
-                const canvasModelSelect = canvasNode.querySelector('.model-selection');
+                const canvasModelSelect = canvasNode.querySelector('.model-selection-value');
                 const selectedModel = focusModel.getAttribute('value');
                 if (canvasModelSelect && selectedModel) {
                     canvasModelSelect.innerHTML = focusModel.innerHTML;
@@ -886,7 +886,7 @@ async function sendFocusMessage() {
     // Sync selected model from focus dropdown to canvas node
     const focusModelSelect = document.getElementById('focus-model-selection');
     if (focusModelSelect && targetEl) {
-        const canvasModelSelect = targetEl.querySelector('.model-selection');
+        const canvasModelSelect = targetEl.querySelector('.model-selection-value');
         const selectedModel = focusModelSelect.getAttribute('value');
         if (canvasModelSelect && selectedModel) {
             canvasModelSelect.innerHTML = focusModelSelect.innerHTML;

@@ -317,10 +317,12 @@ class Tools:
         links = []
         try:
             with DDGS(timeout=20) as ddgs:
-                for r in ddgs.text(target, max_results=2, backend="lite"):
+                for r in ddgs.text(target, max_results=2, backend="auto"):
                     if r.get("href"):
                         links.append(r["href"])
         except Exception as e:
+            if "no results found" in str(e).lower():
+                return f"No results found on DDGS for: {target}"
             return f"DDGS failed: {e}"
 
         if not links:
@@ -372,16 +374,23 @@ class Tools:
 
         def _search():
             with ddgs_cls(timeout=20) as ddgs:
-                return list(ddgs.text(query, max_results=max_results, backend="lite"))
+                # backend "lite" no longer exists in ddgs >= 9 (it warns and
+                # silently falls back to "auto") — use "auto" directly.
+                return list(ddgs.text(query, max_results=max_results, backend="auto"))
 
         try:
             results = await loop.run_in_executor(None, _search)
             links = [r.get("href") for r in results if r.get("href")]
         except Exception as e:
+            # ddgs raises a generic DDGSException("No results found.") when
+            # every engine returns an empty set — that's a search miss, not a
+            # tool failure, so report it like the zero-links case below.
+            if "no results found" in str(e).lower():
+                return f"No search results found for: {query} \n (Try web scrape tool)"
             return f"Search failed: {e}"
 
         if not links:
-            return f"No search results found for: {query}"
+            return f"No search results found for: {query} \n (Try web scrape tool)"
 
         combined = f"# Search results for: {query}\n\n"
         try:

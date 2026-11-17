@@ -457,7 +457,12 @@ class ChatNode extends BaseNode {
     constructor(config) {
         config.type = 'chat';
         super(config);
-        const runStyle = this.nodeData.aiText || this.nodeData.aiThinking ? 'display: none;' : '';
+        // A node that has produced output is "settled": its prompt is locked
+        // and the run row is hidden. Both states are re-derived here on every
+        // render, so they survive refreshes exactly in sync.
+        const isSettled = !!(this.nodeData.aiText || this.nodeData.aiThinking);
+        const runStyle = isSettled ? 'display: none;' : '';
+        const inputEditable = isSettled ? 'false' : 'true';
         const inputContent = this.config.restoreData ? (this.nodeData.htmlText || this.nodeData.userText) : this.config.initialUserText;
         const streamHtml = renderAiStreamHtml(this.nodeData);
         this.el.innerHTML = `
@@ -476,11 +481,13 @@ class ChatNode extends BaseNode {
                 </div>
             </div>
             <div class="user-section">
-                <div contenteditable="true" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
+                <div contenteditable="${inputEditable}" class="node-input" spellcheck="true" placeholder="Type prompt here...">${inputContent}</div>
                 <div class="button-row" style="${runStyle}">
                     <div class="model-select-container">
                         <div class="model-select-parent" style="position:fixed;margin-top:-13px;display:flex;flex-direction:column;gap:0px;max-width: 225px;z-index:11;">
-                            <a class="model-selection">Loading Models...</a>
+                            <a class="model-selection">
+                                <div class="model-selection-value">Loading Models...</div>
+                            </a>
                             <div class="model-list" style="visibility: hidden; pointer-events: none;"></div>
                         </div>
                     </div>
@@ -501,7 +508,7 @@ class ChatNode extends BaseNode {
             <div class="resize-handle"></div>
         `;
 
-        this.modelSelectBtn = this.el.querySelector('.model-selection');
+        this.modelSelectBtn = this.el.querySelector('.model-selection-value');
         this.modelSelectBtn.addEventListener('click', () => {
             const modelList = this.el.querySelector('.model-list')
             modelList.style = modelList.style.visibility == 'hidden' ? 'visibility: visible; pointer-events: all;' : 'visibility: hidden; pointer-events: none; height: 0px;'; 
@@ -681,7 +688,7 @@ class ChatNode extends BaseNode {
     }
 
     async populateModelSelection() {
-        const selectBtn = this.el.querySelector('.model-selection');
+        const selectBtn = this.el.querySelector('.model-selection-value');
         const selectEl = this.el.querySelector('.model-list');
         if (!selectEl) return;
 
@@ -847,7 +854,7 @@ class ChatNode extends BaseNode {
         }
         const payload = { messages: history, max_tokens: max_response_tokens };
         // Get selected model from dropdown
-        const modelSelect = this.el.querySelector('.model-selection');
+        const modelSelect = this.el.querySelector('.model-selection-value');
         const selectedModel = modelSelect ? modelSelect.getAttribute('value') : '';
         if (selectedModel) {
             this.nodeData.selectedModel = selectedModel; // Persist for restore
