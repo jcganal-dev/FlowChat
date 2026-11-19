@@ -82,7 +82,7 @@ class FileNode extends BaseNode {
             if (this.nodeData.type === 'image') {
                 item.innerHTML = `
                 <div style="width: max-content;position: relative;">
-                    <img src="${f.payload}" class="file-preview" style="display:block; max-width:120px;max-height:120px;" />
+                    <img src="${f.payload}" onclick="img_preview(this.src)" class="file-preview" style="display:block; max-width:120px;max-height:120px;" />
                     <a class="remove-file-btn" data-idx="${idx}" style="top: 12px;right: 0px;"><img src="/static/icons/trash.svg" class="file-icon"></a>
                 </div>
                 `;

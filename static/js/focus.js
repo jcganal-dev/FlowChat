@@ -13,6 +13,14 @@ function showSidebar(target) {
     // the FlowChat panel and the sidebar tabs share the same column and
     // must not stack.
     if (typeof inSettings !== 'undefined' && inSettings) showSettings();
+    if (target == false) {
+        if (!lastOpenedTab) {
+            return
+        }
+        $(lastOpenedTab).style.display = 'none'
+        lastOpenedTab = ''
+        return
+    }
     if (lastOpenedTab == target) {
         $(target).style.display = 'none'
         lastOpenedTab = ''
@@ -166,13 +174,13 @@ function addToChatHistory(targetNode, parentElement = 'chat-selection', isFocus 
     }
     chatEntry.innerHTML = `<div class='chat-entry-text' style='overflow:hidden;'>${displayText}</div>`
 
-    if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
+    if (targetNode.id == activeNodeId) chatEntry.querySelector('.chat-entry-text').style.backgroundColor = 'var(--border-base)'
 
     chatEntry.addEventListener('click', () => {
         if (last_active_chat) {
             last_active_chat.querySelector('.chat-entry-text').style.backgroundColor = 'transparent'
         }
-        chatEntry.querySelector('.chat-entry-text').style.backgroundColor = '#1e1e1e'
+        chatEntry.querySelector('.chat-entry-text').style.backgroundColor = 'var(--border-base)'
         last_active_chat = chatEntry
         $(targetNode.id).click();
         if (isFocus) toggleFocusMode(true);
@@ -217,6 +225,9 @@ function updateChatHistory(elementId = 'chat-selection', isFocus = true) {
  * Toggles the linear chat Focus Mode on or off for the current active branch lineage.
  */
 function toggleFocusMode(stayFocused = false, targetId = activeNodeId) {
+    ffp.style.display = 'none'
+    ffp.innerHTML = ''
+    
     const focusBg = document.getElementById('focus-bg');
     if (!focusBg) return;
 
@@ -620,7 +631,7 @@ function renderFocusLineage() {
                 case 'image':
                     icon += 'Image attached: '
                     nodeData.files.forEach(file => {
-                        text += `<img src='${file.payload}' class='file-preview' style='display:block; max-height:120px; margin-top: 0px;'>`
+                        text += `<img onclick='img_preview(this.src)' src='${file.payload}' class='file-preview' style='cursor: pointer; display:block; max-height:120px; margin-top: 0px;'>`
                     });
                     break
                 case 'scrape':

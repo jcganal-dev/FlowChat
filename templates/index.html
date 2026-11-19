@@ -100,7 +100,7 @@
             </div>
         </div>
     </div>
-    
+    <div id="full-file-preview" style="display: none;"></div>
     <div id="focus-bg" class="focus-bg" style="display: none;">
         <div id="focus-tab-selection" class="focus-tab-selection">
             <a class="tab-btn" onclick="toggleFocusSettings()" title="FlowChat"><img src="/static/icons/icon.svg" class="tab-icon"/></a>
@@ -138,7 +138,7 @@
                 <div id="focus-file-tree" class="focus-file-tree"></div>
             </div>
         </div>
-        <div id="focus-main-container" class="focus-main-container">
+        <div id="focus-main-container" class="focus-main-container" onclick="showSidebar(false)">
             <button id="exit-focus-btn" class="exit-focus-btn" title="(Esc) Exit Focus Mode">
                 <img src="/static/icons/close.svg" class="file-icon"> Exit Focus
             </button>

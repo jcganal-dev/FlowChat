@@ -606,3 +606,22 @@ document.addEventListener('click', (e) => {
     const code = pre && pre.querySelector('code');
     if (code) copyCodeText(code);
 });
+
+const ffp = document.getElementById('full-file-preview');
+ffp.addEventListener('click', () => {
+    ffp.style.display = "none";
+    ffp.innerHTML = ''
+})
+function img_preview(src) {
+    const image = document.createElement('img')
+    image.src = src
+    image.classList.add('file-preview')
+    image.style = 'display: block; max-height: 90dvh; margin-top: 0px;'
+    image.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+    })
+    ffp.appendChild(image)
+
+    ffp.style.display = 'flex'
+}
