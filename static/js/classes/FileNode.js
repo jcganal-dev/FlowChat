@@ -30,6 +30,16 @@ class FileNode extends BaseNode {
             this.fileInput = this.el.querySelector('input[type="file"]');
             this.addBtn = this.el.querySelector('.add-child-btn');
             this.addBtn.addEventListener('click', this.onFork.bind(this));
+            this.addBtn.addEventListener('mousedown', (e) => {
+                const mousedownEvent = new MouseEvent('mousedown', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: e.clientX,
+                    clientY: e.clientY
+                });
+                this.handleOut.dispatchEvent(mousedownEvent)
+            }); 
             this.deleteBtn.addEventListener('click', this.onDelete.bind(this));
             this.dropzone.addEventListener('click', () => this.fileInput.click());
             this.handleIn = this.el.querySelector('.handle-in');

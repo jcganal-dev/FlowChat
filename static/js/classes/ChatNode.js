@@ -657,7 +657,17 @@ class ChatNode extends BaseNode {
             this.nodeData.references = chips.map(chip => chip.getAttribute('data-ref'));
             if (typeof drawEdges === 'function') drawEdges();
         });
-        this.addBtn.addEventListener('click', this.onFork.bind(this));
+        this.addBtn.addEventListener('click', this.onFork.bind(this)); 
+        this.addBtn.addEventListener('mousedown', (e) => {
+            const mousedownEvent = new MouseEvent('mousedown', {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: e.clientX,
+                clientY: e.clientY
+            });
+            this.handleOut.dispatchEvent(mousedownEvent)
+        }); 
         this.dupBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             forkOffsetCounter += 1;

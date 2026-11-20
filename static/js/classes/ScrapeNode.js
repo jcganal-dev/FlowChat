@@ -37,6 +37,16 @@ class ScrapeNode extends BaseNode {
             this.runBtn = this.el.querySelector('.run-btn');
             this.textarea = this.el.querySelector('.node-input');
             this.addBtn = this.el.querySelector('.add-child-btn');
+            this.addBtn.addEventListener('mousedown', (e) => {
+                const mousedownEvent = new MouseEvent('mousedown', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window,
+                    clientX: e.clientX,
+                    clientY: e.clientY
+                });
+                this.handleOut.dispatchEvent(mousedownEvent)
+            }); 
             this.deleteBtn = this.el.querySelector('.delete-btn');
 
             this.runBtn.addEventListener('click', this.run.bind(this));
