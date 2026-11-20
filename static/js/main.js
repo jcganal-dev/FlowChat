@@ -1,7 +1,9 @@
 /**
- * Extracts the current DOM layout, node contents, and camera position, then posts it to the backend to save.
+ * Reads the current DOM layout, node contents, and camera position into a
+ * plain state object. Shared by saves and undo snapshots so the two can
+ * never drift.
  */
-async function saveState(showToastNotification=false) {
+function buildState() {
     nodes.forEach(n => {
         const el = document.getElementById(n.id);
         if (el) {
@@ -12,29 +14,110 @@ async function saveState(showToastNotification=false) {
         }
     });
 
-    const state = {
+    return {
         nodes: nodes,
         groups: groups,
         camera: camera,
         activeNodeId: activeNodeId,
         forkOffsetCounter: forkOffsetCounter
     };
+}
 
-    await apiSaveState(state, showToastNotification);
+// Debounced autosave. Every mutation routes through saveState(), which used
+// to POST the full state on every call — dragging, streaming tokens and bulk
+// deletes each fired dozens of requests. Mutations now coalesce into one save
+// per 800ms quiet window; explicit saves (Ctrl+S) flush immediately.
+const SAVE_DEBOUNCE_MS = 800;
+let saveDebounceTimer = null;
+let saveInFlight = false;
+let saveQueuedWhileInFlight = false;
+let saveQueuedToast = false;
+
+/**
+ * Queues a save. Debounced unless showToastNotification is set (Ctrl+S and
+ * other explicit user actions expect the save to happen now).
+ */
+function saveState(showToastNotification = false) {
+    if (showToastNotification) {
+        flushSave(true);
+        return;
+    }
+    if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = setTimeout(() => flushSave(false), SAVE_DEBOUNCE_MS);
 }
 
 /**
- * Fetches the saved state from the backend and rebuilds the conversation tree, nodes, and groups on the canvas.
- * @returns {boolean} True if state was successfully loaded, false otherwise.
+ * Serializes the DOM and posts it to the backend immediately. Builds state
+ * at call time, so the last edit in a burst always wins.
  */
-async function loadState() {
-    const data = await apiLoadState();
-    if (!data || data.status === 'empty' || !data.state || !data.state.nodes || data.state.nodes.length === 0) {
-        return false;
+async function flushSave(showToastNotification = false) {
+    if (saveDebounceTimer) {
+        clearTimeout(saveDebounceTimer);
+        saveDebounceTimer = null;
     }
+    if (saveInFlight) {
+        // A save is already posting; queue one more so edits made during the
+        // request still land.
+        saveQueuedWhileInFlight = true;
+        saveQueuedToast = saveQueuedToast || showToastNotification;
+        return;
+    }
+    saveInFlight = true;
+    try {
+        const state = buildState();
+        // The save commit point is also the undo commit point: what gets
+        // persisted is exactly what becomes an undo step.
+        if (typeof pushUndoSnapshot === 'function') pushUndoSnapshot(state);
+        await apiSaveState(state, showToastNotification);
+    } finally {
+        saveInFlight = false;
+        if (saveQueuedWhileInFlight) {
+            saveQueuedWhileInFlight = false;
+            const wantToast = saveQueuedToast;
+            saveQueuedToast = false;
+            flushSave(wantToast);
+        }
+    }
+}
 
-    const state = data.state;
+// The browser can kill a pending debounced save when the tab closes or is
+// backgrounded — which is exactly when users notice lost edits. sendBeacon
+// (with a fetch keepalive fallback) survives unload; the DOM is still
+// readable here, so we serialize fresh.
+function flushSaveOnUnload() {
+    // If a save is merely in flight, its body was built when it started —
+    // edits made since then would be lost, so re-send fresh regardless.
+    if (!saveDebounceTimer && !saveInFlight) return;
+    clearTimeout(saveDebounceTimer);
+    saveDebounceTimer = null;
+    const payload = JSON.stringify({ state: buildState() });
+    try {
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/save', new Blob([payload], { type: 'application/json' }));
+            return;
+        }
+    } catch (e) { /* fall through to fetch */ }
+    try {
+        fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true
+        });
+    } catch (e) { /* nothing else we can do on unload */ }
+}
+window.addEventListener('beforeunload', flushSaveOnUnload);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushSaveOnUnload();
+});
 
+/**
+ * Rebuilds the conversation tree, nodes, and groups on the canvas from a
+ * state object. Shared by initial load, undo/redo restores, and checkpoint
+ * restores so all of them behave identically.
+ * @param {Object} state - A state object as produced by buildState().
+ */
+function applyState(state) {
     nodes = [];
     groups = state.groups || {};
     camera = state.camera || { x: 0, y: 0, zoom: 1 };
@@ -62,6 +145,18 @@ async function loadState() {
     if (typeof updateCanvas === 'function') updateCanvas();
 
     if (activeNodeId) selectNode(activeNodeId);
+}
+
+/**
+ * Fetches the saved state from the backend and applies it to the canvas.
+ * @returns {boolean} True if state was successfully loaded, false otherwise.
+ */
+async function loadState() {
+    const data = await apiLoadState();
+    if (!data || data.status === 'empty' || !data.state || !data.state.nodes || data.state.nodes.length === 0) {
+        return false;
+    }
+    applyState(data.state);
     return true;
 }
 

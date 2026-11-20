@@ -44,8 +44,18 @@ async def execute_tool(name: str, args: dict) -> str:
         return f"Error running tool '{name}': {e}"
 
 DB_PATH = "flowchat.db"
+
+def get_conn():
+    """One connection factory for every DB access. WAL lets a /api/load read
+    proceed while a /api/save write is in flight, and busy_timeout avoids
+    immediate 'database is locked' errors under contention."""
+    conn = sqlite3.connect(DB_PATH, timeout=5)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    return conn
+
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     c.execute('''
         CREATE TABLE IF NOT EXISTS saved_states (
@@ -519,7 +529,7 @@ class SavePayload(BaseModel):
 
 @app.post("/api/save")
 async def save_state(payload: SavePayload):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     c.execute(
         "INSERT OR REPLACE INTO saved_states (id, data) VALUES (?, ?)", 
@@ -531,7 +541,7 @@ async def save_state(payload: SavePayload):
 
 @app.get("/api/load")
 async def load_state():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_conn()
     c = conn.cursor()
     c.execute("SELECT data FROM saved_states WHERE id = ?", ("default_save",))
     row = c.fetchone()
