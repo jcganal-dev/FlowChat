@@ -1601,6 +1601,7 @@ h6 {
 #chat-selection {
     display: flex;
     flex-direction: column-reverse;
+    justify-content: flex-end;
     align-items: start;
     margin-top: 5px;
     padding: 0px 10px 10px;
