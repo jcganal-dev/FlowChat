@@ -260,10 +260,26 @@ function getIconpath(filepath) {
             return '/static/icons/md.svg';
         case 'txt':
             return '/static/icons/txt.svg';
+        case 'cfg':
+            return '/static/icons/txt.svg';
         case 'env':
             return '/static/icons/env.svg';
+        case 'dll':
+            return '/static/icons/dll.svg';
+        case 'ps1':
+            return '/static/icons/ps1.svg';
+        case 'pyc':
+            return '/static/icons/pyc.svg';
+        case 'onnx':
+            return '/static/icons/onnx.svg';
         case 'exe':
             return '/static/icons/exe.svg';
+        case 'safetensors':
+            return '/static/icons/safetensors.svg';
+        case 'jinja':
+            return '/static/icons/jinja.svg';
+        case 'npy':
+            return '/static/icons/npy.svg';
         case 'wav':
             return '/static/icons/music.svg';
         case 'mp3':

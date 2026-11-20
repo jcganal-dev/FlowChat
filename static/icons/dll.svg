@@ -1,0 +1,12 @@
+<svg width="256" height="256" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="g1" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#B0BAC3"/><stop offset="100%" stop-color="#94A0A6"/></linearGradient>
+<linearGradient id="g2" x1="20%" y1="0%" x2="80%" y2="100%"><stop offset="0%" stop-color="#727B83"/><stop offset="100%" stop-color="#474B4D"/></linearGradient>
+</defs>
+<path fill="#fafafa" stroke="#797774" stroke-width="3" stroke-linejoin="round" shape-rendering="crispEdges" d="M162 19v49h49v170h-164v-219z"/>
+<path fill="#fafafa" stroke="#797774" stroke-width="3" stroke-linejoin="round" d="M162 19l50 50"/>
+<path fill="url(#g1)" d="M150.3 120.5c-.1-5.9-10.4-9.6-10.6-13.2-.5-5 10-8.9 10.5-13.2.4-2.5-6.1-15.4-10.4-16.2-3.5-.6-9.5 3-13.7 3.5-5 0-4.1-14.9-7-16.2-2.7-1.5-16.4-1.8-19 .8-4 2.2.4 13.4-6.9 15-4.6.6-8.8-3.5-13.5-3.1-4.2 1-10.5 12.1-10.3 16 .9 4.7 8.7 7.6 10 11.9 1.4 5-9.3 8.4-10.2 13.7 0 2.4 5.7 15 10.1 16 5.1 1.1 9.5-4.5 14.5-3 5.1.8 3 13.3 6.5 15.6 2.8 1.7 16.8 1.3 18.8-.2 3.9-4 1-11.8 5.4-14.8 4.1-3.2 10.3 3.8 15.7 2.3 5.1-2.4 8.7-11 10.1-14.9"/>
+<path fill="url(#g2)" d="m158 133c-14 0-6 8-10 12-4 5-11-9-17 4-8 12 5 11 5 17 0 3-13 4-5 16 6 12 10 0 16 3 5 2-4 13 12 12 13 1 6-8 10-12 5-4 10 9 17-4 7-12-5-9-5-16 0-5 13-4 5-15-7-14-11-2-16-4s2-14-12-13"/>
+<circle cx="109.7" cy="106.7" r="10.7" fill="#fafafa"/>
+<circle cx="158.3" cy="165.3" r="10.7" fill="#fafafa"/>
+</svg>
